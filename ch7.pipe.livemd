@@ -115,53 +115,99 @@ end
 ```elixir
 defmodule Optimizer.EnumMap do
   @behaviour Optimizer
-  @impl true
+
+  @impl Optimizer
   def optimize(__MODULE__, list) do
     reduce_map(list)
   end
 
-  defp reduce_map(list) do
-    list =
-      for condidate_map_call <- list, reduce: [] do
-        [ele | rest] = acc ->
-          if is_map_call(ele) and is_map_call(condidate_map_call) do
-            new_map_call = compose_enum_maper(condidate_map_call, ele)
-            [new_map_call | rest]
-          else
-            [condidate_map_call | acc]
-          end
-
-        [] ->
-          [condidate_map_call]
-      end
-
-    Enum.reverse(list)
+  defp reduce_map(ast_list) do
+    ast_list
+    |> group_map_call()
+    |> Enum.map(&make_enum_maper/1)
   end
 
-  defp is_map_call({{{:., _, [{:__aliases__, _, [:Enum]}, :map]}, _, _}, 0}),
-    do: true
+  defp group_map_call(ast_list) do
+    for condidate_map_call <- ast_list, reduce: [] do
+      [ele | rest] = acc ->
+        if is_map_call_or_fun_group(ele) and
+             is_map_call_or_fun_group(condidate_map_call) do
+          fun_collection = collect_funs(condidate_map_call, ele)
+          [fun_collection | rest]
+        else
+          [condidate_map_call | acc]
+        end
 
-  defp is_map_call(_), do: false
+      [] ->
+        [condidate_map_call]
+    end
+    |> Enum.reverse()
+  end
 
-  defp compose_enum_maper(map1, map2) do
+  @tag :funs_gruop_tag
+
+  defp is_map_call_or_fun_group(ast) do
+    case ast do
+      {@tag, _} -> true
+      {{{:., _, [{:__aliases__, _, [:Enum]}, :map]}, _, _}, 0} -> true
+      _ -> false
+    end
+  end
+
+  defp collect_funs(map1, map2) do
     fun1 = get_fun(map1)
     fun2 = get_fun(map2)
 
-    fun =
-      quote do
-        fn v -> unquote(fun1).(unquote(fun2).(v)) end
+    funs =
+      if is_list(fun2) do
+        [fun1 | fun2]
+      else
+        [fun1, fun2]
       end
 
-    make_enum_maper(fun)
+    {@tag, funs}
   end
+
+  defp get_fun({@tag, funs}), do: funs
 
   defp get_fun(map) do
     [fun1] = elem(elem(map, 0), 2)
     fun1
   end
 
-  defp make_enum_maper(fun) do
-    {{{:., [], [{:__aliases__, [], [:Enum]}, :map]}, [], [fun]}, 0}
+  defp make_enum_maper({@tag, funs}) do
+    fun = compose(funs)
+
+    ast = {{{:., [], [{:__aliases__, [], [:Enum]}, :map]}, [], [fun]}, 0}
+    ast
+  end
+
+  defp make_enum_maper(v), do: v
+
+  defp compose(list, acc \\ nil)
+
+  defp compose([fun | funs], nil) do
+    acc =
+      quote do
+        unquote(fun).()
+      end
+
+    compose(funs, acc)
+  end
+
+  defp compose([fun | funs], acc) do
+    acc =
+      quote do
+        unquote(fun).() |> unquote(acc)
+      end
+
+    compose(funs, acc)
+  end
+
+  defp compose([], acc) do
+    quote do
+      fn v -> v |> unquote(acc) end
+    end
   end
 end
 ```
@@ -208,7 +254,7 @@ range
 
 ```elixir
 defmodule M do
-  @range 1..100_000
+  @range 1..1000
 
   def fun1(up \\ 10) do
     for _ <- 1..up do
@@ -227,24 +273,14 @@ defmodule M do
       |> Enum.map(&(&1 - 1))
     end
   end
-
-  def add1(e), do: e + 1
-  def sub1(e), do: e - 1
-
-  def fun3(up \\ 10) do
-    for _ <- 1..up do
-      @range
-      |> Enum.map(&sub1(add1(&1)))
-    end
-  end
 end
 
 (M.fun1() == M.fun2()) |> IO.inspect(label: "fun1 == fun2")
 
-arg = [100]
+arg = [10000]
 task1 = Task.async(fn -> :timer.tc(M, :fun1, arg) end)
 task2 = Task.async(fn -> :timer.tc(M, :fun2, arg) end)
-[{t, _v}, {t1, _v}] = Task.await_many([task1, task2], 10_000 * 3600)
+[{t, _v}, {t1, _v}] = Task.await_many([task1, task2])
 
 IO.puts("speed up #{(t - t1) / t1 * 100}%.")
 ```
@@ -259,8 +295,8 @@ IO.puts("speed up #{(t - t1) / t1 * 100}%.")
 
 😒 结果优化后的代码不是提速了, 反而变慢了 1.5 个百分点. 可是为什么会这样啊?
 
-这是因为 LiveBook 代码 Cell 本质上是解释执行的, 就像我们不能以 Iex 中的代码运行速度来衡量代码的效率一样,
-我们也不能用 LiveBook 的 Cell 的执行时间来衡量代码的运行速度.
+这是因为 LiveBook 代码 Cell 本质上是解释执行的, 就像我们不能以 IEx 中的代码运行时间来衡量代码的效率一样,
+我们也不能用 LiveBook 的 Cell 的执行时间来衡量代码的效率.
 
 把代码保存到文件中, 并为之编写测试文件, 然后使用 `mix test` 来测试, 
 那么优化后的代码总是比不优化的代码运行的更快的, 虽然每次测试的结果不一样, 
