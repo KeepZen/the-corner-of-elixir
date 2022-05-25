@@ -1,0 +1,351 @@
+# with 结构
+
+## with 是到底是什么
+
+如果要选**最不喜欢的语言结构**, Elixir 的 `with` 是我的答案.
+
+我所以不喜欢这个语句结构, 首先是像 `with` 语句中的 `<-` 暗示的那样, 
+其中的代码序列和思维流之间存在阻抗. 其次, `with` 结构的代码布局非常的不美观.
+
+例如代码:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+with {:ok, a} <- fun1(), # with 头部开始
+     {:ok, b} <- fun2(a) # with 头部结束 
+do # with 体开始
+     action_with_a_and_b #with 体结束
+else #尾部开始
+   patter1 -> hanlder_error1
+   patter2 -> hanlder_error2 # 尾部结束
+end
+```
+
+这个 `with` 结构, 像代码中注释的那样, 可以分成 3 部分, 分别是**头**, **体**和**尾**.
+通常情况下, `with` 代码就像上面的片段展示的这样, `with` 头往往有多个语句,
+而 `with` 体却只有一行或很少的几行代码. 像这样的头部或者参数部分, 多于体或者正文的语法结构,
+除了 `with` 语句外大概没有别的了. 这样的布局, 给我的感觉就是头重脚轻, 极度不协调.
+看到这样的代码, 不由自主地, 我的脑海中总是浮现出有染色体缺陷的畸形儿的形象.
+
+所以我非常的不喜欢这个语法结构.
+
+如果不使用 `with` 语句, 等价的代码应该如何写呢? 我认为可以写成这样:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+try do
+  {:ok, a} = fun1()
+  {:ok, b} = fun2(a)
+  action_with_a_and_b
+rescue
+  %MatchError{term: term}-> 
+    case term do
+      pattern1 -> handler_error1
+      pattern2 -> handler_error2
+    end  
+end
+```
+
+对于没有 `else` 的 `with` 更加简单:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+try do
+  {:ok, a} = fun1()
+  {:ok, b} = fun2(a)
+  action_with_a_and_b
+rescue
+  %MatchError{term: term} -> term  
+end
+```
+
+而如果语句已经在一个块结构中了, 代码还可以进一步的精简:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def fun do
+  {:ok, a} = fun1()
+  {:ok, b} = fun2(a)
+  atction_with_a_and_b
+rescue
+  %MatchError{term: term} -> term
+end
+```
+
+所以我认为本质上, `with` 语句只是帮助我们写了 `try` 块. 
+我认为理想的 `with` 语句应该只要 **体** 和 **尾** 两部分就可以了.
+
+## 特殊形式
+
+在前面的章节中, 已经多次出现 **特殊形式** (Special Forms)这个短语了, 
+但是特殊形式到底意味着什么呢?
+
+我最初的理解, 特殊形式就像是别的语言中的关键字或者保留字. 这些符合和词汇, 
+不但有语言规定的意义而且不能用作变量名和函数名, 现在不少的语言, 
+对保留字的限制有所放宽, 比如 Javascript 中, 保留字虽然还不允许作为变量存在,
+但是已经可以作为对象的方法或者字段名了.
+
+在 Elixir 中, 特殊形式更多的不是语言对于这些保留字的限制, 
+而在于这些特殊形式提供的语法, 在 Elixir 的语法中, 无法以正确的语法表示.
+
+比如 `with` 特殊形式, 它的特殊就在于其头部的语句个数是不定的, 
+而 Elixir 中, 无论是函数还是宏的定义, 都不运行有不定参数存在的, 
+所以使用 Elixir 自身的语法是没法定义 `with` 这样的参数个数不定的宏.
+但是 `with` 可以作为变量吗? 可以作为我们的函数名吗?
+让我们来探索一下.
+
+```elixir
+with = 2
+IO.inspect(with == 2, label: "with can used as variable")
+
+with {:ok, a} <- {:ok, 1},
+     {:ok, b} <- {:ok, a + 2} do
+  a + b
+end
+|> then(&(&1 == 4))
+|> IO.inspect(label: "with can still work")
+
+defmodule A do
+  def with(a, b), do: a + b
+end
+
+A.with(1, 2)
+|> then(&(&1 == 1 + 2))
+|> IO.inspect(label: "with can use as function name")
+```
+
+从上面的代码的输出中, 我们可以看出, 实际上 Elixir 对 `with` 几乎没有做限制.
+但是我们不能把我们定义的 `with` 函数或宏导入到当前环境中, 
+因为 `Kernel` 模块中已经导入了 `with` 宏了. 
+例如在下面的代码中, 我们只是导入了上面的代码中定义的模块 A, 就引发了编译器的报错.
+
+```elixir
+import A
+```
+
+回到对 `with` 的讨论上.
+
+我们不满意 `with` 结构, 现在我们明白, 我们可以定义自己的 `with` 宏.
+但是这样定义的不能直接导入到客户端的上下文中, 
+就算通过 `import` 的 `:expcet` 选项来排除 `Kernel` 模块的 `with` 宏,
+从来导入我们的定义的 `with` 宏. 但是因为定义的 `with` 和 
+`Kernel` 定义的 `with` 宏是不兼容的, 这样的导入后, 写出的代码会引发困惑.
+
+所以, 结论就是, 我们不应该继续使用 `with` 这个名字来定义我们的宏.
+为概念命名是一个大问题. 我们的宏是要替换 Elixir 核心模块中的 `with` 宏, 
+在没有更好的想法前, 暂时把这个宏命名为 `with_` 吧.
+
+## 我们的宏的用法
+
+首先, 让我们确定我们想要如何使用 `with_`.
+对于使用 `with` 的代码:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+with {:ok, a} <- fun1(), # with 头部开始
+     {:ok, b} <- fun2(a) # with 头部结束 
+do # with 体开始
+     action_with_a_and_b #with 体结束
+else #尾部开始
+   patter1 -> hanlder_error1
+   patter2 -> hanlder_error2 # 尾部结束
+end
+```
+
+和
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+with {:ok, a} <- fun1(), # with 头部开始
+     {:ok, b} <- fun2(a) # with 头部结束 
+do # with 体开始
+     action_with_a_and_b #with 体结束
+end
+```
+
+使用 `with_` 应该改写成:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+with_ do 
+  {:ok, a} = fun1()
+  {:ok, b} = fun2(a)
+  action_with_a_and_b
+else 
+   patter1 -> hanlder_error1
+   patter2 -> hanlder_error2 # 尾部结束
+end
+```
+
+和
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+with_ do 
+  {:ok, a} = fun1()
+  {:ok, b} = fun2(a)
+  action_with_a_and_b
+end
+```
+
+需要注意的是:
+
+1. 我们的 `with_` 中使用的是 `=` 而不再是 `<-`.
+2. 因为取消了 `with` 头部, 所以 `action_with_a_and_b`
+   对应的代码中匹配错误也会被捕获, 这和 `with` 中的语义是不一样的.
+
+## 我们宏的定义
+
+现在让我们定义我们的 `with_` 宏.
+
+我们的 `with_` 接受一个参数, `[do: body, else: tail]`,
+`with_` 宏把代码转化成为对应的 `try` 语句块.
+
+```elixir
+defmodule With do
+  defmacro with_(do: body) do
+    quote do
+      try do
+        unquote(body)
+      catch
+        :error, {:badmatch, v} -> v
+      end
+    end
+  end
+
+  defmacro with_(do: body, else: tail) do
+    quote do
+      try do
+        unquote(body)
+      catch
+        :error, {:badmatch, v} ->
+          case v do
+            unquote(tail)
+          end
+      end
+    end
+  end
+end
+```
+
+## 测试我们的定义
+
+现在让我们测试我们的定义.
+
+```elixir
+import With
+# test case 1
+with_result =
+  with {:ok, a} <- {:ok, 1},
+       {:ok, b} <- {:error, a + 1} do
+    b
+  end
+
+with_ do
+  {:ok, a} = {:ok, 1}
+  {:ok, b} = {:error, a + 1}
+  b
+end
+|> then(&(with_result == &1))
+|> IO.inspect(label: "same as with_result")
+
+# case 2
+
+with_result =
+  with {:ok, a} <- {:ok, 1},
+       {:ok, b} <- {:error, a + 1} do
+    b
+  else
+    {:error, b} -> b
+  end
+
+with_ do
+  {:ok, a} = {:ok, 1}
+  {:ok, b} = {:error, a + 1}
+  b
+else
+  {:error, b} -> b
+end
+|> then(&(with_result == &1))
+|> IO.inspect(label: "have :else, same as with_result")
+```
+
+## 最后的改进
+
+我们的宏, 要替换核心模块的 `with` 宏, 而做的实际工作, 就是帮助我们减少处理匹配错误的琐屑.
+
+如何在我们的命名中体现这两点呢? `with_help` 或者 `with_math` 有或者 `With.match`.
+如果不考虑命名冲突, 把我们的模块定义为 `:with` 就更好, 这样我们就可以这样来写代码了:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+require :with
+:with.match do
+  {:ok, a} = {:ok, 1}
+  {:ok, b} = {:error, a + 1}
+else
+  {:error, b} -> b
+end
+```
+
+但是注意, 上面语句中的 **如果**, 而墨菲定律告诉我们, 可能出问题的地方, 最后一定会出问题的.
+所以我们不能直接使用 `:with` 做模块名.
+
+那么我们可以把我们的宏定义到 `With` 模块中, 而 `With` 模块有在我们的库命名空间中.
+所以最后我们的代码应该是这样的:
+
+```elixir
+defmodule MyNameSpace.With do
+  defmacro __using__(_opt) do
+    quote do
+      require unquote(__MODULE__)
+      alias unquote(__MODULE__)
+    end
+  end
+
+  defmacro match(do: body) do
+    quote do
+      try do
+        unquote(body)
+      catch
+        :error, {:badmatch, v} -> v
+      end
+    end
+  end
+
+  defmacro match(do: body, else: tail) do
+    quote do
+      try do
+        unquote(body)
+      catch
+        :error, {:badmatch, v} ->
+          case v do
+            unquote(tail)
+          end
+      end
+    end
+  end
+end
+```
+
+然后我们就可以这样来使用我们代码了:
+
+```elixir
+use MyNameSpace.With
+
+With.match do
+  {:ok, a} = {:ok, 1}
+  {:ok, b} = {:error, a + 1}
+  b
+end
+|> IO.inspect()
+```

@@ -1,0 +1,244 @@
+# 第2章 加减运算符
+
+## +/-
+
+<!-- livebook:{"disable_formatting":true} -->
+
+```elixir
+(1 - 1) |> IO.inspect(label: "1 -1")
+a = 1
+(1 -a) |> IO.inspect(label: "1 -a")
+#a -1 
+```
+
+### 问题的描述
+
+使用 Elixir 编程的时候, 第一个让我困惑的地方就是加减运算符了.
+`-` `+` 运算符号如此简单, 大部分情况下, 我们都意识不到会有什么问题存在.
+但是在 Elixir 中, 我不止一次在这个地方被编译器无情的打脸.
+刚开始挨打了还莫名其妙.
+
+在上面的代码示例中, 当我按照书籍示例的代码, 输入 `a - 1`, 
+但是不小心写成了 `a -1`, iex 居然抛出了错误.
+这出乎我的意料. 我完全没想到为什么这里会有错误.
+首先, 我知道变量 a 的值为 1, `1 - 1` 不等于 0, 还抛出错误?
+我快速的在 iex 中输入 `1 - 1`, 当然没有问题了.
+难道什么时候, 我不小心改变了变量 a 的值? a 的值不是数值 1,
+而是字符串 "1"?
+于是我会加入调试语句, `IO.inspect(a,lable: "a")`.
+a 的值的确是数值 1, 那么我就更困惑了, 那怎么会出错呢?
+于是在来试一下, 这次输成了  `1 - a`, 居然得到了答案 0.
+仔细比较后发现, 出错的代码变量在减号的后面, 那么我改回去,
+`a - 1`, 怎么又正确了? 灵异事件?
+
+当时, 我刚开始学习 Elixir, 还有更多内容等待我去学习呢! 
+既然正确了, 我就没有仔细追究背后的原因.
+
+等我开始用 Elixir 开始写比较长的代码的时候, 当问题出现的时候, 
+我发现错误提示更加莫名奇妙了. 但是大约总是和 `-` 或 `+` 相关的.
+而且最后解决的方案往往也就是在 `-` 或 `+` 之前加一个空格.
+
+但是为什么呢? 为什么会出现这样的问题呢? 因为不知道错误的原因, 
+所以即使知道了该如何解决, 还是让我非常的疑惑. 
+直到有一天我认真的阅读了编译器提示.
+
+> "a -1" looks like a function call but there is a variable
+> named "a". 
+> If you want to perform a function call, use parentheses:
+> 
+> a(-1)
+> 
+> If you want to perform an operation on the variable a, use 
+> spaces around the unary operator
+
+如果不是因为理解了 "看起来是变量的 `a` 也可能是函数的调用",
+那么这段提示就算我很早就注意到, 也依然是不知所云的.
+
+### 为什么?
+
+但是为什么会成为现在这个样子呢? 其他编程语言, 写 `a -1` 不都没问题的码?
+
+这是几个知识点组合起来引发的迷惑.
+
+### 1. Elixir 中函数调用时可以省略小括号
+
+这就是为什么, 在 iex 中, 我们可以像使用 shell 命令那样使用 `cd`, `r` `h` 
+等等函数的.
+
+函数定义在模块中, 当被导入到其他环境后, 就可以不带模块名, 而直接使用函数名来调用了.
+所以我们可以使用 `div(1, 2)` 来代替 `Kernel.div(1,2)`, 
+但是函数调用的小括号也是可以省略的, 省略小括号后, 
+就成了 `div 1, 2`.
+
+函数调用可以省略括号, 为什么要这样做呢? 
+我认为有一下两个原因.
+
+1. 对于零元无副作用的函数实际上和常量一样, Elixir 和 Erlang
+   中也是就是把零元函数来当作常量来使用的.
+   比如 `:math.pi`, 如果必须加上小括号, `:math.pi()` 太不像常量了.
+2. Elixir 中使用宏来做元编程, 使用定义的宏, 不写括号, 
+   代码的可读性更强, 宏名更像一个关键字. 对比一下 `import Module, only: [fun1: 1]`
+   和 `import(Module, only: [fun1: 1])`.
+
+### 2. 函数名和变量都是标识符
+
+`a -1` 给出的编译错误为
+
+> (CompileError) : "a -1" looks like a function call but there is a variable named "a". If you want to perform a function call, use parentheses:
+> 
+> `a(+1)`
+> 
+> If you want to perform an operation on the variable a, use spaces around the unary operator
+
+看起来是因为编译器优先把标识符 `a` 解释为函数, 而实际上它是一个变量, 所以才引发错误的. 
+可以什么不首先把标识符解释为变量呢? 这样 我们就知道 `-1` 中的 `-` 应该是减法操作符, 而不是取反了.
+
+答案是编译器实际上就是优先把标识符解释为变量的, 但是很多编译器不能区分变量和函数名, 因为他们都是标识符.
+
+首先, 我来证明, 编译器的确是优先把标识符解释为变量的.
+
+首先我们导入一个零元变量 `:math.pi`, 然后定义一个新变量 `pi`, 
+然后我们看看使用标识符 `pi` 的时候, 得到的 `:math.pi` 还是我们自定义的值.
+
+```elixir
+import :math, only: [pi: 0]
+pi |> IO.inspect(label: "before define variable pi")
+pi = "This is variabel pi!"
+pi |> IO.inspect(label: "after  define variable pi")
+```
+
+在定义变量 `pi` 之前, 我们使用标识符 `pi` 用到的是导入的零元函数. 而我们定义变量 `pi` 之后, 
+使用标识符 `pi` 使用的是变量 `pi`. 变量 `pi` 遮盖了函数 `pi/0`.
+
+如果先定义变量后导入零元函数呢? 零元函数能不能把变量遮盖呢?
+
+```elixir
+defmodule M do
+  pi = "this is varaiable pi!"
+  pi |> IO.inspect(label: "before import pi/0")
+  import :math, only: [pi: 0]
+  pi |> IO.inspect(label: "after  import pi/0")
+end
+```
+
+编译时, 输出为:
+
+> before import pi/0: "this is varaiable pi!"
+> after  import pi/0: "this is varaiable pi!"
+> warning: unused import :math
+>  ...
+
+可以看出, 导入的零元函数 `pi/0` 并没有覆盖变量 pi.
+也就是说, 编译器真的时优先把标识符解释为变量的.
+
+既然如此, 为什么会出现把变量解释为函数的编译错误提示呢?
+
+这是因为, 有时候编译器也真的不能区分, 
+一个标识符到底是函数还是变量.
+
+### 3. 有元函数不能被变量遮盖
+
+我们知道 `Kernel.abs/1` 是默认导入的, 但是就像上面的代码示例的那样, 
+我们依旧可以申明一个叫做 `abs` 的变量, 而且变量和命名函数相互之间不会覆盖. 
+像下面的代码所展示的那样: 当我们需要一个变量的时候, 获得就是一个变量;
+当我们需要一个函数的时候, 获得就是一个函数.
+
+```elixir
+abs = -2
+
+abs
+|> abs
+|> IO.inspect(label: "abs(abs)")
+
+IO.inspect(abs / 3, label: "abs/2")
+IO.inspect(1 / abs, label: "1/abs")
+IO.inspect(&abs/1, label: "&abs/1")
+IO.inspect(abs(-9), label: "abs(-9)")
+```
+
+第 2, 6 和 7 行中的 `abs` 都是变量, 而 3, 8 和 9 行, `abs` 都是函数名.
+看起来编译器是可以区分什么是函数, 什么是变量.
+
+可以, 有些时候, 代码是有歧义的, 编译器不能确定到底标识符是函数还是变量.
+
+### 歧义代码
+
+如果遇到这样的代码: `abs - abs` 那么这两个 abs 怎么区分呢?
+显然是有两种解释的:
+
+1. 两个 `abs` 都是变量, 那么结果当然自然是 0;
+2. 第一个 abs 是函数, 第二个 abs 是变量, 那么返回的结果应该是变量 
+   `abs` 的绝对值, 也就是 2.
+
+答案是 0. 也就是操作符 `-` 把两边操作数都当作是变量.
+
+但是这样的代码`abs -abs`呢? 也依然有两种解释, 
+实际上这一次因为 `-` 和第二个 `abs` 之间没有空格, 
+更应该优先把 `-` 解释为对变量 `abs` 的取反. 
+如果这样解释的话, 那么第一个 `abs` 解释成什么呢? 
+似乎只能解释为函数, 那么结果应该是 2.
+
+但是实际上, 编译器抛出了一个错误.
+
+> (CompileError) :"abs -abs" looks like a function call but there is a variable named "abs".
+> If you want to perform a function call, use parentheses:
+> 
+> `abs(-abs)`
+> 
+> If you want to perform an operation on the variable abs,
+> use spaces around the unary operator
+
+为什么, 编译器不优先把 `-abs` 解释为对 `abs` 的取反操作呢?
+
+因为在别的语法环境中, `-abs` 作为整体解释, 会出现问题.
+
+1. `abs-abs` 怎么解释呢?
+
+   1. 优先把 `-abs` 作为一组来解析, 得到的是一个数值.
+      那么第一个 `abs` 解释为函数, 合乎语法;
+   2. 把两个 `abs` 都解释为变量,也语法正确的.
+   3. 可是两个语义完全不同.
+
+   实际上编译器在这种情况下, 把两个 `abs` 都解释为变量.
+
+2. `abs -abs -abs` 呢?   
+   如果两个 `-abs` 都解释为对变量取反, 而把第一个 `abs` 解释为函数, 
+   那么整个表达式等价于 `abs(2 2)` 还是 `abs(2) 2`?
+   但是无论`abs(2 2)` 还是 `abs(2) 2` 都不是 Elixir 的正确语法.
+
+3. 要想 `abs -abs -abs` 有意义, 只能把两个 `-abs` 做不同的解释才行.
+
+   1. 把 `abs -abs -abs` 解释为 `(abs) - abs(-abs)`, 是可行的, 
+      但是对编译器的实现来说来说, 这样实现非常复杂了.
+   2. 把 `abs -abs -abs` 解释为 `(abs -  abs) - abs` 就彻底放弃了对 `-abs` 优先解释.
+
+综合起来看, 只好放弃对 `-abs` 的优先解释, 而把 `-abs` 解析为两个token: `-` 与 `abs`.
+
+### 为什么报错
+
+上面的分析, 我们看到, 只要坚持把 `-abs` 解释为 `-` 和 `abs` 两个token, 
+就可以得到一致的解析结果, 为什么当编译器遇到 `a -abs` 的时候报错呢? 这是因为, 
+有时候, 我们写 `-abs` 的时候, 我们的意图真的就是要对 `abs`取反. 如果编译器一律把
+`fun -abs` 解释为 `fun` 减去 `abs`, 那么代码有可能实际上违背了程序员的真实意图.
+
+抛出错误, 强迫程序员明确 `-` 的意义, 可以保证, Elixir 代码更强壮, 
+这符合 Erlang 的 Let it crash 哲学.
+
+在编译时奔溃好过在运行时奔溃.
+
+### + 呢?
+
+我们的分析是以 `-` 为例的. 但是 `+` 在 Elixir中也是一元和二元两个操作符,
+所以 `+` 也存在同样的问题.
+实际上 `+/1` 在编程中, 没有实际的意义, 我认为去掉 `+/1`,
+从而消除 `+token` 带来的这个问题, 但是这需要在编译器中才能实现.
+
+也许 `+/1` 有其存在的意义, 只是我还没有发现?
+
+### 小结
+
+最后一点, 我们的分析中 `token -token1` `token` 和 `token1` 都是标识符, 
+但是实际上, 只要 `token` 是标识符, `token1` 可以是数值字面量, 
+就像我们这一小结开头描述的的那样, 就可以引发这里讨论的问题.
+
+归根揭底, 还是因为 `token` 为标识符的时候, 既可能是变量, 也可能是函数名.
