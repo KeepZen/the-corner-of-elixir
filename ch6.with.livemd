@@ -79,20 +79,20 @@ end
 所以我认为本质上, `with` 语句只是帮助我们写了 `try` 块. 
 我认为理想的 `with` 语句应该只要 **体** 和 **尾** 两部分就可以了.
 
-## 特殊形式
+## 特殊表达与保留字
 
-在前面的章节中, 已经多次出现 **特殊形式** (Special Forms)这个短语了, 
-但是特殊形式到底意味着什么呢?
+在前面的章节中, 已经多次出现 **特殊表单** (Special Forms)这个短语了, 
+但是特殊表单到底意味着什么呢?
 
-我最初的理解, 特殊形式就像是别的语言中的关键字或者保留字. 这些符合和词汇, 
+我最初的理解, 特殊表单就像是别的语言中的关键字或者保留字. 这些符号和词汇, 
 不但有语言规定的意义而且不能用作变量名和函数名, 现在不少的语言, 
 对保留字的限制有所放宽, 比如 Javascript 中, 保留字虽然还不允许作为变量存在,
 但是已经可以作为对象的方法或者字段名了.
 
-在 Elixir 中, 特殊形式更多的不是语言对于这些保留字的限制, 
-而在于这些特殊形式提供的语法, 在 Elixir 的语法中, 无法以正确的语法表示.
+在 Elixir 中, 特殊表单更多的不是语言对于这些保留字的限制, 
+而在于这些特殊表单提供的语法, 在 Elixir 的语法中, 无法以正确的语法表示.
 
-比如 `with` 特殊形式, 它的特殊就在于其头部的语句个数是不定的, 
+比如 `with` 特殊表单, 它的特殊就在于其头部的语句个数是不定的, 
 而 Elixir 中, 无论是函数还是宏的定义, 都不运行有不定参数存在的, 
 所以使用 Elixir 自身的语法是没法定义 `with` 这样的参数个数不定的宏.
 但是 `with` 可以作为变量吗? 可以作为我们的函数名吗?
@@ -118,9 +118,14 @@ A.with(1, 2)
 |> IO.inspect(label: "with can use as function name")
 ```
 
+特性表单和保留字在 Elixir 中是两个概念, Elixir 有保留字. 
+比如 `do`, `in` `and` `or`等, 但是 `with` 不是, 只要不是保留字, 
+都可以作为变量, 以及函数名, 甚至模块名.
+
 从上面的代码的输出中, 我们可以看出, 实际上 Elixir 对 `with` 几乎没有做限制.
 但是我们不能把我们定义的 `with` 函数或宏导入到当前环境中, 
-因为 `Kernel` 模块中已经导入了 `with` 宏了. 
+因为 `Kernel` 模块中已经导入了 `with` 宏了.
+
 例如在下面的代码中, 我们只是导入了上面的代码中定义的模块 A, 就引发了编译器的报错.
 
 ```elixir
@@ -135,13 +140,16 @@ import A
 从来导入我们的定义的 `with` 宏. 但是因为定义的 `with` 和 
 `Kernel` 定义的 `with` 宏是不兼容的, 这样的导入后, 写出的代码会引发困惑.
 
-所以, 结论就是, 我们不应该继续使用 `with` 这个名字来定义我们的宏.
-为概念命名是一个大问题. 我们的宏是要替换 Elixir 核心模块中的 `with` 宏, 
-在没有更好的想法前, 暂时把这个宏命名为 `with_` 吧.
+Erlang 的新版本 OTP 25 中引入了新的特性 Maybe[^erlang-maybe].
+实际上解决的就是 `with` 语句在 Elixir 中解决的问题.
+为此, Erlang 引入了新的操作符 `?=`, `Exp1 ?= Exp2` 叫做条件匹配表达式.
+
+因此, 为了向 Erlang 靠拢, 我们可以把宏命名为 maybe.
+[^erlang-maybe]: 详细内容见, https://www.erlang.org/doc/reference_manual/expressions.html#maybe
 
 ## 我们的宏的用法
 
-首先, 让我们确定我们想要如何使用 `with_`.
+首先, 让我们确定如何使用 `maybe`.
 对于使用 `with` 的代码:
 
 <!-- livebook:{"force_markdown":true} -->
@@ -169,12 +177,12 @@ do # with 体开始
 end
 ```
 
-使用 `with_` 应该改写成:
+使用 `maybe` 应该改写成:
 
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-with_ do 
+maybe do 
   {:ok, a} = fun1()
   {:ok, b} = fun2(a)
   action_with_a_and_b
@@ -189,7 +197,7 @@ end
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-with_ do 
+maybe do 
   {:ok, a} = fun1()
   {:ok, b} = fun2(a)
   action_with_a_and_b
@@ -198,20 +206,20 @@ end
 
 需要注意的是:
 
-1. 我们的 `with_` 中使用的是 `=` 而不再是 `<-`.
+1. 我们的 `maybe` 中使用的是 `=` 而不再是 `<-`, 而且也不用引入新的条件匹配操作符.
 2. 因为取消了 `with` 头部, 所以 `action_with_a_and_b`
    对应的代码中匹配错误也会被捕获, 这和 `with` 中的语义是不一样的.
 
 ## 我们宏的定义
 
-现在让我们定义我们的 `with_` 宏.
+现在让我们定义我们的 `maybe` 宏.
 
-我们的 `with_` 接受一个参数, `[do: body, else: tail]`,
-`with_` 宏把代码转化成为对应的 `try` 语句块.
+我们的 `maybe` 接受一个参数, `[do: body, else: tail]`,
+`maybe` 宏把代码转化成为对应的 `try` 语句块.
 
 ```elixir
 defmodule With do
-  defmacro with_(do: body) do
+  defmacro maybe(do: body) do
     quote do
       try do
         unquote(body)
@@ -221,7 +229,7 @@ defmodule With do
     end
   end
 
-  defmacro with_(do: body, else: tail) do
+  defmacro maybe(do: body, else: tail) do
     quote do
       try do
         unquote(body)
@@ -249,7 +257,7 @@ with_result =
     b
   end
 
-with_ do
+maybe do
   {:ok, a} = {:ok, 1}
   {:ok, b} = {:error, a + 1}
   b
@@ -267,7 +275,7 @@ with_result =
     {:error, b} -> b
   end
 
-with_ do
+maybe do
   {:ok, a} = {:ok, 1}
   {:ok, b} = {:error, a + 1}
   b
@@ -280,27 +288,14 @@ end
 
 ## 最后的改进
 
-我们的宏, 要替换核心模块的 `with` 宏, 而做的实际工作, 就是帮助我们减少处理匹配错误的琐屑.
+我们的宏, 要替换核心模块的 `with` 宏, 而做的实际工作, 就是做条件匹配.
+`with` 这个关键字, 通过模块名, 已经能体现了, 
+但是条件匹配其实不是那么直观的从 `maybe` 上反应出来, 也许使用 `conditional_match` 更好点? 
+有些太长了, 不如直接叫 `match`. 为了提示不是普通的匹配操作, 
+应该鼓励大家带着模块名调用这个宏.
 
-如何在我们的命名中体现这两点呢? `with_help` 或者 `with_math` 有或者 `With.match`.
-如果不考虑命名冲突, 把我们的模块定义为 `:with` 就更好, 这样我们就可以这样来写代码了:
-
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-require :with
-:with.match do
-  {:ok, a} = {:ok, 1}
-  {:ok, b} = {:error, a + 1}
-else
-  {:error, b} -> b
-end
-```
-
-但是注意, 上面语句中的 **如果**, 而墨菲定律告诉我们, 可能出问题的地方, 最后一定会出问题的.
-所以我们不能直接使用 `:with` 做模块名.
-
-那么我们可以把我们的宏定义到 `With` 模块中, 而 `With` 模块有在我们的库命名空间中.
+为了防止命名冲突, 我们的代码都应该位于一个根名字空间中.
+那么我们可以把宏定义到 `With` 模块中, 而 `With` 模块有在我们的库命名空间中.
 所以最后我们的代码应该是这样的:
 
 ```elixir

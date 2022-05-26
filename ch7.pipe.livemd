@@ -273,6 +273,15 @@ defmodule M do
       |> Enum.map(&(&1 - 1))
     end
   end
+
+  def fun3(up \\ 10) do
+    for _ <- 1..up do
+      @range
+      |> Stream.map(&(&1 + 1))
+      |> Stream.map(&(&1 - 1))
+      |> Enum.to_list()
+    end
+  end
 end
 
 (M.fun1() == M.fun2()) |> IO.inspect(label: "fun1 == fun2")
@@ -280,9 +289,13 @@ end
 arg = [10000]
 task1 = Task.async(fn -> :timer.tc(M, :fun1, arg) end)
 task2 = Task.async(fn -> :timer.tc(M, :fun2, arg) end)
-[{t, _v}, {t1, _v}] = Task.await_many([task1, task2])
+task3 = Task.async(fn -> :timer.tc(M, :fun3, arg) end)
+
+[{t, _v}, {t1, _v}, {t2, _v}] = Task.await_many([task1, task2, task3], 60_000)
 
 IO.puts("speed up #{(t - t1) / t1 * 100}%.")
+
+IO.puts("speed up #{(t - t2) / t2 * 100}%.")
 ```
 
 其中有一次, 代码的输出是这样的:
@@ -304,3 +317,23 @@ IO.puts("speed up #{(t - t1) / t1 * 100}%.")
 
 这个结果不过是一个长度是 2 的 `Enum.map/2` 链优化的结果, 如果我们的 `Enum.map/2` 链更长, 
 理论上可以有更大的效率提升.
+
+这个的实现的话, 其实并不是那么的复杂, 为什么 Elixir 编译器不这样做呢?
+其实 Elixir 已经提供了解决方案, 那就是 `Stream.map`. 例如我们上面的代码, 
+我们只是用 `Stream` 替换了 `Enum`. 就获得了相同的结果.
+
+```elixir
+range
+|> Stream.map(fun1)
+|> Stream.map(fun2)
+|> Enum.to_list()
+|> IO.inspect(label: "result of map chain")
+```
+
+那么是不是我是不是解决了一个不是问题的问题呢?
+
+不是的, 如果我们做测试就会发现, Stream 版本的代码虽然对函数做了组合, 但是运行效率反而下降了.
+按我粗燥的测试, Stream 版本的程序, 执行效率慢了 60% 还多.
+
+`Stream.map` 的确组合了函数, 并不能解决我们这里的问题, 我们是希望提升程序的性能的, 
+而不是纯粹的组合函数, 所以, 这个工作依旧还是有意义的.
