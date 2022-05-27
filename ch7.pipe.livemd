@@ -253,7 +253,10 @@ range
 让我们来测试一下.
 
 ```elixir
-defmodule M do
+ExUnit.start(autorun: false)
+
+defmodule MyTest do
+  use ExUnit.Case, async: true
   @range 1..1000
 
   def fun1(up \\ 10) do
@@ -274,36 +277,22 @@ defmodule M do
     end
   end
 
-  def fun3(up \\ 10) do
-    for _ <- 1..up do
-      @range
-      |> Stream.map(&(&1 + 1))
-      |> Stream.map(&(&1 - 1))
-      |> Enum.to_list()
-    end
+  test "Optimizer of |> for Enum.map" do
+    arg = [10000]
+    task1 = Task.async(fn -> :timer.tc(&fun1/1, arg) end)
+    task2 = Task.async(fn -> :timer.tc(&fun2/1, arg) end)
+
+    [{t, v}, {t1, v1}] = Task.await_many([task1, task2], 60_000)
+    IO.puts("speed up #{(t - t1) / t1 * 100}%.")
+    assert v == v1
   end
 end
 
-(M.fun1() == M.fun2()) |> IO.inspect(label: "fun1 == fun2")
-
-arg = [10000]
-task1 = Task.async(fn -> :timer.tc(M, :fun1, arg) end)
-task2 = Task.async(fn -> :timer.tc(M, :fun2, arg) end)
-task3 = Task.async(fn -> :timer.tc(M, :fun3, arg) end)
-
-[{t, _v}, {t1, _v}, {t2, _v}] = Task.await_many([task1, task2, task3], 60_000)
-
-IO.puts("speed up #{(t - t1) / t1 * 100}%.")
-
-IO.puts("speed up #{(t - t2) / t2 * 100}%.")
+ExUnit.run()
 ```
 
 其中有一次, 代码的输出是这样的:
 
-> warning: the underscored variable "_v" appears more than once in a match. This means the pattern will only match if all "_v" bind to the same value. If this is the intended behaviour, please remove the leading underscore from the variable name, otherwise give the variables different names
->  ch7.pipe.livemd#cell:38
-> 
-> fun1 == fun2: true  
 > speed up -1.5641347109939043%.
 
 😒 结果优化后的代码不是提速了, 反而变慢了 1.5 个百分点. 可是为什么会这样啊?
@@ -311,15 +300,10 @@ IO.puts("speed up #{(t - t2) / t2 * 100}%.")
 这是因为 LiveBook 代码 Cell 本质上是解释执行的, 就像我们不能以 IEx 中的代码运行时间来衡量代码的效率一样,
 我们也不能用 LiveBook 的 Cell 的执行时间来衡量代码的效率.
 
-把代码保存到文件中, 并为之编写测试文件, 然后使用 `mix test` 来测试, 
-那么优化后的代码总是比不优化的代码运行的更快的, 虽然每次测试的结果不一样, 
-但提升的效率的区间为: 20%~36%, 取中间值, 那么优化的结果评价应该提升 28%.
-
-这个结果不过是一个长度是 2 的 `Enum.map/2` 链优化的结果, 如果我们的 `Enum.map/2` 链更长, 
-理论上可以有更大的效率提升.
-
-这个的实现的话, 其实并不是那么的复杂, 为什么 Elixir 编译器不这样做呢?
-其实 Elixir 已经提供了解决方案, 那就是 `Stream.map`. 例如我们上面的代码, 
+这个优化的实现, 其实并不是那么的复杂, 为什么 Elixir 编译器不这样做呢?
+这里有两个原因. 第一原因, 就是 Elixir 标准库中有 `Stream` 模块, 
+文档中, 明确提到 `Stream.map` 会组合函数的. 也就是说, 
+Elixir 是以 `Stream.map` 来完成我们这里的工作的.例如我们上面的代码, 
 我们只是用 `Stream` 替换了 `Enum`. 就获得了相同的结果.
 
 ```elixir
@@ -330,10 +314,70 @@ range
 |> IO.inspect(label: "result of map chain")
 ```
 
-那么是不是我是不是解决了一个不是问题的问题呢?
+那么是不是我是不是解决了一个错误的问题的问题呢?
 
-不是的, 如果我们做测试就会发现, Stream 版本的代码虽然对函数做了组合, 但是运行效率反而下降了.
-按我粗燥的测试, Stream 版本的程序, 执行效率慢了 60% 还多.
+我的答案是: 不是的. 我们的工作依旧是有意义的.
 
-`Stream.map` 的确组合了函数, 并不能解决我们这里的问题, 我们是希望提升程序的性能的, 
-而不是纯粹的组合函数, 所以, 这个工作依旧还是有意义的.
+在对我们的优化做效率测试的时候, 我们发现有时候, 理论上绝对不有应该下降的代码,
+测试的时候, 有时居然会下降 1.5%. 那么 Stream 版本的优化呢?
+会比我们的的代码效率更高吗?
+让我们来测试一下:
+
+```elixir
+ExUnit.start(autorun: false)
+
+defmodule MyTest do
+  use ExUnit.Case, async: true
+  @range 1..1000
+
+  def fun1(up \\ 10) do
+    for _ <- 1..up do
+      @range
+      |> Enum.map(&(&1 + 1))
+      |> Enum.map(&(&1 - 1))
+    end
+  end
+
+  def fun2(up \\ 10) do
+    for _ <- 1..up do
+      @range
+      |> Stream.map(&(&1 + 1))
+      |> Stream.map(&(&1 - 1))
+      |> Enum.to_list()
+    end
+  end
+
+  test "Enum.map vs Stream.map" do
+    arg = [10000]
+    task1 = Task.async(fn -> :timer.tc(&fun1/1, arg) end)
+    task2 = Task.async(fn -> :timer.tc(&fun2/1, arg) end)
+
+    [{t, v}, {t1, v1}] = Task.await_many([task1, task2], 60_000)
+    IO.puts("speed up #{(t - t1) / t * 100}%.")
+    assert v == v1
+  end
+end
+
+ExUnit.run()
+```
+
+这次运行的结果更加糟糕, 和 `Enum.map` 相比, 
+`Stream.map` 版本的代码效率下降了 100% 还多.
+
+1%~2% 的效率差异我们还能接受是代码执行过程中偶然因素带来的,
+但 `Stream.map` 和 `Enum.map` 的巨大差异绝对不能归结为运行时的偶然因素.
+
+所以 `Stream.map` 虽然完成了的函数的组合, 但是却并没有提升效率.
+
+Elixir 的 `Enum.map` 不组合函数的第二个原因是, Elixir 不是一个纯的函数编程语言.
+传递给 `Enum.map` 不能保证没有副作用的. 而理论上来说,
+只有当 `Enum.map` 中的函数是纯函数的时候, 才可以组合函数.
+但是要在编译时判断一个函数中是否有副作用, 这基本上做不到,
+所以 Elixir 的标准库中 `Enum.map` 并不做函数的组合.
+
+现在我们的优化器, 忽略了函数中的副作用而强行对函数做了组合.
+把优化器做测试的代码, 保存到文件中, 使用 `mix test` 来重新测试, 就会发现, 
+优化器的效率有了 30%~40% 的效率提升.
+
+对功能一样, 手动组合的函数做测试, 其效率和我们的代码的一样.
+这就是前面我的说这个工作的意义所在.
