@@ -55,8 +55,8 @@ range
 
 非常幸运, `|>` 在 Elixir 中并不是特殊形式, 我们可以定义自己的 `|>`.
 
-Elixir 定义的 `|>` 应该是我们的起点. `|>` 的定义, 在 [`kernel.ex`文件中](https://github.com/elixir-lang/elixir/blob/9a4d10e702f33d2fa47718cde05375b506b4a3d6/lib/elixir/lib/kernel.ex#L4073).
-
+Elixir 定义的 `|>` 应该是我们的起点. 我们可以在 [`kernel.ex`](https://github.com/elixir-lang/elixir/blob/9a4d10e702f33d2fa47718cde05375b506b4a3d6/lib/elixir/lib/kernel.ex#L4073)
+中发现其定义:
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
@@ -124,7 +124,7 @@ defmodule Optimizer.EnumMap do
   defp reduce_map(ast_list) do
     ast_list
     |> group_map_call()
-    |> Enum.map(&make_enum_maper/1)
+    |> Enum.map(&make_enum_mape/1)
   end
 
   defp group_map_call(ast_list) do
@@ -175,14 +175,14 @@ defmodule Optimizer.EnumMap do
     fun1
   end
 
-  defp make_enum_maper({@tag, funs}) do
+  defp make_enum_mape({@tag, funs}) do
     fun = compose(funs)
 
     ast = {{{:., [], [{:__aliases__, [], [:Enum]}, :map]}, [], [fun]}, 0}
     ast
   end
 
-  defp make_enum_maper(v), do: v
+  defp make_enum_mape(v), do: v
 
   defp compose(list, acc \\ nil)
 
