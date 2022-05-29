@@ -23,7 +23,8 @@ Erlang 中用 `catch` 处理这些错误.
 而 Elixir 中, 除了 `catch` 外, 还引入了 Ruby 中的 `rescue`.
 那么自然的就由一个问题, `catch` 和 `rescue` 如何分工呢?
 
-按照 [Elixir 文档](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1)来说, `rescue` 用来处理异常, 而 `catch` 可以用来捕获 `throw` 值和 `exit` 信号.
+按照 [Elixir 文档](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1)来说,
+`rescue` 用来处理异常, 而 `catch` 可以用来捕获 `throw` 值和 `exit` 信号.
 (The `rescue` clause is used to handle exceptions while the `catch` clause can
 be used to catch thrown values and exits.)
 
@@ -31,9 +32,12 @@ be used to catch thrown values and exits.)
 但是 [Erlang 文档](https://www.erlang.org/doc/reference_manual/errors.html#exceptions)
 中有清晰的解释.
 
-如果 Elixir 中的异常和 Erlang 中的是一个概念话, 那么我对 `rescue` 和 `catch` 的分工的理解,
-就成了, `rescue` 能处理所有三种类型的异常, 而 `catch` 只能处理 `throw` 和 `exit`.
-但是这样的理解是错误的. 例如下面的代码,`rescue` 在这里并没有把我们从 `throw` 引发的错误中拯救出来.
+如果 Elixir 中的异常和 Erlang 中的是一个概念话,
+那么我对 `rescue` 和 `catch` 的分工的理解,
+就成了: `rescue` 能处理所有三种类型的异常, 而 `catch` 只能处理 `throw` 和 `exit`.
+但是这样的理解是错误的.
+
+例如下面的代码,`rescue` 在这里并没有把我们从 `throw` 引发的错误中拯救出来.
 
 ```elixir
 try do
@@ -91,7 +95,10 @@ end
 为什么 Elixir 这样处理这个问题? 现在还没有答案, 
 但是不要这一个问题阻拦了我们探索的脚步. 也许后面的探索中, 答案自然就会浮出水面呢!
 
-[^rescue]: Elixir 文档中的话, 翻译过来是: 除了以来模式匹配外, `rescue` 围绕异常提供了一些方便, 允许我们根据异常的名字来展开救援. 原文见 Elixir 文档关于[rescue 子句的描述](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1-rescue-clauses).
+[^rescue]: Elixir 文档中的话, 翻译过来是: 除了以来模式匹配外, 
+`rescue` 围绕异常提供了一些方便, 允许我们根据异常的名字来展开救援. 
+原文见 Elixir 文档关于
+[rescue 子句的描述](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1-rescue-clauses).
 
 ## 如何捕获
 
@@ -169,7 +176,7 @@ catch
 ```
 
 对 `throw` 产生的错误来说, `catch v ->..` 和 `catch :throw, v -> ...` 一样. 
-这证实了我们的说法: `catch v -> ...` 只是 catch :throw, v -> ...` 的语法糖.
+这证实了我们的说法: `catch v -> ...` 只是 `catch :throw, v -> ...` 的语法糖.
 
 ```elixir
 2 =

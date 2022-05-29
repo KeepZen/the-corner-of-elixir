@@ -57,6 +57,7 @@ range
 
 Elixir 定义的 `|>` 应该是我们的起点. 我们可以在 [`kernel.ex`](https://github.com/elixir-lang/elixir/blob/9a4d10e702f33d2fa47718cde05375b506b4a3d6/lib/elixir/lib/kernel.ex#L4073)
 中发现其定义:
+
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
