@@ -1,6 +1,155 @@
-<!-- livebook:{"persist_outputs":true} -->
-
 # 模式匹配
+
+## 术语
+
+在 Erlang 和 Elixir社区中, 常常会看到 terms 这个词.
+Elixir 是从Erlang 中继承的这个概念, 在Erlang 中这个词语由明确的定义, 
+任意类型的数据片段都叫做 term[^term], 在 Elixir 文档中, 
+只在类型规范的章节中对这个次的含有有所暗示. `term()` 是 `any()` 的别名.
+
+和 Erlang 一样, 在 Elixir 中也不存在用户定义类型, 只有对内建类型的组合, 而不存在用户定义类型.
+
+在 Elixir 文档的&Lt;类型规范&Gt;的[&Lt;内建的类型&Gt;](/elixir/1.13.1/typespecs.html#built-in-types)小节中, 有很多知识可以被挖掘出来.
+
+[^term]: 见[Erlang参考手册数据类型](https://www.erlang.org/doc/reference_manual/data_types.html#terms)相关章节.
+
+### 1. 函数参数的限制
+
+> arity() 定义为 0..255.
+
+这是说, 我们的函数参数个数最多 255个吗? 要写一个 写 255 个变量, 这还真的是个体力活.
+但是我们是程序员, 对于这种重复性体力工作, 当然要用编程的方式来完成了. 
+Elixir 提供了 `Code.compile_string/1` 和 `Code.eval_string/1` 函数,
+这可以看作是 Elixir 语言为我们提供的编译器和解释器的 API.
+我们可以使用这两个函数编译或解释执行对应 Elixir 代码.
+
+通过调整生成的函数参数的个数, 可以找到函数参数个数的上限的设定.
+
+```elixir
+defmodule Explore.Arity do
+  defp generate_code(arity, name_fun?) do
+    params_list =
+      1..arity
+      |> Enum.map(&"p#{&1}")
+
+    params_src = Enum.join(params_list, ",")
+    body_src = Enum.join(params_list, " + ")
+
+    if name_fun? do
+      """
+      defmodule A do
+        def test(#{params_src}) do
+          #{body_src}
+        end
+      end
+      """
+    else
+      "fn #{params_src} -> #{body_src} end"
+    end
+  end
+
+  @default_opt [fun_named?: false, compiled?: true]
+  def check(arity, opt \\ []) do
+    opt = Keyword.merge(@default_opt, opt)
+
+    src = generate_code(arity, opt[:fun_named?])
+
+    if opt[:compiled?] do
+      Code.compile_string(src)
+    else
+      Code.eval_string(src)
+    end
+  rescue
+    v ->
+      error_tip = if opt[:compiled?], do: "compile error", else: "praser error"
+      IO.inspect(v, label: error_tip)
+      :bad
+  else
+    v ->
+      IO.inspect(v, label: "check done")
+      :ok
+  end
+end
+```
+
+```elixir
+ExUnit.start(auto_run: false)
+
+defmodule ArityTest do
+  use ExUnit.Case, async: true
+  alias Explore.Arity
+
+  test "the uplimit of arity for anonymous function in complier " do
+    assert Arity.check(255) == :ok
+    assert Arity.check(256) == :bad
+    IO.puts("")
+  end
+
+  test "the uplimie of arity for named function in complier " do
+    assert Arity.check(255, fun_named?: true) == :ok
+    assert 1..255 |> Enum.sum() == apply(A, :test, Enum.to_list(1..255))
+
+    assert Arity.check(256, fun_named?: true) == :ok
+    assert_raise UndefinedFunctionError, fn -> apply(A, :test, Enum.to_list(1..256)) end
+    IO.puts("")
+  end
+
+  test "the uplimit of arity for anonymous function in parser" do
+    assert Arity.check(20, compiled?: false) == :ok
+    assert Arity.check(21, compiled?: false) == :bad
+    IO.puts("")
+  end
+
+  # test "the uplimit of arity for named function in parser" do
+  #   assert Arity.check(20,fun_named?: true, compiled?: false) == :ok
+  #   assert  apply(A,:test, 1..20|> Enum.to_list()) == 1..20 |> Enum.sum()
+
+  #   assert Arity.check(21,fun_named?: true, compiled?: false) == :ok
+  #   assert_raise UndefinedFunctionError, fn -> A.test(Enum.to_list(1..21)) end
+  #   IO.puts("")
+  # end
+end
+
+ExUnit.run()
+```
+
+通过上面的实验, 可以得出以下结论:
+
+* 在编译器中
+  1. 对于匿名函数, 参数个数多于 255 个, 编译器报 UndefineFuntionError
+  2. 对于命名函数, 参数个数多于 255 个, 编译器并不报错, 但是调用这个函数,
+     运行时会产生 UndefineFuntionError
+* 在解析器中
+  1. 对于匿名函数, 参数个数多于 20 个, 解释器就会报 UndefinedFunctionError
+  2. 对于命名函数, 参数个数多于 20 个, 解释器不会报错, 但是调用这个函数,
+     运行时会产生 UndefineFunctionError
+
+<!-- livebook:{"break_markdown":true} -->
+
+### 模块
+
+> module() 定义为 atom()
+
+所以模块名, 本质上只是原子.
+
+Elixir 代码是运行在 Erlang 虚拟机上的, 而 Erlang 中, 模块名就是原子.
+Elixir 要像于 Erlang 代码实现相互调用, Elixir 也只能使用原子来做模块名.
+
+但是这里有一个重要的概念, 模块和模块的名字不是一个东西. Elixir 中只有模块的名字,
+而没有解释什么是模块.
+
+模块不是 Elixir 的一个数据类型, 甚至也不是不是 Erlang 的数据类型. 模块是
+
+Elixir 中有一种特殊的原子, 以 `Elixir.` 作为前缀的原子.
+如果这种原子后面的内容以大写字母打头, 例如 `:"Elixir.Balabla"`, 那么就可以直接写做: `Balabla`.
+
+实际上, erlang 中函数名也是原子. 但是函数
+
+### 3. struct() 定义为 %
+
+这说明结构真的就是一个 map.
+
+回顾以下, 结构体是如何定义的.
 
 ## 列表
 
@@ -29,12 +178,6 @@
 
 ```elixir
 kw = [hello: "hello", hi: "hi"]
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-[hello: "hello", hi: "hi"]
 ```
 
 单独的使用匹配来获取一个关键字列表的值得内容, 不太灵活.
@@ -74,19 +217,6 @@ get_in(keyword, [:person, :age])
 |> IO.inspect(label: "person.age")
 ```
 
-<!-- livebook:{"output":true} -->
-
-```
-hello: "hello"
-person.age: 23
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-23
-```
-
 最后, `atom: value` 这样的语法糖, 不但在列表中可以使用, 而且可以在元组, map 或结构定义的时候使用.
 相对来说, 在 map 和结构的定义中使用关键字的语法糖比较常见, 而在元组中也是可以使用的.
 例如:
@@ -94,12 +224,6 @@ person.age: 23
 ```elixir
 {1, a: 1, b: 2}
 %{1 => :one, one: 1, two: 2}
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-%{1 => :one, :one => 1, :two => 2}
 ```
 
 ## 字符串
@@ -165,10 +289,4 @@ end
 a = %M{}
 a.__struct__
 is_map(a)
-```
-
-<!-- livebook:{"output":true} -->
-
-```
-true
 ```
