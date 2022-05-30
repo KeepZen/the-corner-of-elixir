@@ -23,7 +23,7 @@ Erlang 中用 `catch` 处理这些错误.
 而 Elixir 中, 除了 `catch` 外, 还引入了 Ruby 中的 `rescue`.
 那么自然的就由一个问题, `catch` 和 `rescue` 如何分工呢?
 
-按照 [Elixir 文档](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1)来说,
+按照 [Elixir 文档](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1)的说法,
 `rescue` 用来处理异常, 而 `catch` 可以用来捕获 `throw` 值和 `exit` 信号.
 (The `rescue` clause is used to handle exceptions while the `catch` clause can
 be used to catch thrown values and exits.)
@@ -298,19 +298,23 @@ try do
    do_block_code
 rescue v -> 
     case v do
-     %ErrorName{file: v} -> v
+     %ErrorName{field: field_v} -> field_v
      ...
     end
 ...
 end
 ```
 
-我们就可以定义自己的语法糖, 来让 `rescue` 的语法更加的统一.
-`try` 是 Elixir 的保留字, 所以我们不能使用 `try` 来定义我们的宏, 那么我们定义为 `try_` 吧.
+我们就可以定义自己的语法糖, 来让 `rescue` 语法可以使用更强大的模式匹配语法.
+
+`try` 是 Elixir 特殊表单, 大家对他的语法有一致的预期, 
+为了让不熟悉我们的库的程序员不至于感到迷惑, 不是使用 `try` 来作为我们的宏的名字.
+这个要定义的宏是要增强 `rescue` 的匹配功能, 所以可以把这个宏命名为 `super_try`.
+就像动漫中, 超级英雄拯救世界一样, `super_try` 用来拯救我的代码洁癖症.
 
 ```elixir
-defmodule Corner.Try do
-  defmacro try_(do: block, rescue: rescue_ast) do
+defmodule Corner.SuperTry do
+  defmacro super_try(do: block, rescue: rescue_ast) do
     quote do
       try do
         unquote(block)
@@ -325,15 +329,15 @@ defmodule Corner.Try do
 end
 ```
 
-最后使用我们新定义的 `try_` 宏来重构我们的 `maybe` 宏.
+最后使用我们新定义的 `super_try` 来重构我们的 `maybe` 宏.
 
 ```elixir
 defmodule Corner.Maybe do
   defmacro maybe(do: block) do
     quote do
-      import Corner.Try
+      import Corner.SuperTry, only: [super_try: 1]
 
-      try_ do
+      super_try do
         unquote(block)
       rescue
         %MatchError{term: term} -> term
@@ -343,37 +347,43 @@ defmodule Corner.Maybe do
 end
 ```
 
-测试以下:
+测试一下:
 
 ```elixir
 ExUnit.start(autorun: false)
+
 defmodule Corner.MaybeTest do
   use ExUnit.Case
   import Corner.Maybe
+
   test "maybe" do
-    result_maybe =  maybe do
-      {:ok, a} = {:ok,2}
-      {:ok, b} m= {:error, a + 1}
-      b + 1
-    end
+    result_maybe =
+      maybe do
+        {:ok, a} = {:ok, 2}
+        {:ok, b} = {:error, a + 1}
+        b + 1
+      end
+
     assert result_maybe == {:error, 3}
   end
 end
+
 ExUnit.run()
 ```
 
-最后, 讨论以下 `try` 接受的参数. 在 Elixir 文档中, 最完整的错误处理块为
+## 错误处理子句的顺序
+
+最后, 讨论一下 `try` 结构中子句的顺序. 在 Elixir 文档中, 最完整的错误处理块为
 `try`...`rescue`...`catch`...`else`...`after`.
-在 Elixir 文档中, 我们看到过, 省略部分子句的情况,
-但是这些子句的相对顺序错乱的情况, 没有见过, 
-那么能不能改变这些子句的相对顺序呢?
+在 Elixir 文档中, 我们看到过省略部分子句的情况,
+但是这些子句的相对顺序还是保持的, 那么能不能改变这些子句的相对顺序呢?
 比如, 把 `rescue` 放在 `catch` 后.
 
 ```elixir
 try do
   raise :error
 catch
-  v -> v |> IO.inspect(label: "catch")
+  v -> v |> IO.inspect(label: "catch v")
 rescue
   v -> v |> IO.inspect(label: "rescue")
 else
@@ -383,25 +393,154 @@ after
 end
 ```
 
-编译器给出的警告, 但是代码依旧可以运行. 甚至, 我们把 `after` 和 `else` 的相对位置调换,
-也依然可以通过编译, 而且代码执行的顺序和正常顺序是一样.
+注意, 这里编译器给出的警告, 警告的内容是 `catch` 应该放在 `resuce` 的后面,
+不过代码依旧可以运行. 但是为什么应该那样呢? 前面的讨论, 我们知道 `catch` 是全能捕手,
+我们上面的代码中, 用到的是它捕获 `throw value` 的语法, 
+所以`rescue` 有机会捕获 `raise` 产生的错误. 但是如果使用的最通用 `catch` 的语法呢?
+比如:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+catch 
+:error, v -> ...
+rescue 
+  rescue_code
+```
+
+在上面的代码中, `rescue` 子句就是死代码, 永远不用有机会执行.
+这就是为什么, 编译器给出警告的原因.
+
+那么除了 `rescue` 和 `catch` 的相对位置外, 其他的子句呢? 能改变顺序码?
+比如, 我们把 `after` 子句放在 `resuce` 前面, 可以吗?
 
 ```elixir
 try do
-  1
-catch
-  v -> v |> IO.inspect(label: "catch")
-rescue
-  v -> v |> IO.inspect(label: "rescue")
+  1 / 0
 after
   IO.puts("after")
+rescue
+  v ->
+    v |> IO.inspect(label: "rescue")
+    :rescue
+catch
+  v ->
+    v |> IO.inspect(label: "catch")
+    :catch
 else
   v -> v |> IO.inspect(label: "else")
 end
 ```
 
-我原本预期 `try` 接受的是一个关键字列表, 所以子句间的关系必须相对固定, 现在发现不是啊.
-`try` 的确检查关键字列表, 以及其中的键必须只能是 `:do`, `:resuce`, `:catch`, `:else`, `:after`.
-但是不要求这些键位置固定.
+这次不但顺利通过编译, 而且警告都没有. 也就是说, 这是完全合法的代码.
+`after` 在代码中出现的顺序, 不影响其功能. 进一步的, 不难推测, 
+`else` 也可以放在 `resuce` 子句前.
 
-最后提醒读者, 我们这里是说语法规则的探索, 才故意打乱其顺序的, 但是绝对不是鼓励大家在实际的编码中也这样做.
+```elixir
+try do
+  2
+rescue
+  v -> IO.inspect(v, label: "resuce v")
+else
+  v -> v |> IO.inspect(label: "else")
+catch
+  :error, v ->
+    IO.inspect(v, label: "catch :error ,v")
+end
+```
+
+最后提醒读者, 我们这里是对语法规则的探索, 才故意打乱其顺序的, 但是绝对不是鼓励大家在实际的编码中也这样做.
+
+## 什么时候必须 try
+
+在 Elixir 的官方文档中, 我们看到可以省略 `try` 关键字, 而直接处理错误的例子.
+例如在命名函数中:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def fun() do
+   ...
+catch
+  :error, v -> v
+after 
+  ...
+end
+```
+
+那么什么时候, 可以省略 `try` 呢? 是不是所有后面需要 `do-block` 的语法结构中, 
+都可以使用省略 `try` 而直接使用错误处理子句呢? 不是的, 实际上, 只有在函数定义中才可以如此使用.
+
+例如, 我们就不可以给 `if` 语句加一个 `catch` 子句. 例如像下面的代码就是错误的.
+
+```elixir
+if 3 < 4 do
+  1 -> 1 / 0
+catch
+  :error, _ -> "1/0"
+else
+  "how it can be 3 not less than 4"
+end
+```
+
+我们看到命名函数中, 可以直接使用错误处理的子句, 那么是不是在匿名函数中也可以直接使用呢?
+答案也是否定的, 而且 Elixir &Lt;语法参考&Gt;文档的
+[&Lt;保留字&Gt;](https://hexdocs.pm/elixir/syntax-reference.html#reserved-words)小结也给出了提示:
+
+> `do`, `end`, `catch`, `rescue`, `after`, `else` - 在 do-end 块中使用.
+
+`fn` 的语法是这样的:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+fn a -> ... end
+```
+
+当这里的 `...` 多余一个表达式的时候, 这里实际上是一个暗含的块, 但是并不是一个 `do-block`.
+这一点我们可以通过 `quote` 语句, 在 AST 层面上看清.
+
+```elixir
+quote do
+  fn a ->
+    a + 1
+    a - 1
+  end
+
+  def f(a) do
+    a + 1
+    a - 1
+  end
+end
+```
+
+`fn` 的块结构在 AST 层面的表示是:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+{:__block__, [],
+  [
+    {:+, [context: Elixir, import: Kernel], [{:a, [], Elixir}, 1]},
+    {:-, [context: Elixir, import: Kernel], [{:a, [], Elixir}, 1]}
+  ]}
+```
+
+而函数 f(a) 定义的块结果的 AST 表示是:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+[do: {:__block__, [],
+  [
+    {:+, [context: Elixir, import: Kernel], [{:a, [], Elixir}, 1]},
+    {:-, [context: Elixir, import: Kernel], [{:a, [], Elixir}, 1]}
+  ]}]
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+知道了这些知识, 就不难理解为什么 `fn` 定义匿名函数的时候, `try` 不能省略了.
+
+**结论**: 只有在 `def` 和 `defp` 中可以省略 `try`, 其他情形下对 `try` 的省略, 
+都是对这个特定规则的天真推广.
