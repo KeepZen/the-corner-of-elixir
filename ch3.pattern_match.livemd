@@ -1,73 +1,70 @@
 # 模式匹配
 
-## 术语
+## 模式匹配的作用
 
-在 Erlang 和 Elixir社区中, 常常会看到 terms 这个词.
-Elixir 是从Erlang 中继承的这个概念, 在Erlang 中这个词语由明确的定义, 
-任意类型的数据片段都叫做 term[^term], 在 Elixir 文档中, 
-只在类型规范的章节中对这个次的含有有所暗示. `term()` 是 `any()` 的别名.
+模式匹配完成以下的两个工作:
 
-和 Erlang 一样, 在 Elixir 中也不存在用户定义类型, 只有对内建类型的组合, 而不存在用户定义类型.
+1. 确认数据具有某种模式
+2. 以某种模式, 从数据中提出信息
 
-在 Elixir 文档的&Lt;类型规范&Gt;的[&Lt;内建的类型&Gt;](/elixir/1.13.1/typespecs.html#built-in-types)小节中, 有很多知识可以被挖掘出来.
+在其他语言中, 这两个功能有着清晰的分界, 但是在 Elixir 中, 有清晰分界的情况是少数的,
+大部分是两个功能混合在一起的.
 
-[^term]: 见[Erlang参考手册数据类型](https://www.erlang.org/doc/reference_manual/data_types.html#terms)相关章节.
+## 模式确认
 
-### 1. 函数参数的限制
-
-> arity() 定义为 0..255.
-
-这是说, 我们的函数参数个数最多 255个吗? 要写一个 写 255 个变量, 这还真的是个体力活.
-但是我们是程序员, 对于这种重复性体力工作, 当然要用编程的方式来完成了. 
-Elixir 提供了 `Code.compile_string/1` 和 `Code.eval_string/1` 函数,
-这可以看作是 Elixir 语言为我们提供的编译器和解释器的 API.
-我们可以使用这两个函数编译或解释执行对应 Elixir 代码.
-
-通过调整生成的函数参数的个数, 可以找到函数参数个数的上限的设定.
+Elixir 特意提供了一个专门完成模式检查工作的宏 `match?/2`. 这个宏返回的是一个布尔值.
 
 ```elixir
-defmodule Explore.Arity do
-  defp generate_code(arity, name_fun?) do
-    params_list =
-      1..arity
-      |> Enum.map(&"p#{&1}")
+true = match?({:ok, b}, {:ok, 1})
+nil = binding()[:b]
+false = match?({:ok, _}, :error)
+```
 
-    params_src = Enum.join(params_list, ",")
-    body_src = Enum.join(params_list, " + ")
+上面的代码, 第 1 行表面, 当 `match?` 第一个参数作为模式, 可以匹配第二个值得时候, 返回值是 `true`.
+第 2 行, 我们通过检查 `binding()`,确认了, 即使匹配成功, 这个宏并不在环境中引入新的变量.
+第 3 行, 我们展示了, 当 `match?` 得两个参数匹配失败的时候, 返回 `false` 而不是引发一个异常.
 
-    if name_fun? do
-      """
-      defmodule A do
-        def test(#{params_src}) do
-          #{body_src}
-        end
-      end
-      """
-    else
-      "fn #{params_src} -> #{body_src} end"
+和 `match?/2` 完成的工作非常相识, 但是只专注于字符串匹配得, 还有操作符 `=~`. `=~` 返回的也是布尔值.
+
+```elixir
+true = "hello" =~ "hello"
+true = "hello" =~ ~r/hel.{2}/
+```
+
+`match?/2` 和匹配操作符 `=` 一样, 第一个参数作为模式, 第二个参数作为需要匹配的数值.
+`=~` 的第二个参数是模式: 字符串或者正则表达式; 第一个参数是要匹配的字符串.
+这不是一个特别大的差别.
+
+其实我更希望, 能够使用操作符来完成更多的模式确认的工作.
+
+下面, 让我们试着自定义自己的 `=~` 操作符.
+
+```elixir
+defmodule Corner.Operater do
+  import Kernel, except: [=~: 2]
+
+  defmacro __using__(_opt) do
+    quote do
+      import Kernel, except: [=~: 2]
+      import Corner.Operater
     end
   end
 
-  @default_opt [fun_named?: false, compiled?: true]
-  def check(arity, opt \\ []) do
-    opt = Keyword.merge(@default_opt, opt)
+  defmacro left =~ right do
+    should_use_operater =
+      is_struct(right, Regex) ||
+        match?({:sigil_r, _, _}, right) ||
+        (is_binary(right) and is_binary(left))
 
-    src = generate_code(arity, opt[:fun_named?])
-
-    if opt[:compiled?] do
-      Code.compile_string(src)
+    if should_use_operater do
+      quote do
+        Kernel.=~(unquote(left), unquote(right))
+      end
     else
-      Code.eval_string(src)
+      quote do
+        match?(unquote(left), unquote(right))
+      end
     end
-  rescue
-    v ->
-      error_tip = if opt[:compiled?], do: "compile error", else: "praser error"
-      IO.inspect(v, label: error_tip)
-      :bad
-  else
-    v ->
-      IO.inspect(v, label: "check done")
-      :ok
   end
 end
 ```
@@ -75,218 +72,310 @@ end
 ```elixir
 ExUnit.start(auto_run: false)
 
-defmodule ArityTest do
-  use ExUnit.Case, async: true
-  alias Explore.Arity
+defmodule OperaterTest do
+  use ExUnit.Case
+  use Corner.Operater
 
-  test "the uplimit of arity for anonymous function in complier " do
-    assert Arity.check(255) == :ok
-    assert Arity.check(256) == :bad
-    IO.puts("")
+  test "pattern =~ expection" do
+    c = "hello" =~ "hello"
+    assert c
+    c = "hello" =~ ~r/hell./
+    assert c
+    c = [_a, _b] =~ {1, 2}
+    refute c
   end
-
-  test "the uplimie of arity for named function in complier " do
-    assert Arity.check(255, fun_named?: true) == :ok
-    assert 1..255 |> Enum.sum() == apply(A, :test, Enum.to_list(1..255))
-
-    assert Arity.check(256, fun_named?: true) == :ok
-    assert_raise UndefinedFunctionError, fn -> apply(A, :test, Enum.to_list(1..256)) end
-    IO.puts("")
-  end
-
-  test "the uplimit of arity for anonymous function in parser" do
-    assert Arity.check(20, compiled?: false) == :ok
-    assert Arity.check(21, compiled?: false) == :bad
-    IO.puts("")
-  end
-
-  # test "the uplimit of arity for named function in parser" do
-  #   assert Arity.check(20,fun_named?: true, compiled?: false) == :ok
-  #   assert  apply(A,:test, 1..20|> Enum.to_list()) == 1..20 |> Enum.sum()
-
-  #   assert Arity.check(21,fun_named?: true, compiled?: false) == :ok
-  #   assert_raise UndefinedFunctionError, fn -> A.test(Enum.to_list(1..21)) end
-  #   IO.puts("")
-  # end
 end
 
 ExUnit.run()
 ```
 
-通过上面的实验, 可以得出以下结论:
+注意这里的测试代码, 必须首先把宏调用的结果存放到变量(这里是 `c`)里, 然后使用宏 `assert c` 来判断.
+而不能直接使用 `assert pattern =~ expection`, 这应该是 `assert/1` 的一个 bug.
 
-* 在编译器中
-  1. 对于匿名函数, 参数个数多于 255 个, 编译器报 UndefineFuntionError
-  2. 对于命名函数, 参数个数多于 255 个, 编译器并不报错, 但是调用这个函数,
-     运行时会产生 UndefineFuntionError
-* 在解析器中
-  1. 对于匿名函数, 参数个数多于 20 个, 解释器就会报 UndefinedFunctionError
-  2. 对于命名函数, 参数个数多于 20 个, 解释器不会报错, 但是调用这个函数,
-     运行时会产生 UndefineFunctionError
+## 按模式提取信息
 
-<!-- livebook:{"break_markdown":true} -->
+和 `match?/2` 以及 `~=` 相反, Elixir 中也通过了专注数据提取的函数:
 
-### 模块
+1. destructure/2 针对列表
+2. get_in/2 针对Access 协议的数据提取
 
-> module() 定义为 atom()
+这些函数的用法, 在 Elixir 的文档中有详细的说明, 而且我也不觉得, 
+自己可以解释的更好了, 如果我说他们使用来提取数据的,
+你(读者)不明白我说的是什么意思, 那么建议大家读一读 Elixir
+[destructure](https://hexdocs.pm/elixir/Kernel.html#destructure/2) 和
+[get_in](https://hexdocs.pm/elixir/Kernel.html#get_in/2) 的文档.
 
-所以模块名, 本质上只是原子.
-
-Elixir 代码是运行在 Erlang 虚拟机上的, 而 Erlang 中, 模块名就是原子.
-Elixir 要像于 Erlang 代码实现相互调用, Elixir 也只能使用原子来做模块名.
-
-但是这里有一个重要的概念, 模块和模块的名字不是一个东西. Elixir 中只有模块的名字,
-而没有解释什么是模块.
-
-模块不是 Elixir 的一个数据类型, 甚至也不是不是 Erlang 的数据类型. 模块是
-
-Elixir 中有一种特殊的原子, 以 `Elixir.` 作为前缀的原子.
-如果这种原子后面的内容以大写字母打头, 例如 `:"Elixir.Balabla"`, 那么就可以直接写做: `Balabla`.
-
-实际上, erlang 中函数名也是原子. 但是函数
-
-### 3. struct() 定义为 %
-
-这说明结构真的就是一个 map.
-
-回顾以下, 结构体是如何定义的.
-
-## 列表
-
-假设我们有列表 `list=[1,2,3,4,5]`.
-
-1. 当我们需要提出列表前 3 个元素的时候  
-   `[a,b,c|_] = list`.
-
-2. 当我们需要去掉第一个元素后的剩余元素的时候  
-   `[_|rest] = list`.
-
-3. 申明并以列表元素初始化变量  
-   我们需要声明多个变量, 这些变量的初始化值有 list 提供. 
-   我们的变量个数和 list 的元素个数不一定匹配, 这个时候, 
-   最方便的是使用 `destructure/2`.
-
-   * 变量个数小于或等于 list 的长度  
-     `destructure([a,b,c,d,e],list)` , `a` 的值为 1, `e` 的值为 5.
-   * 变量个数大于 list 长度  
-     `destructure([a,b,c,d,e,f],list)`, `e` 的值为 5, `f` 的值为 `nil`.
-
-4. 从后匹配列表的 n 个元素  
-   `[a,b,c] = [1,2,3,4] |> Enum.take(-3)`
-
-## 键字列表
+我喜欢 `descructure` 这个函数, 它让我怀念 JS 的结构操作符 `...`.
+可惜 `descruture/2` 这个函数只支持对列表的解构.
+那么我们来定义自己的解构操作符吧.
 
 ```elixir
-kw = [hello: "hello", hi: "hi"]
+defmodule Corner.Desructure do
+  defmacro left <~ right do
+    ast =
+      cond do
+        match?({:%{}, _, _}, left) ->
+          destructure_map(left, right)
+
+        is_ast_tuple(left) ->
+          destructure_tuple(left, right)
+
+        is_list(left) ->
+          quote do: Kernel.destructure(unquote(left), unquote(right))
+
+        true ->
+          quote do: unquote(left) = unquote(right)
+      end
+
+    ast
+    |> Macro.to_string()
+    |> then(&IO.puts("L22: #{&1}"))
+
+    ast
+  end
+
+  defp is_ast_tuple({:{}, _, _}), do: true
+  defp is_ast_tuple({_, _}), do: 2
+  defp is_ast_tuple(_), do: false
+
+  defp destructure_map(left, right) do
+    default_val = make_default(left)
+
+    quote do
+      unquote(left) = Map.merge(unquote(default_val), unquote(right))
+    end
+  end
+
+  defp make_default(ast) do
+    ast
+    |> Macro.postwalk(&varable_to_nil/1)
+  end
+
+  defp varable_to_nil({atom, _, tag}) when is_atom(atom) and tag in [Elixir, nil], do: nil
+  defp varable_to_nil(v), do: v
+
+  defp destructure_tuple(left, right) do
+    left_size = ast_tuple_size(left)
+
+    quote do
+      right = unquote(right)
+      diff = unquote(left_size) - tuple_size(right)
+
+      patch_right =
+        cond do
+          0 == diff ->
+            right
+
+          # left < right
+          diff < 0 ->
+            Tuple.drop(right, diff)
+
+          # left > right
+          true ->
+            fun = fn
+              f, tuple, 0 -> tuple
+              f, tuple, n -> f.(f, Tuple.append(tuple, nil), n - 1)
+            end
+
+            fun.(fun, right, diff)
+        end
+
+      unquote(left) = patch_right
+    end
+  end
+
+  defp ast_tuple_size(tuple_ast) do
+    case is_ast_tuple(tuple_ast) do
+      2 -> 2
+      true -> length(elem(tuple_ast, 2))
+      false -> raise "require a tuple, this is not a tuple."
+    end
+  end
+end
 ```
 
-单独的使用匹配来获取一个关键字列表的值得内容, 不太灵活.
-例如, 对于`kw=[hello: "hello", hi: "hi"]`来说,
-如果我们想要获取 `:hi` 键对应得值, 必须使用 `[_|{:hi, hi}] = kw`.
-这样的语法, 相对来说比较琐屑, 不如直接使用 `hi= kw[:hi]` 直观快捷.
-
-在处理关键字的时候, 我多次写这样的错误代码: `[hello: hello|_] = kw`
-正确的写法应该是 `[{:hello, hello}|_] = kw`.
-那么为什么 `|` 的实现不允许那样做呢?
-
-元素为原子的二元元组, 如果不是连续出现,且一直延续到列表的结束的话,
-是不能使用关键字语法糖的.
-
-例如 `[0,{:first, 1},2]` 是不能写成 `[0, first: 1, 2]`的.
-而 `a|b` 本质上是一个向 b 的头部加一个元素的操作.
-
-对于 `[hello: v | rest]` 假如我们把他解释为:
-向 `rest` 头部添加 `{:hello, v}`, 那么这个操作暗含了, 
-操作后的结果是一个关键字列表; 否则就不应该允许出现关键字的语法糖.
-
-可问题是, `|` 的操作是一个运行时的动作, 无法保证结果一定是关键字. 
-所以 `|` 的左操作数不能是关键字的语法糖.
-
-对关键字来说, 使用 `Acesss` 协议, 或者 `Keyword.get/2`
-读取关键字的值更方便.
-
-如果关键字的值有其他的嵌套结果, 可以使用 `get_in/2` 来获取嵌套值.
+让我们测试一下:
 
 ```elixir
-keyword = [hello: "hello", person: [name: "Bob", age: 23]]
-# 使用 Acess 协议获取
-keyword[:hello]
-|> IO.inspect(label: "hello")
+ExUnit.start(auto_run: false)
 
-get_in(keyword, [:person, :age])
-|> IO.inspect(label: "person.age")
-```
+defmodule DesructureTest do
+  use ExUnit.Case, async: true
+  import Corner.Desructure
 
-最后, `atom: value` 这样的语法糖, 不但在列表中可以使用, 而且可以在元组, map 或结构定义的时候使用.
-相对来说, 在 map 和结构的定义中使用关键字的语法糖比较常见, 而在元组中也是可以使用的.
-例如:
+  test "desturcture from map literal" do
+    %{a: a, b: b} <~ %{a: 1, b: 2}
+    assert a == 1
+    assert b == 2
+    %{a: a} <~ %{}
+    assert a == nil
+  end
 
-```elixir
-{1, a: 1, b: 2}
-%{1 => :one, one: 1, two: 2}
-```
+  test "desturcture from map value" do
+    map = %{a: 1, b: 2}
+    %{a: a, b: b} <~ map
+    assert a == 1
+    assert b == 2
+    map = %{}
+    %{a: a} <~ map
+    assert a == nil
+  end
 
-## 字符串
+  test "desturcture nest from map not work very well" do
+    map = %{a: %{b: 1}, c: 1}
+    %{a: %{b: b}, c: c, d: d} <~ map
+    assert b == 1
+    assert c == 1
+    assert d == nil
 
-Elixir 中有两个操作符和字符串相关, 字符串链接操作符 `<>` 和 二进制操作符 `<<...>>`.
-如果我们检查 Elixir 内置的谓词, 会发现, 缺少了 `is_string`, 但是有对应的 `is_binary`.
-字符串是特殊的 binary. 这也就是为什么 `<<...>>` 加 二进制操作符的原因.
+    assert_raise MatchError, fn -> %{a: %{c: c}} <~ map end
+  end
 
-当我们知道字符串的前缀的时候, 可以是用 `<>` 完成匹配.
-例如:
+  test "desturcture from tuple literal" do
+    {a, b} <~ {1, 2}
+    assert a == 1 and b == 2
+    {a} <~ {}
+    assert a == nil
+  end
 
-<!-- livebook:{"force_markdown":true} -->
+  test "desturcture from tuple value" do
+    tuple = {1, 2}
+    {a, b} <~ tuple
+    assert a == 1 and b == 2
+    tuple = {}
+    {a} <~ tuple
+    assert a == nil
+    {a, b} <~ tuple
+    assert a == nil and b == nil
+    {a, b, c} <~ tuple
+    assert a == nil and b == nil and c == nil
+  end
 
-```elixir
-"Hello, " <> name = "Hello, Mr. Green"
-```
+  test "desturcture nest from tuple not work very well" do
+    tuple = {1, c: 1}
+    {a, [c: c], d} <~ tuple
+    assert a == 1 and c == 1 and d == nil
+    assert_raise MatchError, fn -> {a, [c: c, d: d]} <~ tuple end
+  end
 
-有时候, 我们不知道或不关心数据前缀的确切值, 但是关心或知道前缀的长度,
-那么, 这样的功能可以通过位串操作符(bitstring operator) `<<...>>` 来完成匹配.
+  test "destructure list as Kernel.desturcture" do
+    [a, b] <~ [1]
+    assert a == 1 and b == nil
+  end
 
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-<<_::binary-7, name::binary>> = "Hello, Mr. Green"
-```
-
-使用 `<<>>` 匹配的时候, 必须位变量指定单位和尺寸,
-例如这里的`_` 的单位是 `binary`, 而单位是 7.
-也就是说忽略 7 个字节. 最后的变量只指定了单位, 而没有指定长度, 
-这样他可以匹配操剩余的所有的长度.
-
-注意, 这里的单位都不能省略, 因为 `<<>>` 默认的单位是 `integer` 而不是 `binary`.
-
-可惜的是, 单位 `utf*` 不支持尺寸, 所以只能匹配对应编码的一个字符. 
-所以对于中文来说, 如果我们要完成忽略某几个字符这样的匹配, 
-只能这样写:
-`<<_::utf8, _::utf8,_::utf8,_::utf8, name:binary>> = "你好, 王先生"`
-可惜我们无法通过库代码的形式来改善这个情况, 因为 `<<args>>` 是一个特殊形式.
-
-但是实际上, 对于多字节的字符, 其实还有一种选择, 那就是字符列表.
-例如:
-`[_,_,_,_|name] = '你好, 王先生'`
-但是需要注意, 如果字符列表表示的字符串都是 ASCII 字符, 
-字符列表才以字符列表字面量的形式呈现; 否则就按照整数列表的形式打印.
-所以如果我们要显示 `name` 绑定的中文内容, 还需要把它转化为字符串.
-`name = to_string(name)`.
-所以, 为了代码的简洁, 其实可以这样来写:
-
-```
-name = '你好, 王先生' |> Enum.drop(4) |> to_string()
-```
-
-## 结构
-
-结构是特殊的 map. 我们可以通过 `is_map/1` 来确定这点. 所以我们可以使用 map 
-的匹配语法来匹配结构.
-
-```elixir
-defmodule M do
-  defstruct name: nil
+  test "<~ work as `=` for varable" do
+    a <~ {}
+    assert a == {}
+  end
 end
 
-a = %M{}
-a.__struct__
-is_map(a)
+ExUnit.run()
 ```
+
+我们定义的新的操作符 `<~` 可以完美的结果, 列表, 元组 和 Map 的单层解构, 
+但是对于嵌套结构的支持还知识停留在了, 模式匹配操作符 `=` 的基础上, 就像 `destructer/2` 一样.
+
+## 模式匹配与条件匹配操作符
+
+首先, 我们来看 Elixir 中最常用的匹配操作符 `=`. 它的工作逻辑如下:
+
+最常见的情形下, 按照 `=` 左侧的模式, 从右边的数据中提取信息.
+但是当左边变量前中出现  pin 操作符 `^` 的时候, `=` 只完成模式确认模式确认的工作:
+默认匹配成功了, 返回模式匹配操作符 `=` 右侧表达式的值; 而如果模式匹配失败了抛出异常.
+
+在 Erlang OTP 25 中引入了一个新特性 maybe, 其中可以使用新的短路操作符 `?=`[^maybe],
+叫做条件匹配操作符. 也许不久 Elixir 也会引入.
+这个操作符实际上就是 `match?/2` 和模式匹配操作符 `=` 的混合体; 当模式匹配成功的时候, 
+完成变量值得绑定, 模式匹配失败, 返回 `?=` 左边的值.
+
+[^maybe]: 见 [&Lt;Erlang 参考手册&bullet;maybe &Gt;章节](https://www.erlang.org/doc/reference_manual/expressions.html#maybe)
+
+很显然, 无论是模式匹配还是条件模式匹配, 都是模式匹配检查和模式匹配数据提供这两个工作的混合结果.
+这种情况, 在控制结构中更加的明显. 根据控制结构对匹配结果处理逻辑和方式的不同, 我把 Elixir 的控制结构分成以下几类:
+
+1. 处理逻辑类似 `=` 的控制结构
+2. 处理逻辑类似与 `?=` 的控制结果
+3. 错误处理中的模式匹配
+
+## 控制结构中的模式匹配
+
+1. 类似于 `=` 的结构
+
+   * 函数分句
+   * `case`
+   * Elixir 的 `cond`, Erlang 的 `if`
+
+   这些控制结果的大体的工作逻辑是这样的: 首先对模式做匹配, 如果不匹配, 接着匹配下一个模式,
+   如果所有的模式都不匹配, 类似于模式匹配操作符 `=` 匹配失败那样, 抛出一个错误; 
+   而一旦匹配成功了, 还要完成数据提取的工作, 并执行对应的代码段.
+
+2. 类似于 `?=` 的控制结构
+
+   * Elixir 的 `with`
+   * Erlang 中的 `maybe`
+
+   他们使用模式匹配是又是另外一个逻辑: 当模式匹配错误的时候, 返回匹配的数据; 匹配正确的时候, 
+   按照模式提取数据, 然后执行对应的代码.
+
+3. 异常处理中的模式匹配  
+   异常处理时, `catch` 处理的是函数调用参数列表. 或者按照 Erlang 的术语叫做 TList.
+   而且即使如此, 对 `:throw` 类型的错误, 还有语法糖加持.
+
+   而 `rescue` 子句中, 模式匹配时只匹配异常名字. 而且对于运行时错误, 
+   还可以使用 `ErlangError` 来统配的.
+
+   也就是说, 他们都不是常规的模式匹配.
+
+```elixir
+ExUnit.start(auto_run: false)
+
+defmodule MatchTest do
+  use ExUnit.Case
+
+  test "ErlangEroor is not same as OtherError" do
+    refute ErlangError == FunctionClauseError
+  end
+
+  test "catch think throw match two diff pattern" do
+    catch_a_value =
+      try do
+        throw(1)
+      catch
+        v -> v
+      end
+
+    catch_a_tuple =
+      try do
+        throw(1)
+      catch
+        :throw, v -> v
+      end
+
+    assert catch_a_value == catch_a_tuple
+  end
+
+  test "resuce think EralngError match all RuntimeError" do
+    a =
+      try do
+        1 / 0
+      rescue
+        ArithmeticError -> :ok
+        _ -> :try_do_not_know1
+      end
+
+    b =
+      try do
+        1 / 0
+      rescue
+        ErlangError -> :ok
+        _ -> :try_do_not_know2
+      end
+
+    assert a == b
+  end
+end
+
+ExUnit.run()
+```
+
+
