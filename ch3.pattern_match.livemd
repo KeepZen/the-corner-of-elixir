@@ -51,12 +51,7 @@ defmodule Corner.Operater do
   end
 
   defmacro left =~ right do
-    should_use_operater =
-      is_struct(right, Regex) ||
-        match?({:sigil_r, _, _}, right) ||
-        (is_binary(right) and is_binary(left))
-
-    if should_use_operater do
+    if is_binary(left) do
       quote do
         Kernel.=~(unquote(left), unquote(right))
       end
@@ -377,5 +372,3 @@ end
 
 ExUnit.run()
 ```
-
-
