@@ -51,12 +51,7 @@ defmodule Corner.Operater do
   end
 
   defmacro left =~ right do
-    should_use_operater =
-      is_struct(right, Regex) ||
-        match?({:sigil_r, _, _}, right) ||
-        (is_binary(right) and is_binary(left))
-
-    if should_use_operater do
+    if is_binary(left) do
       quote do
         Kernel.=~(unquote(left), unquote(right))
       end
@@ -147,8 +142,7 @@ defmodule Corner.Desructure do
   end
 
   defp make_default(ast) do
-    ast
-    |> Macro.postwalk(&varable_to_nil/1)
+    Macro.postwalk(ast, &varable_to_nil/1)
   end
 
   defp varable_to_nil({atom, _, tag}) when is_atom(atom) and tag in [Elixir, nil], do: nil
@@ -162,16 +156,16 @@ defmodule Corner.Desructure do
       diff = unquote(left_size) - tuple_size(right)
 
       patch_right =
-        cond do
-          0 == diff ->
+        case diff do
+          0 ->
             right
 
           # left < right
-          diff < 0 ->
+          diff when diff < 0 ->
             Tuple.drop(right, diff)
 
           # left > right
-          true ->
+          diff ->
             fun = fn
               f, tuple, 0 -> tuple
               f, tuple, n -> f.(f, Tuple.append(tuple, nil), n - 1)
@@ -272,12 +266,12 @@ end
 ExUnit.run()
 ```
 
-我们定义的新的操作符 `<~` 可以完美的结果, 列表, 元组 和 Map 的单层解构, 
-但是对于嵌套结构的支持还知识停留在了, 模式匹配操作符 `=` 的基础上, 就像 `destructer/2` 一样.
+我们定义的新的操作符 `<~`对于列表, 元组 和 Map 的单层结构, 可以完美的解构, 
+但是对于嵌套结构的支持还只是停留在了, 模式匹配操作符 `=` 的基础上, 就像 `destructer/2` 一样.
 
-## 模式匹配与条件匹配操作符
+## 模式匹配操作符
 
-首先, 我们来看 Elixir 中最常用的匹配操作符 `=`. 它的工作逻辑如下:
+Elixir 中使用最平凡的操作符是匹配操作符 `=`. 它的工作逻辑如下:
 
 最常见的情形下, 按照 `=` 左侧的模式, 从右边的数据中提取信息.
 但是当左边变量前中出现  pin 操作符 `^` 的时候, `=` 只完成模式确认模式确认的工作:
@@ -290,41 +284,254 @@ ExUnit.run()
 
 [^maybe]: 见 [&Lt;Erlang 参考手册&bullet;maybe &Gt;章节](https://www.erlang.org/doc/reference_manual/expressions.html#maybe)
 
-很显然, 无论是模式匹配还是条件模式匹配, 都是模式匹配检查和模式匹配数据提供这两个工作的混合结果.
-这种情况, 在控制结构中更加的明显. 根据控制结构对匹配结果处理逻辑和方式的不同, 我把 Elixir 的控制结构分成以下几类:
+可见操作符 `=` 和 `?=` 都是混合了模式匹配的两种用法.
+他们之间的差异在于, 当模式匹配确认失败后如何处理控制流和操作符的返回值.
 
-1. 处理逻辑类似 `=` 的控制结构
-2. 处理逻辑类似与 `?=` 的控制结果
-3. 错误处理中的模式匹配
+## 逻辑短路与控制结构的分类
 
-## 控制结构中的模式匹配
+在执行逻辑操作的时候， 有所谓是否有支持短路操作的问题,
+比如逻辑操作 `and` 和 `or` 在 Eixir 和绝大大部分的编程语言中， 
+都是短路操作: 逻辑操作符号 `and` 只有当左侧表达式的结果为 `ture` 的时候,
+右边的表达式才会求值; 而操作符 `or` 只有当左边的表达式结果为 `false` 时, 
+才会对右边的表达式求值.
 
-1. 类似于 `=` 的结构
+但不是并不是所有的编程语言都是这样的, Erlang 中就提供了全路的逻辑操作, 
+当然也有对应的短路操作符号.
+Erlang 中的 `and` 和 `or` 对逻辑操作符执行全路操作, 也就是说, 
+在 Erlang 中 `and` 和 `or` 总是先计算左边的表达式, 然后计算右边的表达式;
+而执行逻辑短路操作的是关键字 `and_also` `or_else`.
+也就是说 Elixir 中的 `and` 和 `or` 对应的是 Erlang 的 
+`and_also` 和 `or_else`.
+Elixir 中缺少全路的逻辑操作.
 
-   * 函数分句
-   * `case`
-   * Elixir 的 `cond`, Erlang 的 `if`
+短路和全路操作, 对于逻辑结果来说是没有影响的, 有影响的只是副作用.
 
-   这些控制结果的大体的工作逻辑是这样的: 首先对模式做匹配, 如果不匹配, 接着匹配下一个模式,
-   如果所有的模式都不匹配, 类似于模式匹配操作符 `=` 匹配失败那样, 抛出一个错误; 
-   而一旦匹配成功了, 还要完成数据提取的工作, 并执行对应的代码段.
+副作用的存在, 使得逻辑操作符可以用来充当控制结构.
+这就是为什么要讨论逻辑操作短路与否的问题。
+为了进一步的利用逻辑的短路操作做控制结构, Elixir 还提供了接受 `boolean_as` 类型的
+操作符 `&&` 和 `||`.
+C 语言的三目条件表达式 `cond ? true_part : false_part`,
+在 Elixir 中既可以使用 `if cond,do: true_part, else: false_part`
+又可以使用 `cond && true_part || false_part` 来模拟.
 
-2. 类似于 `?=` 的控制结构
+在正则表达式对字符的匹配中, 又所谓的贪婪匹配与懒惰匹配.
 
-   * Elixir 的 `with`
-   * Erlang 中的 `maybe`
+如果存在多个匹配模式， 以什么样的逻辑来处理这些模式的确认结果呢？
 
-   他们使用模式匹配是又是另外一个逻辑: 当模式匹配错误的时候, 返回匹配的数据; 匹配正确的时候, 
-   按照模式提取数据, 然后执行对应的代码.
+Elixir 的控制结构中， 使用的都是 `||` 的逻辑, 
+也就是说按照顺序对每个模式做一一确认知道发现确认的模式.
+但是当所有的模式全部失败后的处理逻辑上又可以又不同, 就像 `=` 和 `?=` 的不同.
+可以把 `=` 的选择叫做悲观主义, 而 `?=` 的选择叫做乐观主义.
+那么控制结构, 可以分成三类:
 
-3. 异常处理中的模式匹配  
-   异常处理时, `catch` 处理的是函数调用参数列表. 或者按照 Erlang 的术语叫做 TList.
-   而且即使如此, 对 `:throw` 类型的错误, 还有语法糖加持.
+1. 悲观的
+2. 乐观
+3. 特殊
 
-   而 `rescue` 子句中, 模式匹配时只匹配异常名字. 而且对于运行时错误, 
-   还可以使用 `ErlangError` 来统配的.
+## 悲观控制结构
 
-   也就是说, 他们都不是常规的模式匹配.
+Elixir 的大部分的控制结构都是悲观的, 都所有的匹配模式都确认失败后,
+产生错误的.
+
+* 函数分句
+* `case`
+* `cond`
+
+这些控制结果的大体的工作逻辑是这样的: 首先对模式做匹配, 如果不匹配, 接着匹配下一个模式,
+如果所有的模式都不匹配, 类似于模式匹配操作符 `=` 匹配失败那样, 抛出一个错误; 
+而一旦匹配成功了, 还要完成数据提取的工作, 并执行对应的代码段.
+
+### 函数分句
+
+函数的分句这种概念, 从编程的效果上看, 非常类似于 C++ 和 Java 中的函数和方法的重载.
+都完成了对代码的动态调度. 但是这里不只是术语的名称的不同, 函数重载和子句各自又自己的世界观.
+
+函数的重载可以发生在很多地方, 不只是限制在同一个明明空间中, 
+而且每个函数实际上也被认为是单独可区分的, 只是编译器为程序员做了底层的琐屑区分和正确加载的工作.
+
+Elixir 中函数分句只能发生在同一模块中, 而且这些函数应该集中放在一起,
+而不应该被其他代码分隔开来.
+例如下面的代码, 我们故意在 `fib/2` 的两个子句之间, 定义了一个新的函数 `b`,
+这样的代码编译器会给出警告.
+
+```elixir
+defmodule CauseDemod do
+  def fib(n, acc \\ [1, 1])
+  def fib(0, [a, _]), do: a
+  def b(), do: nil
+  def fib(n, [a, b]), do: fib(n - 1, [a + b, a])
+end
+```
+
+从语法基因来说, Erlang 中函数子句, 语法上就是不能分开写的.
+上面的代码, 对应的 Erlang 版本是这样的:
+
+```erlang
+-module('CauseDemode')
+-export([fib: 2, fib: 1, b: 0])
+
+fib(0,[a,_]) -> a;
+fib(n,[a,b]) -> fin(n-1,[a+b,a]).
+
+fib(n)-> fib(n,[1,1]).
+
+b() -> nil.
+```
+
+Erlang 中, `.` 是语句结束的标志, 所以 Erlang 中是没有办法把函数分句拆散的.
+但是 Elixir 的创建不就是为了为 OTP 平台提供更好的语法的吗?
+在 Elixir 中, 对 Erlang 的语法改进是相当大的, 
+所以绝对不存在兼容 Erlang 语法的问题, 而编译器给出的是警告不是错误,
+这说明, 这样做的原因这不是技术实现上. 那么警告的原因是什么呢?
+
+这是代码整洁性的要求, 这个要求首先是对函数子句概念的对应,
+其次把相关代码紧凑的放在一起, 也使得代码更容易维护.
+
+编程的过程中, 当需要重构代码的时候, 我往往就是在需要重构的代码的前面和后面,
+开始自己的函数提取. 这样, 不自觉地就又减低了代码的可维护性.
+
+在我们阅读代码的时候, 函数的名字给定了我们代码的上下文.
+对外的接口代码, 其上下文往往是抽象层级较高;
+而重构抽取的代码, 往往是底层细节的内容.
+
+如果代码的布局上高层和第层的概念交叉在一起, 对于代码的阅读者来说,
+其理解的负担无疑是增加的.
+
+所以, 把函数子句放在一起, 的确是应该提倡的.
+
+如果函数的子句处理的任务还是非常的负责,
+需要把其他的代码提取为单独的函数的时候, 怎么处理呢?
+
+如果把函数子句调用的帮助函数统统放在整个函数定义的后面或前面,
+当有很多帮助函数的时候, 函数之间的依赖关系就不是那么清晰了.
+社区给出的推荐做法是这样的:
+保持对外接口不变, 在对应的子句中调用一个为这个子句情况而写的函数.
+
+这个处理子句特殊情况的函数, 放在整个接口函数的后面.
+
+在这个独立函数的基础上, 再做代码的重构的工作, 把重构提取的代码放在独立函数的后面.
+
+这样的从概念的布局上来说, 总是高层是的概念较底层概念先出现, 
+有相关的概念有保持在相邻的区域.
+
+例如 Phoenix LiveView 中, 事件的处理的代码, 就可以这样来写:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def handler_event('button1_click',_value, stack),do: ...
+def handler_event('update_file',value,stack), do: handle_update_file(value,stack)
+def handler_event('enven_name', _value,stack),do: ...
+
+
+defp handle_update_file(value,stack) do
+  [v1,v2]=extract(value)
+  work_with_v1_and_v2
+  ...
+end
+
+defp extrac(value) do
+   ...
+end
+```
+
+### Case 与 Cond
+
+在刚开始学习的时候, 遇到需要使用 `case` 或 `cond` 的时候,
+我往往犹豫应该使用那一个.
+
+现在我认为, `case` 语句才对应 C 家族的 `switch`.
+
+`cond` 更加像 C 家族的 `if-else-if` 链.
+
+例如, 下面的 JS 代码:
+
+```js
+function leave(score){
+   if(score < 60)  reurn "F"
+   else if(60 <= score && score < 70) return "E"
+   else if(70<= score && score < 80)  return "B"
+   else if(80<= score && score < 90) reurn "A"
+   else return "A+"
+}
+```
+
+对应的 Elixir 应该是:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def leave(score) do
+   cond do
+     score < 60 -> "F"
+     60 <= score and score < 70 -> "E"
+     70 <= score and score < 80 -> "B"
+     80 <= score and score < 90 -> "A"
+     true -> "A+"
+   end
+end
+```
+
+当然了实际上就像 `case` 和 `cond` 可以表示同样的语义一样,
+`switch` 也可以模拟 `if-else-if` 链条
+
+```js
+function leave(score){
+   switch(true){
+     case score < 60: return "F";
+     case 60 <= score && score <70: return "E";
+     case 70 <= score && score <80: return "B";
+     case 80 <= score && score <90: return "A";
+     default : return "A+"
+   }
+}
+```
+
+对应的 Elixir 代码应该为:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def leave(score) do
+  case true do
+    score < 60 -> "F"
+    60 <= score and score < 70 -> "B"
+    70 <= score && score <80 -> "B";
+    80 <= score && score <90 -> "A";
+    true ->"A+"
+  end
+end
+```
+
+C 中 `switch` 和 Elixir 中的 `case` 存在主句对应关系.
+
+原来我困惑, 是因为的确 `case` 和 `cond` 可以相互替换.
+而且看起来, 都是用来处理 `switch` 语句的. 
+直到我学习了一点点 Erlang, 发现 Elixir 中的 `cond` 对应的实际上是
+Erlang 的 `if` 结构, 我才意识到到:
+`cond` 在 C 语言家族中的正真对应物应该是 `if-elseif` 链.
+
+## 乐观控制结构
+
+* Elixir 的 `with`
+* Erlang 中的 `maybe`
+
+他们使用模式匹配是又是另外一个逻辑: 当模式匹配错误的时候, 返回匹配的数据; 匹配正确的时候, 
+按照模式提取数据, 然后执行对应的代码.
+
+关于 `with` 和 `maybe` 的讨论 见本书的 [With 章节](./ch6.with.livemd).
+
+## 异常处理中的模式匹配
+
+异常处理中的模式匹配的处理是特殊的.
+
+1. `catch` 处理的是函数调用参数列表; 即使如此, 对 `:throw` 类型的错误, 还有语法糖加持.
+   参数列表这种语法形式, 只有在函数定义和 `catch` 的时候才是合法的, 其他地方都是不合法的语句,
+   所以这种模式匹配是非常独特的.
+2. `rescue` 子句中, 模式匹配时只匹配异常名字. 而且对于运行时错误,
+   还可以使用 `ErlangError` 来统配的. 而如果要绑定错误对象就必须使用 guard 匹配; 当然了, 还是阉割过的 guard 匹配, 如果和 `case` 或函数定义是的 guard 子句比较的化.
+
+像下面的代码展示的那样, 他们都不是常规的模式匹配.
 
 ```elixir
 ExUnit.start(auto_run: false)
@@ -378,4 +585,4 @@ end
 ExUnit.run()
 ```
 
-
+更多的内容见后面的[错误处理章节](./ch8.error_handle.livemd).
