@@ -427,6 +427,8 @@ defp extrac(value) do
 end
 ```
 
+<!-- livebook:{"break_markdown":true} -->
+
 ### Case 与 Cond
 
 在刚开始学习的时候, 遇到需要使用 `case` 或 `cond` 的时候,
@@ -437,6 +439,37 @@ end
 `cond` 更加像 C 家族的 `if-else-if` 链.
 
 例如, 下面的 JS 代码:
+
+```js
+function score_range(leave){
+   switch(leave){
+     case "F": return [0,59];
+     case "E": return [60,69];
+     case "B": return [70, 79];
+     case "A": return [80, 89];
+     default : reurn [90,100]
+   }
+}
+```
+
+对应的 Elixir 代码应该为:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def score_range(leave) do
+  case leave do
+    "F" -> [0,59];
+    "E" -> [60,69];
+    "B" -> [70, 79];
+    "A" -> [80, 89];
+    #"A+" 
+    _v -> [90,100]
+  end
+end
+```
+
+C 中 `switch` 和 Elixir 中的 `case` 几乎是逐句对应的.
 
 ```js
 function leave(score){
@@ -464,48 +497,18 @@ def leave(score) do
 end
 ```
 
-<!-- livebook:{"break_markdown":true} -->
+在 Elixir 中, `case` 和 `cond` 的互换,
+要比 C 家族的 `switch` 和 `if-else-if` 语句的互换方便和容易的多.
+这也是在 Elixir 中写多分支语句的时候, 我犹豫的一个原因之一.
 
-JS 中 `switch` 也可以模拟 `if-else-if` 链:
+心理分析学派发现, 找到心理创伤的根源, 往往就可以缓解创伤的症状, 甚至治愈.
+实际上一切困惑和神秘的都源于我们还没有很好的理解它,
+如果我们自己能够亲手的从新的, 以我们自己了解和掌握的知识和材料, 重新创建他们,
+那么就可以扫清这个思维和心理障碍, 这是我们的经验体会.
 
-```js
-function leave(score){
-   switch(true){
-     case score < 60: return "F";
-     case 60 <= score && score <70: return "E";
-     case 70 <= score && score <80: return "B";
-     case 80 <= score && score <90: return "A";
-     default : return "A+"
-   }
-}
-```
+所以, 让我来重新发明轮子, 看看如何用自己熟悉和习惯的概念来实现令我困惑的
+`case` 和 `cond`.
 
-对应的 Elixir 代码应该为:
-
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-def leave(score) do
-  case score do
-    score when score < 60 -> "F"
-    score when 60 <= score and score < 70 -> "B"
-    score when 70 <= score and score < 80 -> "B"
-    score when 80 <= score and score < 90 -> "A"
-    true -> "A+"
-  end
-end
-```
-
-C 中 `switch` 和 Elixir 中的 `case` 存在逐句对应关系.
-
-原来我困惑, 的原因之一是 Elixir 中, `case` 和 `cond` 的确可以相互替换.
-
-直到我学习了一点点 Erlang, 发现 Elixir 中的 `cond` 对应的实际上是
-Erlang 的 `if` 结构, 我才意识到到:
-`cond` 在 C 语言家族中的正真对应物应该是 `if-elseif` 链,
-而非 `switch` 结构.
-
-如果我们要自己实现`case` 语句, 该怎么做呢?
 观察 `case` 语句的语法, 我发现, 可以把 `case` 语句看作是
 Elixir 的立即调用表达式(IIFE)的语法糖:
 首先把 `case` 语句的 `do-block` 块, 使用 `fn` ... `end` 包裹起来,
@@ -513,15 +516,102 @@ Elixir 的立即调用表达式(IIFE)的语法糖:
 然后立即使用 `case` 的第一个参数来调用这个新创建的匿名函数.
 这样就完成了 `case` 语句的工作.
 
-现在再来分析以下 `cond`. `cond` 实际上要处理一个列表,
-这个列表中, 每个元素都有三个部分, `:->`, 左侧表达式, 右侧表达式.
-`cond` 完成的工作:
+```elixir
+defmodule Case do
+  defmacro my_case(v, do: block) do
+    iife(block, v)
+  end
 
-1. 以左侧表达式式的值作为 as_boolen 类型, 查找右边表达式;
-2. 如果找到了, 计算右边表达式的结果, 作为 `cond` 的结果;
-3. 如果没有找到, 那么 `cond` 产生错误.
+  defp iife(body, v) do
+    {
+      # from here
+      {:., [],
+       [
+         {:fn, [], body}
+       ]},
 
-## TODO case cond 实现
+      # to here , this is: `(fn ..end).`
+      # (v)
+      [],
+      [v]
+    }
+  end
+end
+```
+
+```elixir
+import Case
+
+my_case 0 do
+  1 ->
+    1
+
+  2 ->
+    2
+
+  a when a > 2 ->
+    IO.puts("a:#{a}")
+    a
+
+  v ->
+    v
+end
+|> IO.inspect()
+```
+
+像上面我们分析的那样, `cond` 的语句可以转化为 `if-else-if` 语句链.
+那么我们以这样的思路来实现我们的 `cond`:
+
+```elixir
+defmodule Cond do
+  defmacro my_cond(do: block) do
+    if Enum.all?(block, &check_syntax/1) do
+      ast =
+        block
+        |> Enum.map(&elem(&1, 2))
+        |> Enum.reverse()
+        |> Enum.reduce(make_error("Can not find the true pattern"), fn [[condtion], then], acc ->
+          make_if(condtion, then, acc)
+        end)
+
+      Macro.to_string(ast)
+      |> then(&IO.puts("You codes just as:\n#{&1}"))
+
+      ast
+    else
+      {:cond, [], [[do: block]]}
+    end
+  end
+
+  defp check_syntax({:->, _, v}) when is_list(v), do: true
+  defp check_syntax(_), do: false
+
+  defp make_if(condtion, then, else_part) do
+    {:if, [context: Elixir, import: Kernel], [condtion, [do: then, else: else_part]]}
+  end
+
+  defp make_error(message) do
+    {:raise, [context: Elixir, import: Kernel], [message]}
+  end
+end
+```
+
+```elixir
+import Cond
+a = 7
+
+my_cond do
+  a < 7 -> "less than 6"
+  a == 7 -> "eq 7"
+  a > 7 -> "greate than 7"
+end
+
+quote do
+  cond do
+    a -> b
+  end
+end
+```
 
 ## 乐观控制结构
 
