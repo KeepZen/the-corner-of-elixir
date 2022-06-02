@@ -444,10 +444,12 @@ end
 function score_range(leave){
    switch(leave){
      case "F": return [0,59];
-     case "E": return [60,69];
-     case "B": return [70, 79];
-     case "A": return [80, 89];
-     default : reurn [90,100]
+     case "E": return [60,65];
+     case "D": return [66,74];
+     Case "C": return [75,79];
+     case "B": return [80, 85];
+     case "A": return [86, 89];
+     default : return [90,100]
    }
 }
 ```
@@ -459,10 +461,12 @@ function score_range(leave){
 ```elixir
 def score_range(leave) do
   case leave do
-    "F" -> [0,59];
-    "E" -> [60,69];
-    "B" -> [70, 79];
-    "A" -> [80, 89];
+    "F" -> [0,  59];
+    "E" -> [60, 65];
+    "D" -> [66, 74];
+    "C" -> [75, 79];
+    "B" -> [80, 85];
+    "A" -> [86, 89];
     #"A+" 
     _v -> [90,100]
   end
@@ -474,9 +478,11 @@ C 中 `switch` 和 Elixir 中的 `case` 几乎是逐句对应的.
 ```js
 function leave(score){
    if(score < 60)  reurn "F"
-   else if(60 <= score && score < 70) return "E"
-   else if(70<= score && score < 80)  return "B"
-   else if(80<= score && score < 90) reurn "A"
+   else if(60 <= score && score <= 65) return "E"
+   else if(66 <= score && score <= 74) return "D"
+   else if(75 <= score && score < 80)  return "C"
+   else if(80 <= score && score < 85)  return "B"
+   else if(86 <= score && score < 90)  return "A"
    else return "A+"
 }
 ```
@@ -489,9 +495,11 @@ function leave(score){
 def leave(score) do
   cond do
     score < 60 -> "F"
-    60 <= score and score < 70 -> "E"
-    70 <= score and score < 80 -> "B"
-    80 <= score and score < 90 -> "A"
+    60 <= score and score <= 65 -> "E"
+    66 <= score and score <= 74 -> "D"
+    75 <= score and score < 80 -> "C"
+    80 <= score and score < 85 -> "B"
+    86 <= score and score < 90 -> "A"
     true -> "A+"
    end
 end
@@ -516,6 +524,8 @@ Elixir 的立即调用表达式(IIFE)的语法糖:
 然后立即使用 `case` 的第一个参数来调用这个新创建的匿名函数.
 这样就完成了 `case` 语句的工作.
 
+<!-- livebook:{"disable_formatting":true} -->
+
 ```elixir
 defmodule Case do
   defmacro my_case(v, do: block) do
@@ -524,16 +534,12 @@ defmodule Case do
 
   defp iife(body, v) do
     {
-      # from here
-      {:., [],
+      {:., [], #The `.` of `(fn...end).(v)`
        [
-         {:fn, [], body}
+         {:fn, [], body}# this is: `(fn...end)`
        ]},
-
-      # to here , this is: `(fn ..end).`
-      # (v)
       [],
-      [v]
+      [v] #this is the arguments list. Here is just the arugment `v`. 
     }
   end
 end
@@ -542,21 +548,21 @@ end
 ```elixir
 import Case
 
-my_case 0 do
-  1 ->
-    1
-
-  2 ->
-    2
-
-  a when a > 2 ->
-    IO.puts("a:#{a}")
-    a
-
-  v ->
-    v
+fun = fn v ->
+  my_case v do
+    "A+" -> [90, 100]
+    "A" -> [86, 89]
+    "B" -> [80, 85]
+    "C" -> [70, 79]
+    "E" -> [60, 79]
+    "F" -> [0, 60]
+  end
 end
-|> IO.inspect()
+
+[90, 100] = fun.("A+")
+[0, 60] = fun.("F")
+# Error
+fun.("FFF")
 ```
 
 像上面我们分析的那样, `cond` 的语句可以转化为 `if-else-if` 语句链.
@@ -605,12 +611,6 @@ my_cond do
   a == 7 -> "eq 7"
   a > 7 -> "greate than 7"
 end
-
-quote do
-  cond do
-    a -> b
-  end
-end
 ```
 
 ## 乐观控制结构
@@ -618,10 +618,9 @@ end
 * Elixir 的 `with`
 * Erlang 中的 `maybe`
 
-他们使用模式匹配是又是另外一个逻辑: 当模式匹配错误的时候, 返回匹配的数据; 匹配正确的时候, 
-按照模式提取数据, 然后执行对应的代码.
+他们特殊的地方在于, 当模式匹配出错的时候, 控制结构中有对应的控制结构, 来处理最后匹配失败的数据.
 
-关于 `with` 和 `maybe` 的讨论 见本书的 [With 章节](./ch6.with.livemd).
+关于 `with` 和 `maybe` 的更详细的讨论, 见本书的 [With 章节](./ch6.with.livemd).
 
 ## 异常处理中的模式匹配
 
