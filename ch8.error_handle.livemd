@@ -20,7 +20,7 @@ Erlang 中把错误分成 4 类.
 3. 抛出(throw), 由 `:erlang.throw` 引发.
 
 Erlang 中用 `catch` 处理这些错误.
-而 Elixir 中, 除了 `catch` 外, 还引入了 Ruby 中的 `rescue`.
+而 Elixir 中, 除了 `catch` 外, 还引入了从 Ruby 中引入了新的 `rescue` 保留字.
 那么自然的就由一个问题, `catch` 和 `rescue` 如何分工呢?
 
 按照 [Elixir 文档](https://hexdocs.pm/elixir/Kernel.SpecialForms.html#try/1)的说法,
@@ -34,8 +34,8 @@ be used to catch thrown values and exits.)
 
 如果 Elixir 中的异常和 Erlang 中的是一个概念话,
 那么我对 `rescue` 和 `catch` 的分工的理解,
-就成了: `rescue` 能处理所有三种类型的异常, 而 `catch` 只能处理 `throw` 和 `exit`.
-但是这样的理解是错误的.
+就成了: `rescue` 能处理所有三种类型的异常, 而 `catch` *只能* 处理 `throw` 和 `exit`.
+但是**这样的理解是错误的**.
 
 例如下面的代码,`rescue` 在这里并没有把我们从 `throw` 引发的错误中拯救出来.
 
@@ -47,25 +47,27 @@ rescue
 end
 ```
 
-使用 Erlang 对异常的分类, `rescue` 实际上只能处理错误 `error`.
+使用 Erlang 对异常的分类, `rescue` 实际上只能处理错误 `error` 类型错误.
 Elixir 文档中也的确有提到 `rescue` 对 Erlang 的错误的处理,
 所有的 Erlang 错误都被转化为 `ErlangError`.
-这可以看作是一种暗示: Elixir 中异常对应于 Erlang 的错误.
+这可以看作是一种暗示: Elixir 中异常对应于 Erlang 的 `error` 类型的错误.
 
-理解了这一点, 对于 `catch` 的分工描述中的 **可以** 就有了不同的理解.
-在 Erlang 中, `catch` 就可以用来捕获这三种类型的错误的,
-Elixir 中还是一样, 只是因为 `rescue` 对于其中的一部分工作处理的更优雅, 
-所以在 Elixir 中大部分情况下, 用它来处理 `throw` 和 `exit` 引发的错误,
-但是 `catch` 并没有退化.
+理解了这一点, 对于 `catch` 的分工描述才能有正确的理解.
+在 Erlang 中, 本来就是用`try...catch` 来处理所有错误的,
+在 Elixir 中增加的保留字 `resuce` 只是针对 `error` 类型的处理,
+而提供的更优雅便捷的语法.
 
-所以我原来的理解正好搞反了, `catch` 是全能处理者, 而 `rescue` 才是挑剔者.
+Elixir 中依旧可以使用 `catch` 来处理全部的三种类型的错误, 也就是说,
+在 Elixir 中 `catch` 并没有退化.
+
+**结论**: 我原来的理解正好搞反了, **`catch` 是全能的错误处理者, 而 `rescue` 才是挑剔者**.
 
 ## 怎么拯救
 
 上一节我们讨论了, Elixir 中的 `rescue` 的使用场景, 
 现在我们来讨论如何使用它.
 
-比如定义一个条件匹配的宏,来模拟 Erlang 的 maybe 特性.
+比如让我们使用 `try...rescue` 来来模拟 Erlang 的 maybe 特性.
 
 ```elixir
 defmodule Corner.Maybe do
@@ -84,7 +86,7 @@ end
 ```
 
 不难推测, 还可以在第 7 行的列表中加入更多的错误类型.
-如果只是不管异常的名字叫什么, 都要处理的话, 就可以向第 9 行那样处理.
+如果不管异常的名字叫什么都要处理的话, 就可以向第 9 行那样处理.
 
 但是像第 7 行中对对错误的处理, 如果需要提取异常的消息内容,
 那么我忍不住要使用注释掉的第 8 行那样的代码.
@@ -92,8 +94,9 @@ end
 只基于异常的名字来处理[^rescue].
 
 这样的处理有些奇怪啊! 如果允许第 8 行那样写代码, 代码不是显的更整洁吗?
-为什么 Elixir 这样处理这个问题? 现在还没有答案, 
-但是不要这一个问题阻拦了我们探索的脚步. 也许后面的探索中, 答案自然就会浮出水面呢!
+为什么 Elixir 对 `rescue` 的匹配匹配语法要限制只能匹配错误名字呢?
+现在还没有答案, 但是不要这一个问题阻拦了我们探索的脚步.
+也许后面的探索中, 答案自然就会浮出水面呢!
 
 [^rescue]: Elixir 文档中的话, 翻译过来是: 除了以来模式匹配外, 
 `rescue` 围绕异常提供了一些方便, 允许我们根据异常的名字来展开救援. 
@@ -107,7 +110,7 @@ end
 
 ### 抛接游戏
 
-Elixir 中 `throw` 可以抛出任意的数据类型, 就像 C++ 中那样,
+Elixir 中 `throw` 可以抛出任意的数据类型 (就像 C++ 中那样),
 而 `catch` 可以原封不动的接住所有被抛出的东西.
 Elixir 中没有 `return` 语句, 使用 `throw` `catch` 可以模拟它.
 例如像这样的 Js 代码:
@@ -139,10 +142,11 @@ end
 
 ### 信号捕获
 
-但是在 Erlang 中, `catch` 实际上更加类似于 Linux 进程间通信机制中的信号.
+但是在 Erlang 中, `catch` 实际上更加类似于 Linux 进程间通信机制中的信号陷阱的处理.
 也就是说, `catch` 的实际上是信号, Elixir 信号比 Linux 的信号通信高级的地方在于
 Linux 的信号种类是固定的; 而 Elixir 中 `exit` 可以发送的信号, 
-是由类型与加附带消息共同组成的. 信号的类型个数是固定的, 但是信号携带的信息数量上是无限多的.
+是由类型与加附带消息共同组成的. Elixir 的 `exit` 产生的信号的类型个数是固定的,
+但是信号携带的信息数量上是无限的.
 
 `catch` 子句中完整的匹配语法是这样的:
 
@@ -153,26 +157,26 @@ catch
   kind, message when guard -> ...
 ```
 
-也就是说, `catch` 子句中 `->` 左边得是一个二元参数列表形式.
-当然了, guard 子句可以省略. 而 `catch v -> ...` 不过 Elixir 为我们提供的代码
-`catch :throw, v -> ...` 的语法糖.
+也就是说, `catch` 子句中 `->` 左侧, 应该是一个二元的参数列表形式.
+当然了就像其他环境中的 `when guard` 子句一样, 这里也可以省略它.
+而 `catch v -> ...` 是 `catch :throw, v -> ...` 的语法糖.
 
-我们用代码来探索一下, 看我们的理解是否正确:
+我们用代码来检验以下我们的理解是否正确:
+
+<!-- livebook:{"disable_formatting":true} -->
 
 ```elixir
-1 =
-  try do
-    throw(1)
-  catch
-    :throw, v -> v
-  end
+1 = try do
+  throw(1)
+catch
+  :throw, v -> v
+end
 
-2.0 =
-  try do
-    throw(2.0)
-  catch
-    v -> v
-  end
+2.0 = try do
+  throw(2.0)
+catch
+  v -> v
+end
 ```
 
 对 `throw` 产生的错误来说, `catch v ->..` 和 `catch :throw, v -> ...` 一样. 
@@ -201,12 +205,13 @@ catch
   try do
     :erlang.error(:reason, [2])
   catch
-    :error, v -> v
+    :error, reason -> reason
   end
 ```
 
-Erlang 的 `:erlang.error/1/2/3`, `catch` 总是能捕获其异常的原因,
-也就是 `:erlang.error` 的第一个参数.
+对Erlang 的 `:erlang.error/1/2/3` 产生的错误,
+`catch` 总是能捕获其原因(代码中的变量 `reason`),
+其值就是调用 `:erlang.error` 的第一个参数.
 
 ```elixir
 :badarith =
@@ -222,14 +227,14 @@ Erlang 的 `:erlang.error/1/2/3`, `catch` 总是能捕获其异常的原因,
   catch
     # not work
     # :error, %MatchError{}=v -> v 
-    # now v is not a Error, but a tuple
-    :error, v -> v
+    # now `reason` is not a Error, but a tuple
+    :error, reason -> reason
   end
 ```
 
-使用 `catch :error, v -> v` 捕获运行时错误, v 绑定运行时发送的信息,
-不同的错误运行时发送的信息也不同.
-比如算术计算引发的错误是一个原子 `:badarith` 表示算术运算错误类型.
+使用 `catch :error, reason -> ...` 捕获运行时错误,
+`reason` 绑定运行时发送的信息, 不同的错误运行时, 产生的原因的数据类型也不统一.
+比如算术计算引发的错误, 是用一个原子 `:badarith` 来表示算术运算错误.
 而匹配错误, 返回的是一个二元元组, 元组的第一个元素是原子 `:badmatch` 代表错误类型,
 第二个元素是匹配操作符 `=` 的右操作数.
 
@@ -249,7 +254,8 @@ Erlang 的 `:erlang.error/1/2/3`, `catch` 总是能捕获其异常的原因,
   end
 ```
 
-无论传递给 `exit/1` 的是什么, `catch :exit, v ->` `v` 都能获取绑定的值.
+对于 `exit` 产生的错误, 无论传递给 `exit/1` 的是什么,
+`catch :exit, v ->` 语句中 `v` 都能绑定的它的值.
 
 ```elixir
 %MatchError{} =
@@ -270,22 +276,19 @@ Erlang 的 `:erlang.error/1/2/3`, `catch` 总是能捕获其异常的原因,
 `catch` 和 `rescue` 都可以用来处理 `raise` 引发的错误. 
 在 `catch` 的语法可以让我更方便的使用匹配语法. 而 `rescue` 只能匹配变量名.
 
-但是, 注意对比运行时产生的匹配错误, 和我们使用 `raise` 产生的匹配错误.
-
-运行时参数的匹配错误, 使用 `catch :error, v -> ..`, `v` 绑定的是一个二元元组.
+但是, 注意对比运行时产生的匹配错误, 和使用 `raise` 产生的匹配错误之间的微妙区别.
+运行时产生的匹配错误, 使用 `catch :error, v -> ...` 语句时, `v` 绑定的是一个二元元组.
 而 `rasie` 产生的错误 `catch :error, v ->...` `v` 绑定的是 %MatchError{} 异常结构.
 
 ## 更优雅的拯救
 
 在探索 `catch` 对异常的捕获是, 我们发现 `catch` 对运行时错误和 `raise` 产生的错误有区分,
-这使得 `catch` 对由不同的机制产生的相同异常, 必须使用不一致的语法来处理. 
-我想真是这种不一致, 所以 Elixir 中才引入 `rescue` 的吧.
-运行时错误和产生的错误统称为异常. Elixir 中更多的使用 `rescue` 来处理异常.
-
+这使得 `catch` 对错误来源敏感, 这就导致了由不同的机制 (`error` 或 `raise`)
+产生的相同异常 (`MatchError`), 必须使用不一致的语法来处理. 
+Elixir 中用 `rescue` 来统一处理异常, 而不再区分它们的来源.
 可是 `rescue` 子句中的匹配的语法, 只支持对异常名匹配. 
 这样在需要提取异常消息的时候, 代码就不够简洁了.
-
-但是变量可以匹配任意给定的值, 这个匹配规则没有打破.
+好在变量可以匹配任意给定的值, 这个匹配规则没有打破.
 所以 `rescue v ->` 可以用来匹配任意的类型的异常.
 
 当变量 `v` 绑定异常结构后, 在 `->` 的右侧, 就可以使用结构的匹配语法来对异常做匹配了.
@@ -308,7 +311,7 @@ end
 我们就可以定义自己的语法糖, 来让 `rescue` 语法可以使用更强大的模式匹配语法.
 
 `try` 是 Elixir 特殊表单, 大家对他的语法有一致的预期, 
-为了让不熟悉我们的库的程序员不至于感到迷惑, 不是使用 `try` 来作为我们的宏的名字.
+为了让不熟悉我们的库的程序员不至于感到迷惑, 我们不使用 `try` 来作为我们的宏的名字.
 这个要定义的宏是要增强 `rescue` 的匹配功能, 所以可以把这个宏命名为 `super_try`.
 就像动漫中, 超级英雄拯救世界一样, `super_try` 用来拯救我的代码洁癖症.
 
@@ -403,7 +406,7 @@ end
 
 ```elixir
 catch 
-:error, v -> ...
+  :error, v -> ...
 rescue 
   rescue_code
 ```
@@ -449,7 +452,11 @@ catch
 end
 ```
 
-最后提醒读者, 我们这里是对语法规则的探索, 才故意打乱其顺序的, 但是绝对不是鼓励大家在实际的编码中也这样做.
+也就是说, 在 `try` 子句中: 如果 `rescue` 和 `catch` 都存在的话,
+`rescue` 应该放在 `catch` 子句的前面,
+而其他的子句的顺序并没有特别的要求.
+
+最后提醒读者, 我们这里是对语法规则的探索, 才故意打乱其顺序的, 绝对不是鼓励大家在实际的编码中也这样做.
 
 ## 什么时候必须 try
 
@@ -526,7 +533,7 @@ end
   ]}
 ```
 
-而函数 f(a) 定义的块结果的 AST 表示是:
+而函数 `f(a)` 定义的 `do...end` 的 AST 表示是:
 
 <!-- livebook:{"force_markdown":true} -->
 
