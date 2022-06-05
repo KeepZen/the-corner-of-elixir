@@ -156,7 +156,7 @@ Erlang 的一个源代码 (.erl) 就是被编译器转化为一个 `.beam` 文�
 如何来填充 `.beam` 文件的相关段落的.
 
 在 Erlang 中, 大部分属性和 `.beam` 段落(chunk)名之间是有直接关系的,
-还有一部分, 属性可能有多个值, 比如 `-callback`, 这些是集合到一起,
+还有一部分, 属性有多个值, 比如 `-callback`, 这些值集合到一起,
 放在一个段落中的. 总之在 Erlang 中理解模块属性, 是相当直观的.
 
 ```erlang
@@ -176,17 +176,15 @@ defmodule(:hello, [do: (
 )])
 ```
 
-| Erlang 预定义的属性 示例 | 意义                         | Elixir对应结构                 |
-| -------------------------------- | ------------------------------ | ---------------------------------- |
-| `-module(MODULE_NAME)`           | 设置模块的名字          | `defmodule`                        |
-| `-export(Functions)`             | 模块中导出函数          | `def`                              |
-| `-import(Module,Functions)`      | 导入其他模块中的函数 | `import Module, only: [Functions]` |
-| `-compile(Options)`              | 模块中指定编译选项    | `@compile([options])`              |
-
-|  | `-vsn(Vsn)`          | 模块版本                            | `@vsn("VSN")`  |
-|  | `-on_load(Function)` | 指定模块加载时调用的函数名 | `@on_load ...` |
-
-| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | ---                                            |
+| Erlang 预定义的属性 示例               | 意义                                                                                                              | Elixir对应结构                             |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `-module(MODULE_NAME)`                         | 设置模块的名字                                                                                               | `defmodule`                                    |
+| `-export(Functions)`                           | 模块中导出函数                                                                                               | `def`                                          |
+| `-import(Module,Functions)`                    | 导入其他模块中的函数                                                                                      | `import Module, only: [Functions]`             |
+| `-compile(Options)`                            | 模块中指定编译选项                                                                                         | `@compile([options])`                          |
+| `-vsn(Vsn)`                                    | 模块版本                                                                                                        | `@vsn("VSN")`                                  |
+| `-on_load(Function)`                           | 指定模块加载时调用的函数名                                                                             | `@on_load ...`                                 |
+| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 |                                                |
 | `-behaviour(Behaviour)`                        | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
 | `-callback Name(Argument) -> Result.`          | 定义Behaveiour 的回调函数                                                                                    | `@callback function_spec`                      |
 | `-record(Record, Fields).`                     | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
@@ -206,19 +204,20 @@ Elixir 中, 除了和 Erlang 对应的内置模块属性外, 还定义了其他�
 
 [^decorator]: https://github.com/arjan/decorator
 
-注解, 修饰器以及只是用来做模块属性, 这三种不同语法, 却几乎使用相同的语法形式, 这一度让我困惑.
+注解, 修饰器, 它们与 Elixir 的模块属性之间的联系与区别, 这一度让我困惑.
 但是现在我清楚了, Elixir 中只有模块属性. 模块属性, 首先比如是一个 Key-Value 对. 
 `@` 后面只给出了 `key`, 只有 `key`, 没有 `value` 是构不成合法的模块属性的.
 
-<!-- livebook:{"break_markdown":true} -->
+但是 Elixir 的模块属性, 还和 Ruby 中的定义实例属性的语言类似.
+Ruby 中, 用 `@age` 这样的语法来定义实例的属性的.
+Elixir 大量的语法形式是借鉴 Ruby 的, 所以一度,
+我也为这两个概念联系和区别而困惑.
 
-我学习过一点点 Ruby 的知识, 我知道 `@` 在 Ruby 中是特殊的:
+我认为, 这个设计可能是故意的, 因为和 Erlang 中自定义属性不一样,
+Elixir 中的自定义属性, 某种程度上, 是用来做编译时的模块内变量来用的.
 
-1. `@`用来申明一个类的实例的变量的,
-2. `@@` 用来申明类变量.
+所以, 如果说 Elixir 的模块属性和 Ruby 的属性模块之间有什么联系的话,
+那就是某种长度上, 它们都是属性, 区别在于, 它们的生命周期不一样.
+Elixir 的模块属性, 活跃于编译时, 随后就蛰伏起来了; 而 Ruby 的实例属性生活在运行时.
 
-Elixir 不支持面向对象编程, 所以 Elixir 中 把 `@` 用作模块属性的语法.
-这样 Elixir 的模块可以对应 Ruby 的类, 而模块属性就可以对应类变量.
-
-但是 Elixir 还为它提供了更高级的用法. Elixir 中,
-用户自定义的模块属性, 实际上可以看作是编译时的模块内的变量来使用.
+## 模块中的结构
