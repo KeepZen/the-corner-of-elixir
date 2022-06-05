@@ -52,7 +52,7 @@ Js 解释器与 C 编译器做了大量的相同的工作,
 在 C/C++ 以及 Erlang 这些语言中, 宏能完成的工作是非常少的,
 就像作者给译者的注释那样, 大部分的工作还是要译者自己辛苦完成的.
 
-但是在 Elixir 中, 毫不夸张的说, 离不开宏几乎没法写代码.
+但是在 Elixir 中, 是宏做了最主要的工作.
 
 例如, 定义 BEAM 的一个最基本的编译单元 -- **模块**.
 但是在 Elixir 中, 我们必须使用宏 `defmodule`.
@@ -62,6 +62,8 @@ Js 解释器与 C 编译器做了大量的相同的工作,
 所以脚注的意象在这里就不合适了. Elixir 宏的合适意象应该汉语屋的故事[^chinese-room].
 译者对原文的翻译是智慧型的劳动; 汉语屋中的人做的却是机械的工作.
 
+[^chinese-room]: 见百度百科[中文房间](https://baike.baidu.com/item/%E4%B8%AD%E6%96%87%E6%88%BF%E9%97%B4/3581768), 或维基百科[中文屋](https://en.jinzhao.wiki/wiki/Chinese_room).
+
 从语言学的角度来看, C/C++, Erlang 的宏不能构成图灵完备的一个语言,
 或者精确的说, 设计的初衷不是把它们当作一个完整的语言来使用的[^c-macro].
 但是 Elixir 中的宏是图灵完备的, 这就是为什么, 我们可以写 Elixir 脚本的原因.
@@ -69,68 +71,157 @@ Elixir 脚本中, 和 Erlang 的 escript 不一样, Elixir 脚本,
 我们都不需要写一个入口点函数, 理论上, 我们真的可以让 Elixir
 的编译器在编译的过程中完成所有的工作, 就像使用其他的脚本语言那样.
 
-[^chinese-room]: 见百度百科[中文房间](https://baike.baidu.com/item/%E4%B8%AD%E6%96%87%E6%88%BF%E9%97%B4/3581768), 或维基百科[中文屋](https://en.jinzhao.wiki/wiki/Chinese_room).
+[^c-macro]: 有关 C 语言宏的图灵完备性的讨论见 https://stackoverflow.com/questions/3136686/is-the-c99-preprocessor-turing-complete
 
-[^c-macro]: 有关 C 语言图灵完备性的讨论见 https://stackoverflow.com/questions/3136686/is-the-c99-preprocessor-turing-complete
+## 编译器与宏
 
-接下来, 让我们近距离的观察 `defmodule` 这个宏.
+Elixir 的编译器是 `elixirc`. 我们现在来探索一下编译器.
+
+<!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-IO.puts("hello")
+IO.puts("Hello World!")
 ```
 
-## 模块
+把上面的代码保存到名为 hello-word.ex 文件中, 然后我们在命令行中输入`elixirc hello-world.ex`,
+然后我们就看到了 "Hello, World!", 但是在当前的目录下面,
+并没有产生 `hello_world.beam` 文件.
 
-Elixir 的模块, 无论对比于 Erlang 的模块, 还是 C++ 或 Java 的类都是不合适的.
+![Hello World](./images/hello-world.png)
 
-但是当我学习了一点点 Erlang 的知识后, 对 Elixir 相关知识就清晰起来了.
+上面的代码片段, 以及它的运行的结果, 告诉我们, 在模块外的作用域中,
+代码直接在编译时运行(输出 "Hello World"),
+而不是把编译的结果保存到字节码文件中(所以没有 `.beam` 文件).
 
-模块是什么呢?
+模块的外的代码, 编译器直接解释执行; 模块内的代码, 编译器是如何处理的呢?
 
-首先模块是虚拟机组织程序的单元. 这里虚拟机指的是 BEAM 的运行时环境,
-运行时以模块为单元来加载编译好的字节码, 所以这里就要求编译器必须以模块为输出单元,
-编译器是 BEAM 和源码之间的桥梁, 也因此模块就成了 Erlang 组织代码的单元.
+Elixir 中函数和宏的调用可以省略小括号, 但是参数之间的逗号依然不能省略,
+否者就没有办法区哪里是参数列表的开始和结束,
+详细情况见[括号](./ch4.parenthese.livemd)章节的讨论.
 
-Erlang 的源码和字节码是一一对应的, 不知识一个 `.erl` 的源文件对应一个 `.beam`的字节码文件,
-这种物理上的一一对应, 还有概念上的.
-比如模块属性, 模块属性在 Eralng 中是如此简单, 就是这个模块的元信息.
-在 Erlang 的语言层面, 就是代码开始时写的以 `-` 到头文件.
-不难想象 Erlang 的编译器是如何把源码中的这些信息, 转化成 `.beam` 字节码中的字段的.
-这个 `.beam` 文件的生成是困难的, 只是 `.beam` 文件的元信息, 其实是不难的.
-例如, 看到这样的 Erlang 代码:
+按照我们上面的理解, 宏就是写给编译器指令, 所以我们可以把宏看作是只可以在编译器中执行的**函数**.
+所以在这里我们要尽可能的, 像使用函数那样来使用宏, 也就是说尽量的多使用括号.
+
+```elixir
+IO.puts("Say hello outside Module!")
+
+defmodule(MyModule,
+  do:
+    (
+      IO.puts("Say Hello in MyModule But not in function")
+      def(hello, do: IO.puts("Say Hello in MyModule.hello()"))
+    )
+)
+```
+
+把上面的代码保存到 `my_module.ex` 文件中, 然后使用 `elixirc my_module.ex`
+命令来编译我们的文件. 在编译的过程中, 我们可以看到第 1 行和第 5 行的输出.
+在当前目录下, 还能看到编译器产生的 `Elixir.MyMoule.beam` 文件.
+
+这说明, `defmodule/2` 的第二个参数, 我们上面代码中的 `[do: (...)]`
+表示的关键字列表组成的 `do-block` (或者 `do`...`end` 块),
+在 `defmodule/2` 被调用的时候, 得到了执行.
+其中的输出语句(第 5 行) 在编译时执行了,
+所以我们在编译器的输出中, 看到了它的输出.
+最后产生的 `Elixir.MyModule.beam` 文件,
+这说明编译器还把其他的编译内容(这里是 `def(hello, do: ...)`)
+保存到了字节码文件中.
+
+现在我们启动 `iex`. 在其中输入 `MyModule.hello`,
+按下回车后, 第 5 行的输出语句就显示出来了.
+这说明, 我们的 `hello/0` 函数的确被编译到了字节码文件中.
+
+模块中, 不但可以调用 `def*` 这些宏, 还可以执行其他语句!
+在模块中, 可以添加非函数定义的语句, 这还是让我十分的惊讶的.
+因为 C++ 和 Java 的背景知识, 不由自主的总是把 Elixir 的模块和类的概念联系到一起.
+但是在类的定义的作用域中, 基本上只可以使用赋值语句, 而且 `=` 的右值还必须是编译时常量,
+其他控制结构, 或者函数调用都是不允许的. C 语言的全局作用域中, 基本上也是这样的要求.
+
+如果一定要在其他语言中找对应物的话, 那么可能就是 Java 的静态块了.
+但是 Elixir 中模块中 `def*` 外的其他代码, 和 Java 中的静态块还有不同,
+Java 中的静态块是编译到字节码中的, 因此每次类的字节码被加载的时候,
+都会执行静态块. 但是 **Elixir 模块中, `def*` 意外的代码并没有都没有被保存到字节码中**. 
+这一点我们可以通过启动 `iex` 的时候, 并没有看到代码片段中第 3 行的输出而得到确认.
+或者, 我们可以可以使用 Elang 提供的库函数 `:beam.chunks/2`, 
+来查看编译后的代码的抽象码(字节码对应的汇编语言), 以此来更直观的证实我们的结论.
+在 iex 中输入 `:beam_lib.chunks('Elixir.MyModule',[:abstract_code])`,
+我们就能看到 `Elixir.MyModule.beam` 中保存的字节码对应的抽象码.
+
+观察输出的抽象码, 不难发现, 其中的确有我们这里定义的 `hello/0` 函数;
+而且真的找不到第 1 行和第 5 行相关的代码.
+这全面的证实了我们上面对编译器的分析.
+
+## 模块属性
+
+Erlang 中, 模块和 `.beam` 文件之间的关系是非常的明确的,
+Erlang 的一个源代码 (.erl) 就是被编译器转化为一个 `.beam` 文件了.
+所以模块的属性, 在Erlang 中非常的明确, 就是告诉编译器, 
+如何来填充 `.beam` 文件的相关段落的.
+
+在 Erlang 中, 大部分属性和 `.beam` 段落(chunk)名之间是有直接关系的,
+还有一部分, 属性可能有多个值, 比如 `-callback`, 这些是集合到一起,
+放在一个段落中的. 总之在 Erlang 中理解模块属性, 是相当直观的.
 
 ```erlang
 -module(hello).
--export([say_hi/1,say_by/1]).
+-export([say_hi/1,say_bye/1]).
 ...
 ```
 
-那么我就明白了, 模块中的属性: 模块名, 导出函数, 以及私有的函数这些模块的元信息,
-编译器怎么产生得了.
+对应的 Elixir 代码应该是这样的:
 
-但是 Elixir 中, 这些知识不是那么自然的. 因为 Elixir 源码和字节码之间不在是一一对应了.
-而关于这一点, 我认为就需要先立即什么时宏(Macro).
+<!-- livebook:{"force_markdown":true} -->
 
-我们不做学理性的定义, 我认为宏就是编译时指导编译器的代码和指令.
+```elixir
+defmodule(:hello, [do: (
+  def say_hi(a), do: ...
+  def say_bye(a), do: ...
+)])
+```
 
-这样的定义, 可以涵盖从 C 和 Erlang 这样的预处理宏,
-又可以覆盖像 Elixir 这样的直接操纵 AST 的宏.
+| Erlang 预定义的属性 示例 | 意义                         | Elixir对应结构                 |
+| -------------------------------- | ------------------------------ | ---------------------------------- |
+| `-module(MODULE_NAME)`           | 设置模块的名字          | `defmodule`                        |
+| `-export(Functions)`             | 模块中导出函数          | `def`                              |
+| `-import(Module,Functions)`      | 导入其他模块中的函数 | `import Module, only: [Functions]` |
+| `-compile(Options)`              | 模块中指定编译选项    | `@compile([options])`              |
 
-在 Erlang 中宏的使用时非常节俭的, 所以 Erlang 的宏提供的功能非常有限,
-所以不能给 Erlang 编译器太多的指导, 编译器自己指导如何处理源码.
+|  | `-vsn(Vsn)`          | 模块版本                            | `@vsn("VSN")`  |
+|  | `-on_load(Function)` | 指定模块加载时调用的函数名 | `@on_load ...` |
 
-Elixir 就不同了. Elixir 中几乎处处都是宏.
+| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | ---                                            |
+| `-behaviour(Behaviour)`                        | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
+| `-callback Name(Argument) -> Result.`          | 定义Behaveiour 的回调函数                                                                                    | `@callback function_spec`                      |
+| `-record(Record, Fields).`                     | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
+| `-include("SomeFile.hrl").`                    | 包含预处理                                                                                                     | `require`                                      |
+| `-define(Macro, Replacement).`                 | 定义宏                                                                                                           | `defmacro`, `defmacrop`                        |
+| `-file(File,Line)`                             | 修改了预定义的宏 `?File` 和 `?Line` 的值.                                                                | `@file`                                        |
+| `-type my_type() :: other_have_defined_type()` | 类型定义                                                                                                        | `@type my_type() :: other_have_define_type()`  |
+| `-spec function(type()) -> return_type()`      | 为 `function` 指定规范                                                                                         | `@spec spec function(type()) -> return_type()` |
 
-Erlang 代码, 还可以说时编译器解析处理源码, 产生字节码, 其中的源码是需要处理的数据.
+<!-- livebook:{"break_markdown":true} -->
 
-Elixir 因为大量代码都是宏, 安装我们对宏的定义, 也就是密集的对编译器的指令,
-所以 Elixir 源码不是编译器处理的数据, 而是在对编译器编程, 然编译器根据自己的指令,
-来产生出字节码.
+Elixir 中, 除了和 Erlang 对应的内置模块属性外, 还定义了其他的内置属性:
+其中有一些, 类似于其他语言的注解(Anotation):
+`@deprecated`, `@moduledoc`,`@doc`, `@impl`,`@typedoc`.
+而另外一些, 编译和模块加载钩子模块属性, `@on_load`, `@before_compile`, `on_defination` 等
+让我想起了 Python 的 修饰器(decorator). 更让我吃惊的是, 的确有人使用这些模块属性来模拟修饰器语法[^decorator].
 
-这也就是为什么, Erlang 中清楚明了的模块概念, 到 Elixir 中让我晕头转向了.
-因为视角错了, 不理解宏是编译器时的概念, 而依旧把 Elixir 的编译过程,
-看作是编译器对源码的处理, 那就难怪找不到北了.
+[^decorator]: https://github.com/arjan/decorator
 
-## 模块
+注解, 修饰器以及只是用来做模块属性, 这三种不同语法, 却几乎使用相同的语法形式, 这一度让我困惑.
+但是现在我清楚了, Elixir 中只有模块属性. 模块属性, 首先比如是一个 Key-Value 对. 
+`@` 后面只给出了 `key`, 只有 `key`, 没有 `value` 是构不成合法的模块属性的.
 
-## Section
+<!-- livebook:{"break_markdown":true} -->
+
+我学习过一点点 Ruby 的知识, 我知道 `@` 在 Ruby 中是特殊的:
+
+1. `@`用来申明一个类的实例的变量的,
+2. `@@` 用来申明类变量.
+
+Elixir 不支持面向对象编程, 所以 Elixir 中 把 `@` 用作模块属性的语法.
+这样 Elixir 的模块可以对应 Ruby 的类, 而模块属性就可以对应类变量.
+
+但是 Elixir 还为它提供了更高级的用法. Elixir 中,
+用户自定义的模块属性, 实际上可以看作是编译时的模块内的变量来使用.
