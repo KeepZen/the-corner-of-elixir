@@ -92,78 +92,78 @@ IO.puts("Hello World!")
 
 模块的外的代码, 编译器直接解释执行; 模块内的代码, 编译器是如何处理的呢?
 
-Elixir 中函数和宏的调用可以省略小括号, 但是参数之间的逗号依然不能省略,
-否者就没有办法区哪里是参数列表的开始和结束,
-详细情况见[括号](./ch4.parenthese.livemd)章节的讨论.
-
-按照我们上面的理解, 宏就是写给编译器指令, 所以我们可以把宏看作是只可以在编译器中执行的**函数**.
-所以在这里我们要尽可能的, 像使用函数那样来使用宏, 也就是说尽量的多使用括号.
-
 ```elixir
 IO.puts("Say hello outside Module!")
 
-defmodule(MyModule,
-  do:
-    (
-      IO.puts("Say Hello in MyModule But not in function")
-      def(hello, do: IO.puts("Say Hello in MyModule.hello()"))
-    )
-)
+defmodule MyModule do
+  IO.puts("Say Hello in MyModule But not in function")
+
+  def hello do
+    IO.puts("Say Hello in MyModule.hello()")
+  end
+end
 ```
 
 把上面的代码保存到 `my_module.ex` 文件中, 然后使用 `elixirc my_module.ex`
-命令来编译我们的文件. 在编译的过程中, 我们可以看到第 1 行和第 5 行的输出.
+命令来编译我们的文件. 在编译的过程中, 我们可以看到第 1 行和第 3 行的输出.
 在当前目录下, 还能看到编译器产生的 `Elixir.MyMoule.beam` 文件.
 
 这说明, `defmodule/2` 的第二个参数, 我们上面代码中的 `[do: (...)]`
 表示的关键字列表组成的 `do-block` (或者 `do`...`end` 块),
 在 `defmodule/2` 被调用的时候, 得到了执行.
-其中的输出语句(第 5 行) 在编译时执行了,
+其中的输出语句(第 3 行) 在编译时执行了,
 所以我们在编译器的输出中, 看到了它的输出.
 最后产生的 `Elixir.MyModule.beam` 文件,
-这说明编译器还把其他的编译内容(这里是 `def(hello, do: ...)`)
-保存到了字节码文件中.
+这说明编译器还把其他的编译内容保存到了字节码文件中.
 
-现在我们启动 `iex`. 在其中输入 `MyModule.hello`,
+现在我们启动 `iex`. 输入 `MyModule.hello()`,
 按下回车后, 第 5 行的输出语句就显示出来了.
 这说明, 我们的 `hello/0` 函数的确被编译到了字节码文件中.
 
-模块中, 不但可以调用 `def*` 这些宏, 还可以执行其他语句!
-在模块中, 可以添加非函数定义的语句, 这还是让我十分的惊讶的.
+在模块中, 不但可以调用 `def*` 这些宏, 还可以执行其他语句, 这还是让我十分的惊讶的.
 因为 C++ 和 Java 的背景知识, 不由自主的总是把 Elixir 的模块和类的概念联系到一起.
 但是在类的定义的作用域中, 基本上只可以使用赋值语句, 而且 `=` 的右值还必须是编译时常量,
 其他控制结构, 或者函数调用都是不允许的. C 语言的全局作用域中, 基本上也是这样的要求.
+即使在亲缘关系最近的 Erlang 中, 基本上也是一样.
+控制结构, 函数调用, 都只能在函数的定义中使用.
 
-如果一定要在其他语言中找对应物的话, 那么可能就是 Java 的静态块了.
-但是 Elixir 中模块中 `def*` 外的其他代码, 和 Java 中的静态块还有不同,
-Java 中的静态块是编译到字节码中的, 因此每次类的字节码被加载的时候,
-都会执行静态块. 但是 **Elixir 模块中, `def*` 意外的代码并没有都没有被保存到字节码中**. 
+如果一定要在其他语言中寻找对应物的话, 那么可能就是 Java 的静态块了.
+但是 Elixir 中模块中 `def*` 外的其他代码, 和 Java 中的静态块又有不同,
+Java 中的静态块是编译到字节码中的, 是每次字节码被加载的时候, 被执行的代码块.
+而*Elixir 模块中, `def*` 意外的代码并**没有**都没有被保存到字节码中*.
+
 这一点我们可以通过启动 `iex` 的时候, 并没有看到代码片段中第 3 行的输出而得到确认.
 或者, 我们可以可以使用 Elang 提供的库函数 `:beam.chunks/2`, 
 来查看编译后的代码的抽象码(字节码对应的汇编语言), 以此来更直观的证实我们的结论.
+
 在 iex 中输入 `:beam_lib.chunks('Elixir.MyModule',[:abstract_code])`,
-我们就能看到 `Elixir.MyModule.beam` 中保存的字节码对应的抽象码.
+我们就看到了 `Elixir.MyModule.beam` 中保存的字节码对应的抽象码.
 
 观察输出的抽象码, 不难发现, 其中的确有我们这里定义的 `hello/0` 函数;
-而且真的找不到第 1 行和第 5 行相关的代码.
+而且真的找不到第 1 行和第 3 行相关的代码.
 这全面的证实了我们上面对编译器的分析.
 
 ## 模块属性
 
 Erlang 中, 模块和 `.beam` 文件之间的关系是非常的明确的,
 Erlang 的一个源代码 (.erl) 就是被编译器转化为一个 `.beam` 文件了.
-所以模块的属性, 在Erlang 中非常的明确, 就是告诉编译器, 
-如何来填充 `.beam` 文件的相关段落的.
+所以模块的属性的作用在 Erlang 中非常的明确, 就是告诉编译器, 
+如何来填充 `.beam` 文件的相关段落(chunk)的.
 
-在 Erlang 中, 大部分属性和 `.beam` 段落(chunk)名之间是有直接关系的,
+在 Erlang 中, 大部分属性和 `.beam` 段落名之间是有直接对应关系的,
 还有一部分, 属性有多个值, 比如 `-callback`, 这些值集合到一起,
 放在一个段落中的. 总之在 Erlang 中理解模块属性, 是相当直观的.
+
+例如下面的 Erlang 代码
 
 ```erlang
 -module(hello).
 -export([say_hi/1,say_bye/1]).
 ...
 ```
+
+不难推测出, `.beam` 文件中, 记录模块名的位置上记录的内容一定就是 `hello`.
+而记录模块导出函数的段落中, 一定有 `say_hi` `say_bye` 这样的内容.
 
 对应的 Elixir 代码应该是这样的:
 
@@ -176,6 +176,12 @@ defmodule(:hello, [do: (
 )])
 ```
 
+Elixir 中, 源文件和字节码文件直接不在是一一对应, 而且模块属性的内容,
+分散到这个文件中, 而不是想 Erlang 那样集中到代码的头部了.
+所以从 Elixir 代码来理解模块属性, 就不那么直观了.
+
+### 内建属性
+
 | Erlang 预定义的属性 示例               | 意义                                                                                                              | Elixir对应结构                             |
 | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | `-module(MODULE_NAME)`                         | 设置模块的名字                                                                                               | `defmodule`                                    |
@@ -184,7 +190,7 @@ defmodule(:hello, [do: (
 | `-compile(Options)`                            | 模块中指定编译选项                                                                                         | `@compile([options])`                          |
 | `-vsn(Vsn)`                                    | 模块版本                                                                                                        | `@vsn("VSN")`                                  |
 | `-on_load(Function)`                           | 指定模块加载时调用的函数名                                                                             | `@on_load ...`                                 |
-| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 |                                                |
+| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | ?-?                                            |
 | `-behaviour(Behaviour)`                        | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
 | `-callback Name(Argument) -> Result.`          | 定义Behaveiour 的回调函数                                                                                    | `@callback function_spec`                      |
 | `-record(Record, Fields).`                     | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
@@ -196,28 +202,261 @@ defmodule(:hello, [do: (
 
 <!-- livebook:{"break_markdown":true} -->
 
-Elixir 中, 除了和 Erlang 对应的内置模块属性外, 还定义了其他的内置属性:
-其中有一些, 类似于其他语言的注解(Anotation):
+Elixir 的与 Erlang 对应的内建模块属性, 除了 **模块, 函数, 宏,
+结构以及记录** 的定义是使用特定的宏外, 其他的模块属性都使用 `@` 的语法.
+
+编程语言中, 以 `@` 作为语法结构的, 除了 Elixir 的模块属性外, 还有别的几种用法,
+而且这几种用法在 Elixir 中某种程度上, 也都可以由模块属性来实现.
+
+### Java 注解(Anotation)
+
+Java 中使用注解语法, 为代码添加元数据.
+Elixir 中, 以下的模块属性用来完成类似的工作.
 `@deprecated`, `@moduledoc`,`@doc`, `@impl`,`@typedoc`.
-而另外一些, 编译和模块加载钩子模块属性, `@on_load`, `@before_compile`, `on_defination` 等
-让我想起了 Python 的 修饰器(decorator). 更让我吃惊的是, 的确有人使用这些模块属性来模拟修饰器语法[^decorator].
+但是这里的语法稍微不同, Elixir 中, 模块属性后面, 必须给定合适的数据类型(term),
+Java 的注解后面基本不用, 注解的作用对象就是其后的代码或字段.
+例如下面两个片段都是表面 API 不在不支持:
+
+```java
+@Deprecated
+int parser(String str){
+  ....
+}
+```
+
+对应的 Eixir 中的代码是:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+@deprecated "Use `String.parser/1` replace."
+def parser(str) do
+  ...
+end
+```
+
+除了字母大小写的不同外, 需要注意的是, Elixir 的模块属性是必须有对应的属性值的.
+Java 的注解只是表明了, 后面的 API 被遗弃了, 之于应该用那个新的 API 来代替,
+只能靠代码外的文档来补充了. Elixir 中情况不一样, 运行时发出 API 过期的警告后,
+立刻就能给出具体的建议. Java 中注释如果要做的这一点,
+就必须使用带有参数的注释类型才可以.
+
+### Python 修饰器
+
+Python 中的修饰器语法, 也就通过高阶函数提供的语法糖, 
+来简化函数或方法定义中的重复性的模板内容. 例如下面的代码:
+
+```python
+def trace(fun):
+  def warper(arg):
+    print("call %s(\"%s\")" %(fun.__name__, arg) )
+    ret = fun(arg)
+    print("get: %s\n"%ret)
+    return ret
+  return warper
+
+@trace
+def hello(a):
+  return "Hello, %s" %(a)
+
+@trace
+def hi(a):
+  return "Hi, %s" %(a)
+
+hw = hello("world")
+hi_white = hi("Mr. White")
+print(hw)
+print(hi_white)
+```
+
+其输出为:
+
+> call hello("world")
+> get: Hello, world
+> 
+> call hi("Mr. White")
+> get: Hi, Mr. White
+> 
+> Hello, world
+> Hi, Mr. White
+
+Elixir 不支持修饰器. 但是修饰器, 本质上不过是高阶函数生产新函数来代理被修饰的函数.
+Elixir 强大的元编程能力, 在借助编译相关的模块属性钩子(Hook): `@before_compile`, `@on_defination`, 是可以实现 Python 的修饰器. 实际上, 早就有人做到了这一点[^decorator].
 
 [^decorator]: https://github.com/arjan/decorator
 
-注解, 修饰器, 它们与 Elixir 的模块属性之间的联系与区别, 这一度让我困惑.
-但是现在我清楚了, Elixir 中只有模块属性. 模块属性, 首先比如是一个 Key-Value 对. 
-`@` 后面只给出了 `key`, 只有 `key`, 没有 `value` 是构不成合法的模块属性的.
+<!-- livebook:{"break_markdown":true} -->
 
-但是 Elixir 的模块属性, 还和 Ruby 中的定义实例属性的语言类似.
+首先安装我们需要的库: `decorator`, 然后定义我们的修饰器:
+
+```elixir
+Mix.install(decorator: "~> 1.2")
+
+defmodule PrintDecorator do
+  use Decorator.Define, print: 0
+
+  def print(body, context) do
+    quote do
+      IO.puts("Function called: " <> Atom.to_string(unquote(context.name)))
+      unquote(body)
+    end
+  end
+end
+```
+
+上面定义的修饰符函数 `print`,
+当其他函数被修饰后, 再调用被修饰后的函数, 
+函数的返回结果和修饰前没什么不一样,
+但是在函数返回结果之前, 会首先打印出 "Function called: <fun_name>" 这样的文本.
+
+现在让我们看看如何使用修饰符函数 `print` 来修饰其他的函数.
+
+```elixir
+defmodule DecoratorUseModule do
+  use PrintDecorator
+
+  @decorate print()
+  def square(a) do
+    a * a
+  end
+end
+
+alias DecoratorUseModule, as: DUM
+4 = DUM.square(2)
+```
+
+执行上面的代码, 我们看到控制台中输出了 `Function called: square`,
+而且程序没有出错, 也就是说返回值等于 `4`.
+
+<!-- livebook:{"break_markdown":true} -->
+
+### Ruby 的对象的属性
+
+Elixir 的模块属性, 还和 Ruby 中的定义实例属性的语法类似.
 Ruby 中, 用 `@age` 这样的语法来定义实例的属性的.
-Elixir 大量的语法形式是借鉴 Ruby 的, 所以一度,
-我也为这两个概念联系和区别而困惑.
+Elixir 大量的语法形式是借鉴自 Ruby 的,
+所以一度我也为这两个概念联系和区别而困惑.
 
-我认为, 这个设计可能是故意的, 因为和 Erlang 中自定义属性不一样,
-Elixir 中的自定义属性, 某种程度上, 是用来做编译时的模块内变量来用的.
+我认为这个语言设计可能是故意的. 
+和 Erlang 中自定义属性不一样, Elixir 中的自定义模块属性,
+除了可以作为模块的元数据来使用外, 还有更加实用的功能.
 
-所以, 如果说 Elixir 的模块属性和 Ruby 的属性模块之间有什么联系的话,
-那就是某种长度上, 它们都是属性, 区别在于, 它们的生命周期不一样.
-Elixir 的模块属性, 活跃于编译时, 随后就蛰伏起来了; 而 Ruby 的实例属性生活在运行时.
+1. 在编译时, 可以作为在元编程的临时结果的存储所;
+2. 作为模块内的常量.
 
-## 模块中的结构
+例如, 在上面我们用的 `decorator` 库中,
+当编译回调钩子执行 `on_defination/6` 后,
+在被修饰的函数所在的模块中添加了 `:decorated` 属性[^on_defination].
+在函数被编译器之前, `before_compile/2` 宏被调用,
+在这个宏执行的过程, 获取了获取了 `on_defination` 运行后,
+添加到模块中的 `:decorated` 属性值,
+然后就把这个属性从模块中删除了[^before_compile].
+所以要这样处理, 是因为 `:decorated` 记录的内容需要被处理,
+而不是作为模块的元信息记录到字节码中.
+
+[^on_defination]: 见源码[第 20 行](https://github.com/arjan/decorator/blob/a32053ae884014320940d2a8cefe55181203db93/lib/decorator/decorate.ex#L20)
+[^before_compile]: 见源码[第37, 38行](https://github.com/arjan/decorator/blob/a32053ae884014320940d2a8cefe55181203db93/lib/decorator/decorate.ex#L37)
+
+最后的一个问题就是, 为什么不可以使用模块作用域的变量来做中转呢?
+这是因为 Elixir 的值不变性, 使得函数或宏运行后改变的变量值,
+不能作为副作用, 反应到整个模块可见的变量中.
+换句话说, Elixir 的变量在嵌套作用域是只读而不可写的.
+
+模块的属性在编译时是整个模块中可读可写的, 所以刚好可以用来保存编译 Hook 的副作用.
+
+Elixir 的模块属性和 Ruby 的对象属性, 相联系之处在于它们都是属性,
+都是可以用来表示相应的概念的状态; 而区别在于, 它们的生命周期不一样.
+Elixir 的模块属性, 活跃于编译时, 随后就蛰伏起来了; 而 Ruby 的实例属性,
+存活于运行时, 伴随着对象的生命周期.
+
+Ruby 中用类属性来表示整个类都共享的值, 其使用的语法为 `@@classAttr`.
+Elixir 模块内是不支持常量定义的, 模块属性可以用来比对 Ruby 的类属性,
+来充当模块内的常量.
+
+例如, 加入我们要定义一个数学相关的模块, 其中涉及到角度于弧度的转化,
+那么我们课程这样来写:
+
+```elixir
+defmodule Angle do
+  @pi 3.14
+  def convert({:degrate, v}) do
+    @pi / 180 * v
+  end
+
+  def convert({:radian, v}) do
+    180 / @pi * v
+  end
+end
+```
+
+这样做的好处是显然的, 当我们决定提高计算的进度,
+需要使用更多位数的常量 $\pi$ 的时候,
+在把模块属性作为模块内常量的情况下, 
+我们只需要修改一个地方就能完成代码的升级了.
+
+## 模块中的内容
+
+上面几个小结中我们知道, 模块中除了 `def*` 系列宏之外, 还可以使用其他语法结构.
+函数必须定义在模块中, 这是来自 Erlang 的规定, 所以 `def` `defp` 只能在模块中使用,
+非常容易理解. 但是为什么结构, 记录, 异常这些定义也必须在模块中呢?
+`defstruct`, `defexpect` 以及 `defrecord` 这些宏到底做了什么呢?
+
+这探索模块的属性的时候,为了理解 `.beam` 文件, 我借助了 `:beam_lib` 库提供的反汇编功能.
+但是对 `defstruct`, `defexpect` 以及 `defrecord` 的探索,
+我们不需要那么底层的工具. Elixir 的 `Module` 和 iex 提供的工具所展示的信息,
+足够我们回答以上的问题了.
+实际上, 如果我们阅读的足够仔细的话, 这个问题, 实际上都不用探索.
+
+他们对应的文档中都给出了探案. 比如在 `defstruct` 文档中[^defstruct], 就将了
+`defstruct` 还在模块中定义了 `__struct__/0` 函数.
+正是因为 `defstruct` 被调用的时候, 会向被调用者的上下文中注入函数,
+而函数有必须定义在模块中, 所以 `defstruct` 被调用的上下文就只能被限制为在模块内了.
+
+[^defstruct]:(https://hexdocs.pm/elixir/1.13.4/Kernel.html#defstruct/1)
+
+和 `defstruct` 类似, 但是 `defrecord` 在 Elixir 中很少使用, 
+但是它做的工作实际上和 `defstruct` 一样, 只是他们选用的表示数据的容器类型不同.
+`defstruct` 选 map 作为组合数据的基础; 而 `defrecord` 以元组为基础.
+这是他们之间的不同, 其相同点在于这两个宏被调用的时候,
+都要向调用它的上下文中注入函数. 所以 `defrecord` 也必然的就被限制在了模块中了.
+而这些在 `defrecord` 的文档中也是清楚标明了的.
+
+`defexpect` 所以被限制在模块内, 原因更容易理解. 因为它是基于 `defstruct` 工作的,
+或者是它是特化的 `defstruct`; `defstruct` 都不现在在模块呢,
+`defexpect` 都被限制于模块内, 当然也就顺利成章了.
+
+## 协议和行为
+
+上一节, 我们讨论了为什么有些宏, 被限制只能在模块中使用.
+在上面的讨论中, 有意无意的, 我们把 `defmodule` 这个宏,
+和 OTP 平台的一个 `.beam` 文件看作了是同样的东西,
+或者说, 我们似乎认为 Elixir 中,
+只有 `defmodule` 这个宏可以被编译器编译为字节码文件.
+
+但是这种认识是错误的. `defprotruct` 宏的调用结果, 也一样是产生一个模块的.
+
+在我的编码过程中, 对于 Elixir 的协议和行为直接的区别和联系, 也是十分的迷惘的.
+
+我最出的理解是, 协议对应于 OOP 编程中的纯抽象函数, 或者说 Interface.
+而行为类似于 OOP 中实现了部分或者全部函数的抽像类.
+
+在 OOP 中抽象类, 是关乎动态调度的, Elixir 的协议与行为, 也是为了这个目的.
+但是这样的理解, 并不能让帮助我写出动态调度的代码.
+
+因为在 Erlang 中并不能定义新的数据类型, 只有对基本数据类型的组合,
+所以为了区分这些不同的组合, 就使用了对数据做标签的方法.
+Elixir 中, 新的组合数据的标签, 使用的就是模块名.
+这样就导致了, 在动态调用之前, 我们必须知道是那个模块.
+
+## 代码是如何被编译为字节码的
+
+Erlang 代码, 函数对应的代码被编译到可 `.beam` 字节码中的 `Code` 段中.
+函数 `:beam_lib.chunks(Module,[:abstract_code])` 可以用来查看编译后字节的抽象码.
+
+在 Erlang 中也没有私有函数和非私有函数的说法, 只有导出函数, 函数和私有函数,
+在 `Code` 段中的表示是没有差别的. `def` 和 `defp` 的差别, 反映在模块属性 `export` 中.
+
+但是 Elixir 的宏呢? 要知道 Elixir 的宏可是运行在编译时的,
+通过分析 Elixir 反汇编后的抽象码, 可以知道:
+Elixir 的宏也是以函数的形式编译到字节码中的, 在字节码中,
+宏的名字被统一加了 `MACRO-` 的前缀; 而且多了一个表示调用者上下文的参数.
