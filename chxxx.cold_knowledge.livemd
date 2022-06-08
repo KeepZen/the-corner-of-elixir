@@ -178,3 +178,110 @@ var = create_var.(253)
 assign = "#{var} = 1"
 Code.eval_string(assign)
 ```
+
+## 函数中定义模块
+
+可以在`def/2` 上下文中定义模块:
+
+```elixir
+defmodule EmbedModuleToFun do
+  def createFun() do
+    defmodule :_ do
+      def hello(), do: IO.puts("I am in #{__MODULE__}, hello!")
+    end
+    |> elem(1)
+  end
+end
+
+m = EmbedModuleToFun.createFun()
+m.hello()
+```
+
+这让我想起来 Java 的匿名类. Java 的早期版本中, 不支持匿名函数类型,
+所以在当初要在 Java 中模拟函数式编程, 定义高阶函数的时候就不得不使用接口.
+使用这些高级函数的时候, 往往用一个匿名类来实现相应的接口.
+
+我们这里使用的方法, 和当年 Java 中使用的方法是一样的.
+
+但是使用这个方法的时候, 还有需要注意的地方.
+首先本质上, 这个方法是在运行时动态编译了新模块.
+所以每次调用 `createFun()` 都会产生新的模块,
+这就意味着: 1) 效率下降, 2) 如果需要在多个函数中返回模块,
+必须留意为函数返回的模块取不同的名字, 以防止名称冲突.
+
+我们可以写一个宏来解决这两个问题.
+
+```elixir
+defmodule Nest do
+  import Kernel, except: [def: 2]
+
+  defmacro def(call, exp) do
+    if __CALLER__.function == nil do
+      raise "Nest.def must cal in def/2"
+    end
+
+    {name, args} = name_and_args(call)
+    module_name = String.to_atom("#{__CALLER__.module}.nest_#{name}_#{length(args)}")
+    make_module(module_name, call, exp)
+  end
+
+  defp name_and_args({:when, _, [{name, _, args}, _]}), do: {name, args}
+  defp name_and_args({name, _, args}), do: {name, args}
+
+  defp make_module(module_name, call, exp) do
+    quote do
+      if :code.is_loaded(unquote(module_name)) do
+        unquote(module_name)
+      else
+        defmodule unquote(module_name) do
+          IO.puts("Compile #{unquote(module_name)}")
+          def unquote(call), unquote(exp)
+        end
+        |> elem(1)
+      end
+    end
+  end
+end
+```
+
+当我们在 LiveBook 中运行下面的测试代码的时候, 如果是第一次运行,
+那么第 3 行的的输出之前, 控制台中应该有编译内部模块的输出提示: "Compile Elixir.TestNest.nest_hello_2",
+但是第 4 行再次调用 `M.hello()` 的时候, 不再输出模块编译的提示了,
+这说明的确不是每次调用 `M.hello()` 都创建新的模块.
+
+```elixir
+defmodule TestNest do
+  require Nest
+
+  def hello() do
+    Nest.def(hello(a, b), do: a + b)
+  end
+end
+
+3 = TestNest.hello().hello(1, 2)
+IO.puts("-----------")
+3 = TestNest.hello().hello(1, 2)
+```
+
+在 LiveBook 中, 一旦上面的代码计算过一次此后, 再次运行的话, 因为内部模块已经被加载到系统中了,
+所以控制台中, 只会有第 3 行的输出, 而不能再看到内部模块的编译提示.
+
+这让我意识到, Erlang 中不是只有进程可以保存状态,
+系统模块的状态结合动态编译, 也可以用来表示状态,
+当然了这样做有非常大的效率成本.
+作为理论探索, 不失为一个有趣的话题.
+
+## 进程意外的状态保持
+
+## Elixir代码是如何编译到模块中
+
+Erlang 代码, 函数对应的代码被编译到可 `.beam` 字节码中的 `Code` 段中.
+函数 `:beam_lib.chunks(Module,[:abstract_code])` 可以用来查看编译后字节的抽象码.
+
+在 Erlang 中也没有私有函数和非私有函数的说法, 只有导出函数, 函数和私有函数,
+在 `Code` 段中的表示是没有差别的. `def` 和 `defp` 的差别, 反映在模块属性 `export` 中.
+
+但是 Elixir 的宏呢? 要知道 Elixir 的宏可是运行在编译时的,
+通过分析 Elixir 反汇编后的抽象码, 可以知道:
+Elixir 的宏也是以函数的形式编译到字节码中的, 在字节码中,
+宏的名字被统一加了 `MACRO-` 的前缀; 而且多了一个表示调用者上下文的参数.

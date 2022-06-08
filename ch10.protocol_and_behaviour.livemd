@@ -3,7 +3,7 @@
 ## 如何选择
 
 就像 `case` 和 `cond` 一度让我感觉选择困难一样,
-协议和行为, 在我开始学习的时候, 也有一样的困难.
+面对协议和行为, 我往往也难以做出抉择.
 
 但是这种困难和语言无关, 因为它不是语义方面的的问题, 而是系统设计知识不足带来了.
 
@@ -41,7 +41,7 @@ Erlang 中根本没有协议这样的语法概念. Elixir 运行在 Erlang 的�
 我们还知道, `defmodule` 是支持嵌套定义的, 那么这就意味着, `defprotocol` 和 `defimpl`
 除了定义在顶层的作用域外, 还可以嵌套在 `defmodule` 的上下文中.
 
-现在让我们定义一个 `Conrner.Addable` 协议.
+现在让我们定义一个 `Corner.Addable` 协议.
 
 ```elixir
 defmodule Corner do
@@ -69,7 +69,7 @@ end
 这新的实现, 是位于模块 <s>Corner.TimeSpan.</s>Corner.Addable.Corner.TimeSpan 中,
 这里没有添加外部模块的前缀 **Corner.TimeSpan**.
 
-也就是说, `defimpl Procol, for: Type` 无论再哪里, 都一样展开为 `Protocol.Type`,
+也就是说, `defimpl Protocol, for: Type` 无论再哪里, 都一样展开为 `Protocol.Type`,
 而不会因为嵌套在其他模块结构中, 而添加新的前缀.
 
 ```elixir
@@ -135,27 +135,37 @@ defprotocol Addable2 do
 end
 ```
 
-编译这段代码, 我们得到了编译错误. 
-错误由 `defimpl` 调用引发, 其中提醒的错误信息是不能加载模块 `Addable2`.
+编译这段代码, 得到了编译错误. 
+错误是对 `defimpl` 的调用引发的, 错误的原因是不能加载模块 `Addable2`.
 这说明, 调用 `defimpl` 的时候, 会加载 `:for` 选项指定的模块.
-现在 `Addable2` 模块的定义还没有完成, 加载这个模块自然是失败的.
+现在还没有完成 `Addable2` 模块的定义, 所以加载这个模块自然是失败的.
 
 但是我们可以在协议定义的上下文中, 为其他协议提供实现吗? 答案是可以的.
 
 ```elixir
 defprotocol Corner.Addable2 do
-  def add1(a)
-
+  # def add1(a)
   defimpl Corner.Addable, for: String do
     Kernel.def(add(a, b), do: a <> b)
   end
+
+  Kernel.def say_hello() do
+    IO.puts("Hello")
+  end
 end
+
+Corner.Addable2.say_hello()
 ```
 
-但是要注意第 4 行, 这里使用 `Kernel.def` 远程方法调用 `def/2`.
-因为其上下文中排除了 `def/2`.
+但是要注意第 4 行, 这里使用 `Kernel.def` 远程方法调用的语法来调用 `def/2`,
+因为在 `defprotocol` 上下文中, 特意排除了核心模块 `def/2` 的导入.
 
-所以虽然可以这样做, 但是绝对不推荐这样做.
+在上面的代码片段中, 我最初以为 `defprotocol` 上下文中, 必须有 `def/1` 语句,
+但是后来发现不用; 原来还以为不可以定义自己的函数的,
+现在发现可以使用远程方法来定义自己的函数, 就像上面的代码第 6~8 行中那样.
+
+最后强调一下: 虽然可以像上面的代码片段那样, 用 `defprotocol` 来定义模块,
+但是绝对不推荐这样做.
 
 **结论**: 在 `defprotcoc` 定义的上下文中, 不能嵌入正在定义的协议的实现.
 或者说, 宏调用 `defimpl Protocol,...`, 中的 `Protocol` 对应的模块必须是闭合的.
@@ -163,9 +173,9 @@ end
 那么 `defimpl` 可以嵌套自己吗?
 
 ```elixir
-defimpl Corner.Addable, for: String do
+defimpl Corner.Addable, for: Tuple do
   def add(a, b) do
-    a <> b
+    Tuple.append(a, b)
   end
 
   defimpl Corner.Addable, for: BitString do
@@ -176,9 +186,10 @@ defimpl Corner.Addable, for: String do
 end
 ```
 
-**`defimpl` 中可以嵌入 `defimpl`; `defimpl` 在 `defimpl` 的上下文中, 与在顶层的上下文中没有区别**.
+**`defimpl` 中可以嵌入 `defimpl`; `defimpl` 在 `defimpl` 调用的上下文中,
+与在顶层的上下文中没有区别**.
 
-这还真的出乎我的意料.
+这还真的出乎我的意料. 但是这样做, 除了让代码变得丑陋外, 一点其他用处也没有.
 
 `def` 和 `defp` 是用来在模块中定义函数的. 函数不可以嵌套定义,
 所以我预计, 在 `def` 上下文中, 是不可以调用 `defimpl` 的.
@@ -204,92 +215,7 @@ Elixir 中不允许命名函数嵌套, 但是知道了上面的知识,
 我们就可以让函数返回模块, 然后在模块中定义命名函数,
 以这种迂回的方式来实现函数的嵌套.
 
-## 函数中定义模块
-
-上一节, 我们认识到可以在函数中定义模块. 现在让我们实验一下.
-
-```elixir
-defmodule EmbedModuleToFun do
-  def createFun() do
-    defmodule :_ do
-      def hello(), do: IO.puts("I am in #{__MODULE__}, hello!")
-    end
-    |> elem(1)
-  end
-end
-
-m = EmbedModuleToFun.createFun()
-m.hello()
-```
-
-这让我想起来 Java 的匿名类. Java 的早期版本中, 不支持匿名函数类型,
-所以在当初要在 Java 中模拟函数式编程, 定义高阶函数的时候就不得不使用接口.
-使用这些高级函数的时候, 往往就是直接传递一个匿名类.
-
-我们这里使用的方法, 和当年 Java 中使用的方法是一样的.
-
-但是使用这个方法的时候, 还有需要注意的地方.
-首先本质上, 这个方法时在运行时动态编译了新模块.
-所以每次调用 `createFun()` 都会产生新的模块,
-这就意味着: 1) 效率下降, 2) 如果需要在多个函数中返回模块,
-必须留意为函数返回的模块取不同的名字, 以防止名称冲突.
-
-我们可以写一个宏来解决这两个问题.
-
-```elixir
-defmodule Nest do
-  import Kernel, except: [def: 2]
-
-  defmacro def(call, exp) do
-    if __CALLER__.function == nil do
-      raise "Nest.def must cal in def/2"
-    end
-
-    {name, args} = name_and_args(call)
-    module_name = String.to_atom("#{__CALLER__.module}.nest_#{name}_#{length(args)}")
-    make_module(module_name, call, exp)
-  end
-
-  defp name_and_args({:when, _, [{name, _, args}, _]}), do: {name, args}
-  defp name_and_args({name, _, args}), do: {name, args}
-
-  defp make_module(module_name, call, exp) do
-    quote do
-      if :code.is_loaded(unquote(module_name)) do
-        unquote(module_name)
-      else
-        defmodule unquote(module_name) do
-          IO.puts("Compile #{unquote(module_name)}")
-          def unquote(call), unquote(exp)
-        end
-        |> elem(1)
-      end
-    end
-  end
-end
-```
-
-当我们在 LiveBook 中运行下面的测试代码的时候, 如果是第一次运行,
-那么第 3 行的的输出之前, 控制台中应该有编译内部模块的输出提示: "Compile Elixir.TestNest.nest_hello_2",
-但是第 4 行再次调用 `M.hello()` 的时候, 不再输出模块编译的提示了,
-这说明的确不是每次调用 `M.hello()` 都创建新的模块.
-
-但是以后再次运行下面的代码的时候, 因为内部模块已经被加载到模块中了,
-所以控制台中, 只会有第 3 行的输出, 而不能再看到内部模块的编译提示.
-
-```elixir
-defmodule TestNest do
-  require Nest
-
-  def hello() do
-    Nest.def(hello(a, b), do: a + b)
-  end
-end
-
-3 = TestNest.hello().hello(1, 2)
-IO.puts("-----------")
-3 = TestNest.hello().hello(1, 2)
-```
+详细讨论见[冷知识章节](./chy.cold_knowdage.livemd).
 
 ## 协议对函数的限制与辅助
 
@@ -423,7 +349,150 @@ Erlang 的标准库的 `:code` 模块提供了这样两个函数:
 
 接下来我们探索一下, `defprotocl` 和 `defimpl` 如何配合,
 以便可以通过模块的元信息来确认某个模块是协议的实现的.
+协议的实现模块, 有一个 `:__protocol__` 属性, 其值为: `[protocol: Protocol, for: Type]`.
+我们可以通过 `ProtoclImpl.__info__(:attributes)` 或
+`Module.module_info(:attributes)`来获模块的所有的属性.
+这两个函数返回的都是关键字列表, 因此我们可以通过 Access 协议来获取 `:__protocol__` 对应的值.
+下面的代码, 获取了 `Corner.Addable.Integer` 模块的 `:__protocol__` 属性的值:
+
+```elixir
+Corner.Addable.Integer.module_info(:attributes)[:__impl__]
+```
+
+所以第二步也就非常清楚了.
+
+1. 根据数据, 判断对应的模块. 我想相应的代码, 大概是这样的:
+   ```elixir
+   def data_to_mod(d) do
+     cond do
+       is_tuple(d) -> Tuple
+       is_atom(d) -> Atom
+       is_list(d) -> List
+       is_bitstring(d) -> BitString
+       is_integer(d) -> Integer
+       is_float(d) -> Float
+       is_function(d) -> Function
+       is_pid(d) -> PID
+       is_map(d) -> Map
+       is_port(d) -> Port
+       is_reference(d) -> Reference
+       is_struct(d) -> :struct
+       _ -> Any
+     end
+   end
+   ```
+2. 根据协议实行的 `:__protoco__` 来找到合适的处理模块, 代码大概是这样:
+   ```elixir
+   def filter([protocol: pro, for: mod ], d) do
+     t = data_to_mod(d)
+     if t == :struct and %mod{} = d do
+       true
+     else
+       mod == t
+     end
+   end
+   ```
+
+那么 `imp_for` 和 `impl_for!` 大概就是这样的:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+def impl_for(d) do
+  :code.all_loaded()
+  |> Enum.map(&elem(&1,0))
+  |> Enum.filer(&by_module_name_prfix(&1,__MODULE__))
+  |> Enum.find(nil, &filter(&1.module_info(:attributes)[:__impl__], d))
+end
+def impl_for!(d) do
+  t = impl_for(d)
+  if t, do: t, else: raise Protocol.UndefinedError, d
+end
+```
+
+## Elixir 的实现
+
+在我自己构思以上的实现后, 我发现, 我能看到 Elixir 的 `impl_for` 的实现了.
+其源码在于[protocol.ex 的第 817 ~ 877行](https://github.com/elixir-lang/elixir/blob/v1.13.1/lib/elixir/lib/protocol.ex#L817).
+
+如果把其中的宏展开的话, 代码是这样的:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+defmacrop any_impl_for()do
+  if @fallback_to_any do
+    quote do: unquote(__MODULE__.Any).__impl__(:target)
+  else
+    nil
+  end
+end
+
+@spec impl_for(term) :: atom | nil
+def impl_for(data)
+
+# What is this _v_ ?
+def impl_for(%struct{}) do
+  struct_impl_for(struct)
+end
+
+def impl_for(data) when is_integer(data) do
+  # Note this one.....................v
+  target = Module.concat(__MODULE__, Integer)
+  try do
+      target.__impl__(:target)
+  rescue
+    UndefinedFunctionError -> any_impl_for
+  end
+end
+def impl_for(data) when is_float(data) do
+  # Note this one.....................v
+  target = Module.concat(__MODULE__, Float)
+  try do
+    target.__impl__(:target)
+  rescue
+    UndefinedFunctionError -> any_impl_for
+  end
+end
+
+...
+
+def impl_for(_) do
+  any_impl_for
+end
+defp struct_impl_for(struct) do
+  target = Module.concat(__MODULE__, struct)
+  try do
+    target.__impl__(:target)
+  rescue
+    UndefinedFunctionError -> any_impl_for
+  end
+end
+```
 
 <!-- livebook:{"break_markdown":true} -->
 
+这样的实现, 确实高明. 宏的代码共 60 行; 每个基础类型, 展开后 8 行代码,
+全部基础类型的 `impl_for` 子句就有: $8\times 11 = 88$ 行.
+我这里的代码所以短, 是因为我只对 Integer 和 Float 做了展开,
+其他 9 个基本类型的账号, 都用 `...` 代替的缘故.
 
+通过查看 Elixir 的源码, 还可以知道, 每个协议的实现模块中都有一个 `__impl__(:target)` 函数.
+这是 `defimpl` 与 `defprotocol` 打的配合, 为的是消除命名冲突.
+
+Elixir 的实现, 时间复杂度为 O(0), 而我的实现, 实际复杂多为 O(1). 😳
+
+在上面的代码片段的第 11 行, 有一个不常见的语法.
+对一个结构对象 `struct_obj` 来说, `%s{} = struct_obj`,
+那么变量 `s` 中绑定的内容就是 `struct_obj` 结构所在的模块的名字.
+
+```elixir
+defmodule Corner.Point do
+  defstruct x: 0, y: 0
+end
+
+alias Corner.Point, as: P
+obj = %P{}
+%module{} = obj
+module == Corner.Point |> IO.inspect(label: "module == Corner.Point")
+```
