@@ -549,6 +549,5 @@ end
 
 知道了这些知识, 就不难理解为什么 `fn` 定义匿名函数的时候, `try` 不能省略了.
 
-**结论**: 只有在 `def` 和 `defp`, `defmacro` 和 `defmacrop`
-中可以省略 `try`, 其他情形下对 `try` 的省略, 
+接着探索会发现, `def/2`, `defp/2`, `defmacro/2` 和 `defmacrop` 中可以省略 `try`. 其他情形下对 `try` 的省略, 
 都是对这个特定规则的天真推广.
