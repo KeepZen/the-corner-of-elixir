@@ -279,7 +279,8 @@ print(hi_white)
 > Hi, Mr. White
 
 Elixir 不支持修饰器. 但是修饰器, 本质上不过是高阶函数生产新函数来代理被修饰的函数.
-Elixir 强大的元编程能力, 在借助编译相关的模块属性钩子(Hook): `@before_compile`, `@on_defination`, 是可以实现 Python 的修饰器. 实际上, 早就有人做到了这一点[^decorator].
+Elixir 强大的元编程能力, 再借助编译相关的模块属性钩子(Hook): `@before_compile`和 `@on_defination`, 
+是可以实现类似 Python 的修饰器. 实际上, 早就有人做到了这一点[^decorator].
 
 [^decorator]: https://github.com/arjan/decorator
 
@@ -459,7 +460,7 @@ Elixir 在这里的处理和 Java 中的处理非常的类似.
 如果从 Elixir 语言内部来看, 行为(Behavior) 本质上是
 `defmodule` 与 `defprotocl` 的混合.
 
-有关协议和行为的更多讨论, 见后面章节[协议和行为](./chy.protocol_and_behaviuor.livemd)
+有关协议和行为的更多讨论, 见后面章节[协议和行为](./chy.protocol_and_behaviour.livemd)
 
 ## 代码是如何被编译为字节码的
 
