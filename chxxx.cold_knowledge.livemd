@@ -271,7 +271,103 @@ IO.puts("-----------")
 当然了这样做有非常大的效率成本.
 作为理论探索, 不失为一个有趣的话题.
 
-## 进程意外的状态保持
+## 进程之外的状态保持
+
+在 Erlang 和 Elixir 中, 最常用的保持状态的方法是启用一个服务进程.
+但是 Erlang 的运行时系统, 自身是有状态的.
+Erlang 允许在运行时, 动态生成生成代码.
+运行时动态生成的代码改变了 Erlang 运行时的模块的状态.
+
+如果我们把状态信息, 直接保存到模块的元数据中, 在需要改变状态的时候,
+重新产生模块, 且以新的状态来设置新产生的模块, 那么外部看来,
+这个模块就像一个保有状态的对象一样.
+
+```elixir
+defmodule Corner.State do
+  def create(kv \\ []) do
+    if Keyword.keyword?(kv) do
+      now = NaiveDateTime.utc_now() |> to_string() |> String.to_atom()
+      module = Module.concat(__MODULE__, now)
+      make_nest_module(kv, module)
+    else
+      raise "Expect a keyword, but get :#{inspect(kv)}"
+    end
+  end
+
+  defmacro delete(module) do
+    if :code.delete(module) do
+      quote do
+        var!(unquote(module), __CALLER__) = nil
+        true
+      end
+    else
+      false
+    end
+  end
+
+  def set(module, k, v) do
+    kv =
+      module.module_info(:attributes)
+      |> Enum.filter(&(elem(&1, 0) != :vsn))
+      |> Enum.map(fn {k, [v]} -> {k, v} end)
+      |> Keyword.merge([{k, v}])
+
+    make_nest_module(kv, module)
+  end
+
+  defp make_nest_module(kv, module) do
+    blocks = make_geter_and_seters(module, kv, [])
+
+    quote do
+      defmodule unquote(module) do
+        unquote_splicing(blocks)
+        def delete(), do: :code.delete(unquote(module))
+      end
+    end
+    |> Code.eval_quoted()
+    |> elem(0)
+    |> elem(1)
+  end
+
+  defp make_geter_and_seters(_module, [], acc), do: acc
+
+  defp make_geter_and_seters(module, [{k, v} | rest], acc) do
+    attr = make_attr(k, v)
+    geter = quote do: def(unquote(k)(), do: unquote(v))
+
+    seter =
+      quote do
+        def unquote(k)(v),
+          do: Corner.State.set(unquote(module), unquote(k), v)
+      end
+
+    make_geter_and_seters(module, rest, [attr, geter, seter | acc])
+  end
+
+  defp make_attr(k, v) do
+    [
+      quote do
+        Module.register_attribute(__MODULE__, unquote(k), persist: true)
+      end,
+      {:@, [context: Elixir, import: Kernel], [{k, [context: Elixir], [v]}]}
+    ]
+  end
+end
+```
+
+我们可以使用 `h = Corner.State.create([x: 1])` 来创建一个状态. 并使用 `s.x` 读取 `x` 的值, `s.x(new_value)`
+更新 `x` 的值.
+
+```elixir
+import Corner.State
+s = create(x: 2, y: 0)
+s.x |> IO.inspect(label: :x)
+s.y |> IO.inspect(label: :y)
+s.x(0)
+s.x |> IO.inspect(label: :x)
+delete(s)
+s |> IO.inspect()
+```
 
 ## Elixir代码是如何编译到模块中
 

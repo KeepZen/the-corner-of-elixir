@@ -363,23 +363,23 @@ Corner.Addable.Integer.module_info(:attributes)[:__impl__]
 
 1. 根据数据, 判断对应的模块. 我想相应的代码, 大概是这样的:
    ```elixir
-   def data_to_mod(d) do
-     cond do
-       is_tuple(d) -> Tuple
-       is_atom(d) -> Atom
-       is_list(d) -> List
-       is_bitstring(d) -> BitString
-       is_integer(d) -> Integer
-       is_float(d) -> Float
-       is_function(d) -> Function
-       is_pid(d) -> PID
-       is_map(d) -> Map
-       is_port(d) -> Port
-       is_reference(d) -> Reference
-       is_struct(d) -> :struct
-       _ -> Any
-     end
-   end
+      def data_to_mod(d) do
+        cond do
+          is_tuple(d) -> Tuple
+          is_atom(d) -> Atom
+          is_list(d) -> List
+          is_bitstring(d) -> BitString
+          is_integer(d) -> Integer
+          is_float(d) -> Float
+          is_function(d) -> Function
+          is_pid(d) -> PID
+          is_map(d) -> Map
+          is_port(d) -> Port
+          is_reference(d) -> Reference
+          is_struct(d) -> :struct
+          _ -> Any
+        end
+      end
    ```
 2. 根据协议实行的 `:__protoco__` 来找到合适的处理模块, 代码大概是这样:
    ```elixir
