@@ -190,19 +190,17 @@ defmodule Corner.Macro do
   def bar, do: nil
 end
 
-Corner.Macro.module_info(:exports) |> IO.inspect()
-IEx.Helpers.exports(Corner.Macro)
-# Corner.Macro.foo
-IEx.Helpers.h(Corner.Macro."Macro-foo"())
+Corner.Macro.module_info() |> IO.inspect()
 ```
 
 上面的代码中, 我在模块中, 定义了定义了 `foo/0` 宏 和 `bar/1` 函数.
-`module_info` 的返回结果中, 模块的导出中, 可以找到 `fun/0`,
+`module_info` 的返回结果中, 模块的导出中, 可以找到函数 `fun/0`;
 没有找到 `hello/0` 这宏, 但是多了一个 `MACRO-hello/1` 的函数.
 可以猜测, `MACRO-hello/1` 一定和我们定义的宏有关系.
 
 ```elixir
 require Corner.Macro
-Corner.Macro.module_info(:exports)
-__ENV__
+import IEx.Helpers
+b(Corner.Macro.__info__())
+Corner.Macro.__info__(:macros)
 ```

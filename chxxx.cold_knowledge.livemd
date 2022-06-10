@@ -381,3 +381,139 @@ Erlang 代码, 函数对应的代码被编译到可 `.beam` 字节码中的 `Cod
 通过分析 Elixir 反汇编后的抽象码, 可以知道:
 Elixir 的宏也是以函数的形式编译到字节码中的, 在字节码中,
 宏的名字被统一加了 `MACRO-` 的前缀; 而且多了一个表示调用者上下文的参数.
+
+## 超时
+
+Elixir 的 `receive` 结构中支持 `after` 子句来处理超时问题. `after_sent` 
+也可以在指定的时间后向进程发送消息.
+
+这些功能背后都是使用的都是相同的机制, Elixir 中整数是可以无限大的,
+但是表示超时的参数却不能这样, 而是有限制的.
+在 Elixir 中, 如果是一个正整数, 那么这个正整数,
+必须小于等于为 32 位可表示的最大无符号整数,
+也就是 $2^{33}-1$ (或十六进制表示: 0xFFFF_FFFF).
+让我们实验一下:
+
+```elixir
+receive do
+  a -> IO.inspect(a, lable: "a")
+after
+  0xFFFF_FFFF + 1 -> IO.put("timeout")
+end
+```
+
+## 远程调用和本地调用
+
+在模块外, 调用一个模块内的函数的时候, 实际上使用的都是远程调用.
+但是在 `defmodule` 的上下文中, 私有函数和公开函数都可以使用本地调用的语法来调用.
+
+原来我一直以为, 在 `defmoudle` 上下文中, 对模块内的函数, 使用远程调用的语法没有意义.
+但是这是错误的. 当代码发生热加载的时候, 在 `defmodule` 上下文中,
+远程调用和本地调用之间的差别就显示出来了.
+
+Erlang 中热加载是这样实现的:
+
+系统会为每个模块保持两个最新的版本. 假设有两个进程P1, P2; P1 运行的是第一个版本的代码,
+P2 运行的是第二个版本的代码. 当模块的第 3 个版本被加载到系统后, 第一个版本的代码,
+就会从系统中被删除掉, 这是, 如果有进程还在运行第一个版本的代码, 就会因为找不到对应的模块,
+那么这个进程就会会被杀死.
+
+如果被杀死的 P1 运行在监管树下, 那么监控进程会创建新的进程 P3 代替死亡的 P1,
+这时 P3 中运行的是第三个版本的代码. 至此, 和远程函数调用还没有关系.
+
+这样的热更新, 导致了进程 P1 退出, 所以还是有风险的.
+
+如果代码更新后, 还在运行的进程可以自动的切换到最新的版本的代码中,
+那么热更新的风险就更小了.
+
+要达到这种效果, 在服务器进程的循环函数中, 最后对自己的递归调用, 就必须使用远程调用的语法.
+远程调用语法, 调用的都是模块的最新版本的代码.
+
+可以下面让我们用代码来实验一下.
+
+首先, 定义第一个版本. 在`loop/0` 递归调用自己的时候, 使用的是本地函数调用的语法:`loop()`.
+模块编译完成后, 立刻启东进程 p1 运行这个版本.
+
+```elixir
+defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok ->
+        IO.puts("#{inspect(self())} version1")
+        Process.send_after(self(), :ok, 100)
+        loop()
+
+      :stop ->
+        IO.puts("stop version1")
+    end
+  end
+end
+
+p1 =
+  spawn(&RemoteAndLocalCall.loop/0)
+  |> IO.inspect(label: "p1")
+```
+
+然后我们定义第二个版本, 这里, `loop/0` 对自己递归调用的时候, 使用的是远程函数调用的语法: `__MODULE__.loop()`.
+模块编译后, 我们启动进程 p2 来运行我们的代码. 这时 p1 和 p2 都在等待消息进来.
+所以, 通过向他们分别发送一个 `:ok` 消息来启动这两个进程的循环.
+
+这时控制台中会交替的输出 "PID{} version1", "PID{} version2".
+
+```elixir
+defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok ->
+        IO.puts("#{inspect(self())} version2")
+        Process.send_after(self(), :ok, 100)
+        __MODULE__.loop()
+
+      :stop ->
+        IO.puts("stop version2")
+    end
+  end
+end
+
+p2 =
+  spawn(&RemoteAndLocalCall.loop/0)
+  |> IO.inspect(label: "p2")
+
+Process.alive?(p1) |> IO.inspect(label: "Is v1 alive?")
+
+for p <- [p1, p2] do
+  send(p, :ok)
+end
+```
+
+最后, 定义第三个版本, 模块编译通过后会发现:
+
+1. 进程 p1 死亡了.
+2. 进程 p2 还或者, 但是其中运行的代码更新了.
+   控制台输出变成了 `PID{} version3`.
+
+```elixir
+defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok ->
+        IO.puts("#{inspect(self)} version3")
+        Process.send_after(self, :ok, 100)
+        __MODULE__.loop()
+
+      :stop ->
+        IO.puts("stop version3")
+    end
+  end
+end
+
+Process.alive?(p1) |> IO.inspect(label: "Is v1 live?")
+Process.alive?(p2) |> IO.inspect(label: "Is v2 live?")
+IO.inspect(p2, label: "P2")
+```
+
+最后运行下面的代码, 退出进程 p2.
+
+```elixir
+send(p2, :stop)
+```
