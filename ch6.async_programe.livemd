@@ -1,0 +1,204 @@
+# 异步编程
+
+## Promise
+
+```elixir
+defmodule Promise do
+  @opaque t :: %__MODULE__{funs: [fun], args: nil}
+  defstruct funs: [], args: []
+
+  def of(v) do
+    args = if is_list(v), do: v, else: [v]
+    %__MODULE__{funs: [], args: {:value, args}}
+  end
+
+  def then(%__MODULE__{} = p, fun) do
+    %{funs: funs} = p
+    funs = [{:fun, fun} | funs]
+    %__MODULE__{p | funs: funs}
+  end
+
+  def on_error(%__MODULE__{} = p, fun) do
+    %{funs: funs} = p
+    funs = [{:error, fun} | funs]
+    %__MODULE__{p | funs: funs}
+  end
+
+  def await(%{funs: funs, args: args}, timeout \\ :infinity) do
+    funs = funs |> Enum.reverse()
+    ref = make_ref()
+    me = self()
+
+    spawn(fn ->
+      ret = do_await(%{funs: funs, args: args})
+      send(me, {ref, ret})
+    end)
+
+    receive do
+      {^ref, ret} -> ret
+    after
+      timeout -> {timeout, ref}
+    end
+  end
+
+  defp do_await(%{funs: [], args: e}), do: Tuple.delete_at(e, 0)
+
+  defp do_await(%{funs: [{:fun, _} | funs], args: {:error, args}}) do
+    do_await(%{funs: funs, args: [args]})
+  end
+
+  defp do_await(%{funs: [{:error, fun} | funs], args: {:error, args}}) do
+    apply(fun, args)
+  rescue
+    _ -> do_await(%{funs: funs, args: {:error, args}})
+  else
+    ret ->
+      do_await(%{funs: funs, args: [ret]})
+  end
+
+  defp do_await(%{funs: [{:fun, fun} | funs], args: {:value, args}}) do
+    apply(fun, args)
+  rescue
+    error ->
+      do_await(%{funs: funs, args: {:error, error, __STACKTRACE__}})
+  else
+    arg -> do_await(%{funs: funs, args: {:value, arg}})
+  end
+
+  defp do_await(%{funs: [_ | funs], args: args}) do
+    do_await(%{funs: funs, args: args})
+  end
+end
+
+Promise.of(1)
+|> Promise.then(&(&1 + 1))
+|> Promise.then(&(&1 + :a))
+|> Promise.on_error(fn e -> IO.inspect(e) end)
+|> Promise.await()
+```
+
+## Generater
+
+```elixir
+defmodule Coner.Generater do
+  defmacro delete(m) do
+    quote do
+      :code.delete(unquote(m))
+      unquote(m) = nil
+    end
+  end
+
+  defmacro fn?(call, do: block) do
+    uuid = make_uuid()
+    process_fun = make_process_fun(call, block, uuid)
+
+    args = get_args(call)
+
+    quote do
+      fn unquote_splicing(call) ->
+        pid = spawn(fn -> apply(unquote(process_fun), unquote(args)) end)
+        Process.register(pid, unquote(uuid))
+
+        defmodule unquote(uuid) do
+          def next(v \\ nil) do
+            pid = Process.whereis(unquote(uuid))
+
+            if pid && Process.alive?(pid) do
+              send(pid, {self(), v})
+
+              receive do
+                {unquote(uuid), v} -> v
+              end
+            else
+              :done
+            end
+          end
+        end
+        |> elem(1)
+      end
+    end
+  end
+
+  defp make_uuid() do
+    NaiveDateTime.utc_now()
+    |> to_string()
+    |> String.to_atom()
+  end
+
+  defp get_args({:when, _, args}) do
+    Enum.reduce_while(args, [], fn {ele}, acc ->
+      if elem(ele, 1) == [if_undefined: :apply] do
+        {:cont, acc ++ [ele]}
+      else
+        {:halt, acc}
+      end
+    end)
+  end
+
+  defp get_args(args), do: args
+
+  defp make_process_fun(call, {:__block__, _, stances}, uuid) do
+    stances = if is_list(stances), do: stances, else: [stances]
+    make_process_fun(call, stances, uuid)
+  end
+
+  defp make_process_fun(call, t, uuid) when is_tuple(t) do
+    make_process_fun(call, [t], uuid)
+  end
+
+  defp make_process_fun(call, stances, uuid) do
+    stances = Enum.map(stances, &transform(&1, uuid))
+
+    quote do
+      fn unquote_splicing(call) ->
+        (unquote_splicing(stances))
+      end
+    end
+  end
+
+  defp transform({:=, _, [left, {:yield, _, [after_yield]}]}, uuid) do
+    quote do
+      unquote(left) =
+        receive do
+          {me, unquote(left)} ->
+            send(me, {unquote(uuid), unquote(after_yield)})
+            unquote(left)
+        end
+    end
+  end
+
+  defp transform({:yield, _, [after_yield]}, uuid) do
+    quote do
+      receive do
+        {me, nil} -> send(me, {unquote(uuid), unquote(after_yield)})
+        {me, _} -> send(me, {unquote(uuid), unquote(after_yield)})
+      end
+    end
+  end
+
+  defp transform(ast, _uuid) do
+    ast
+  end
+end
+```
+
+```elixir
+import Coner.Generater
+
+fun =
+  fn? [a, b] do
+    c = yield(a)
+    yield(c + b)
+  end
+
+g = fun.(1, 2)
+# now c is 3
+g.next(3)
+|> IO.inspect(label: "shoud be 1, get")
+
+g.next(4)
+|> IO.inspect(label: "should be 3+2")
+
+delete(g)
+IO.inspect(g, label: "now g should be nil, in fact is")
+```
