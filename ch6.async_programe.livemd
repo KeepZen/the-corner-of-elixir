@@ -2,80 +2,303 @@
 
 ## Promise
 
+Elixir 对异步编程的支持由 `Task` 模块支持. 但是我很少使用它,
+`Task` 不是一个代数结构类型, 因此无法完成链式操作.
+
+Js 中的 Promise 不一样, 它成功的解决了回调地狱的问题.
+因此我希望能把这个类型引入到 Elixir 语言中.
+新的 Promise 模块, 对外提供的结构只有 8 个函数, 其中 6 个来源于 Js 的 Promise API,
+但是这里没有定义 `catch`, 因为 `catch` 在 Elixiir 中是保留字, 不允许用作函数名,
+因此这里用 `on_error` 来代替.
+
+最后的 2 个: `of/1` 和 `map(promise,fun/1)` 是函子的通用函数.
+
+1. `Promise` 构造函数 `Promise.new`
+2. `Promise` 特化的构造函数 `Promise.reslove(v)` 把 `v` 转化为完成的 `Promise` 结构.
+3. `Promise` 特化的构造函数 `Promise.reject(v)` 把 `v` 转化为拒绝的 `Promise` 结构.
+4. `Promise` 的转化换函数 `Promise.then(promise,fun, error_hanlder)`,
+5. `Promise` 错误处理函数`Promise.on_error(promise,fun)`
+6. `Promise` 结构函数 `await(promise)` 返回 `Promise` 包含的类型
+7. 函子构造函数 `Promise.of({:resloved|:rejected,v})` 把任意类型的值 `v` 转化为一个 `Promise` 结构.
+8. 函子通用转化换函数 `Promise.map(promise,fun)`
+
 ```elixir
 defmodule Promise do
-  @opaque t :: %__MODULE__{funs: [fun], args: nil}
-  defstruct funs: [], args: []
+  @opaque t :: %__MODULE__{state: :pending | :fulfilled | :rejected, result: any()}
+  defstruct state: :pending, result: nil
 
-  def of(v) do
-    args = if is_list(v), do: v, else: [v]
-    %__MODULE__{funs: [], args: {:value, args}}
+  def of({tag, v}) when tag in [:fulfilled, :resloved, :rejected] do
+    tag = if tag != :rejected, do: :fulfilled, else: tag
+    %__MODULE__{state: tag, result: v}
   end
 
-  def then(%__MODULE__{} = p, fun) do
-    %{funs: funs} = p
-    funs = [{:fun, fun} | funs]
-    %__MODULE__{p | funs: funs}
+  def reslove(v) do
+    of({:resloved, v})
   end
 
-  def on_error(%__MODULE__{} = p, fun) do
-    %{funs: funs} = p
-    funs = [{:error, fun} | funs]
-    %__MODULE__{p | funs: funs}
+  def reject(v) do
+    of({:rejected, v})
   end
 
-  def await(%{funs: funs, args: args}, timeout \\ :infinity) do
-    funs = funs |> Enum.reverse()
+  def new(func, timeout \\ :infinity) when is_function(func, 2) or is_function(func, 1) do
     ref = make_ref()
     me = self()
-
-    spawn(fn ->
-      ret = do_await(%{funs: funs, args: args})
-      send(me, {ref, ret})
-    end)
+    run_and_send_message_back(func, ref, me)
 
     receive do
-      {^ref, ret} -> ret
+      {^ref, p} -> p
     after
-      timeout -> {timeout, ref}
+      timeout -> %__MODULE__{state: :rejected, result: ref}
     end
   end
 
-  defp do_await(%{funs: [], args: e}), do: Tuple.delete_at(e, 0)
+  defp run_and_send_message_back(fun, ref, pid) do
+    new_fun = fn ->
+      try do
+        {_, arity} = Function.info(fun, :arity)
+        reslove = &param_fun(state: :fulfilled, result: &1, ref: ref, pid: pid)
 
-  defp do_await(%{funs: [{:fun, _} | funs], args: {:error, args}}) do
-    do_await(%{funs: funs, args: [args]})
+        if arity == 2 do
+          reject = &param_fun(state: :rejected, result: &1, ref: ref, pid: pid)
+          fun.(reslove, reject)
+        else
+          fun.(reslove)
+        end
+      rescue
+        error ->
+          # The promise while will be send must be rejected or fulfilled
+          p = %__MODULE__{state: :rejected, result: {error, __STACKTRACE__}}
+          send(pid, {ref, p})
+      end
+    end
+
+    spawn(new_fun)
   end
 
-  defp do_await(%{funs: [{:error, fun} | funs], args: {:error, args}}) do
-    apply(fun, args)
-  rescue
-    _ -> do_await(%{funs: funs, args: {:error, args}})
-  else
-    ret ->
-      do_await(%{funs: funs, args: [ret]})
+  # The promise while will be send must be rejected or fulfilled
+  defp param_fun(state: state, result: result, ref: ref, pid: pid)
+       when state in [:fulfilled, :rejected] do
+    p = %__MODULE__{state: state, result: result}
+    send(pid, {ref, p})
   end
 
-  defp do_await(%{funs: [{:fun, fun} | funs], args: {:value, args}}) do
-    apply(fun, args)
-  rescue
-    error ->
-      do_await(%{funs: funs, args: {:error, error, __STACKTRACE__}})
-  else
-    arg -> do_await(%{funs: funs, args: {:value, arg}})
+  def then(%__MODULE__{} = p, fun, on_error \\ nil) do
+    %{state: state} = p
+
+    case state do
+      :pending ->
+        chain(p, [fun, on_error])
+
+      :fulfilled ->
+        chain(p, fun)
+
+      :rejected ->
+        if on_error, do: chain(p, on_error), else: p
+    end
   end
 
-  defp do_await(%{funs: [_ | funs], args: args}) do
-    do_await(%{funs: funs, args: args})
+  def map(%__MODULE__{} = p, fun) do
+    chain(p, fun)
+  end
+
+  def on_error(%__MODULE__{state: state} = p, fun) do
+    if state == :rejected, do: chain(p, fun), else: p
+  end
+
+  defp chain(%__MODULE__{state: state} = p, fun)
+       when state in [:fulfilled, :rejected] do
+    ref = make_ref()
+    do_chain(p, fun, ref)
+  end
+
+  defp chain(%__MODULE__{state: :pending} = p, [fun, on_error]) do
+    {state, v} = do_await(p, :infinity)
+
+    ref = make_ref()
+
+    if state == :ok do
+      p = %__MODULE__{state: :fulfilled, result: v}
+      do_chain(p, fun, ref)
+    else
+      p = %__MODULE__{state: :rejected, result: {state, v}}
+      do_chain(p, on_error, ref)
+    end
+  end
+
+  defp do_chain(%{state: :rejected} = p, nil, _ref) do
+    p
+  end
+
+  defp do_chain(%{result: v}, fun, ref) do
+    {_, arity} = Function.info(fun, :arity)
+
+    fun =
+      cond do
+        arity == 1 -> fn -> fun.(v) end
+        true -> fn -> apply(fun, v) end
+      end
+
+    me = self()
+
+    fun = fn ->
+      try do
+        fun.()
+      rescue
+        error -> send(me, {ref, {error, __STACKTRACE__}})
+      else
+        v -> send(me, {ref, {:ok, v}})
+      end
+    end
+
+    spawn(fun)
+    %__MODULE__{state: :pending, result: ref}
+  end
+
+  def await(%__MODULE__{} = p, timeout \\ :infinity) do
+    {_, v} = do_await(p, timeout)
+
+    if is_struct(v, __MODULE__) do
+      v.result
+    else
+      v
+    end
+  end
+
+  defp do_await(%{state: :pending, result: ref}, timeout) do
+    receive do
+      {^ref, ret} -> ret
+    after
+      timeout -> {:timeout, ref}
+    end
+  end
+
+  defp do_await(%__MODULE__{} = p, _) do
+    {:ok, p}
+  end
+end
+```
+
+我们首先来看看 `Promise` 的 API.
+
+### 动态构造函数 `new(fun,timeout\\:infinity)`
+
+每个 `Promise` 对象有三个状态: 待执行(`:pending`), 完成(`:fulfilled`), 和拒绝(`:rejected`).
+调用者不用关心, Promise 的状态, 当需要提取 Promise 中的值的时候, 调用 `await/1` 函数就好了.
+`await/1` 会永久等待 Promise 对象从待执行变为已执行的状态. `await/2` 支持等待一定时间后放弃.
+超时后, `await/2` 返回的为 `ref`, 等到 Promise 执行结束后,
+Promise 的创建进程, 可能依旧会收到 `{ref,value}` 消息, 通过 `await/2` 返回的 `ref`
+依旧可以拿到 Promise 的结果.
+
+`Promsie.new/1` 的函数接受一个函数 `fun`, 返回一个 `Promise` 透明结构.
+`fun` 函数规范为: `fun(reslove,reject)::any` 或 `fun(reslove)::any`.
+其中 `reslove`, `reject` 都是一元函数, 返回值为 `Promise` 结构.
+
+`fun` 自己的返回值会被丢弃, 但是如果 `fun` 抛出了异常, 那么 `Promise.new/1`
+会返回拒绝状态的 `Promise` 对象.
+在 `fun` 中调用 `reslove/1` 或 `reject/1`
+会分别返回: **完成** 或 **拒绝** 状态的 Promise.
+
+**警告**:
+
+调用 `new(fun)` 时, 如果 `fun` 函数中既没有调用 `reslove/1` 有没有调用 `reject/1`,
+且没有引发异常, 那么 `new/1` 函数会陷入永久等待. 可以使用 `new/2` 来设置等待时间, 解决这个问题.
+超时后, `new/2` 会返回拒绝状态的 `Promise`, 其中包含的值为一个 Reference.
+
+```elixir
+ExUnit.start(atom_run: false)
+
+defmodule PromiseTest.New do
+  use ExUnit.Case
+
+  test "Promise.new(fun_is_arity_one)" do
+    assert 1 ==
+             Promise.new(fn reslove ->
+               reslove.(1)
+               2
+             end)
+             |> Promise.await()
+  end
+
+  test "Promise.new(fun_is_arity_two)" do
+    assert 1 ==
+             Promise.new(fn reslove, _reject -> reslove.(1) end)
+             |> Promise.on_error(fn _v -> refute 1 == 1 end)
+             |> Promise.await()
+
+    assert :good ==
+             Promise.new(fn _reslove, reject -> reject.(1) end)
+             |> Promise.then(fn _ -> :bad end)
+             |> Promise.on_error(fn v -> v == 1 && :good end)
+             |> Promise.await()
+  end
+
+  test "Promise.new(fun) timeout" do
+    assert Promise.new(fn _, _ -> :ok end, 1000)
+           |> Promise.await()
+           |> is_reference()
   end
 end
 
-Promise.of(1)
-|> Promise.then(&(&1 + 1))
-|> Promise.then(&(&1 + :a))
-|> Promise.on_error(fn e -> IO.inspect(e) end)
-|> Promise.await()
+ExUnit.run()
 ```
+
+### 数据构造函数
+
+`Promise.of({tag,v})`, `Promise.reslove(v)` 和 `Promise.reject(v)` 是三个数据构造函数,
+把 `v` 置于 `Promise` 对象之中. `Promise.reslove(v)` 是
+`Promise.of({:reloved, v})` 代理; `Promise.rejcet(v)` 和 `Promise.of({:rejected, v})` 一样.
+
+这些构造函数和 `new/1` 的最大差别在于, `new/1` 可能会阻塞调用者进程, 这 3 个函数都不会阻塞调用者进程.
+
+### 数据转化函数
+
+`map`, `then` 和 `on_error` 是三个函数转化函数.
+其中 `then/1/2` 和 `on_error` 与 Js 的 Promise API 的对应函数功能相同[^js_promise].
+`then/1` 只处理 **完成** 状态的 Promise, `then/2` 两个转化函数, 第一个处理 **完成** 状态的,
+第二个处理 **拒绝** 状态的 Promise 转化. `on_error/1` 只处理 **拒绝状态** 的 Promise.
+
+[^js_promise]: 见 MDN [Promise 参考页面](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise)
+
+`map` 是为了配合 Elixir 的函数子句而提供的 API.
+当运行时错误发生时, `map` 的处理函数接受到的是 `{error, stack}` 数据,
+其中 `error` 是运行时异常类型, 而 `stack` 是异常的调用砸.
+当时对于 `of({tag,v})` 或 `reject/1` 构造的拒绝状态, 那需要用户自己在 `v` 中添加元数据,
+以表明它是哪种状态获得的值.
+
+```elixir
+Promise.reject({:r, 3})
+|> Promise.map(&if elem(&1, 0) == :r, do: elem(&1, 1) + 1, else: raise("error"))
+|> Promise.await()
+|> IO.inspect(label: "expect 4, in fact get")
+
+Promise.reslove({:f, 3})
+|> Promise.map(&if elem(&1, 0) == :f, do: elem(&1, 1) + 1, else: raise("error"))
+|> Promise.await()
+|> IO.inspect(label: "expect 4, in fact get")
+
+Promise.new(fn _, _ -> 1 / 0 end)
+|> Promise.map(fn {err, _} when is_exception(err) -> :bad end)
+|> Promise.await()
+|> IO.inspect(label: "expect get a :bad, in fact get ")
+```
+
+如论使用那个函数转化函数, 都立刻返回新的 `Promise` 结构, 而不会阻塞调用者进程.
+但是这个返回的 `Promise` 对象处于待执行状态, 所以不能从中拿到转化后的结果.
+
+### await
+
+要拿到转化后的结果, 使用 `await/1/2`. 即使构造函数返回的 `Promise` 对象可以使用模式匹配获取,
+也不推荐使用模式匹配. 因为 `Promise` 结构应该是不透明, 其内部实现, 后续版本可能会修改的.
+
+**警告**:
+使用 `await/1` 的时候,
+调用者进程也有被卡住的风险, 就像 `new/1` 那样.
+
+例如当某个转化函数陷入循环, 没有返回结果的时候, 那么这个 Promise 将永远处于待完成状态,
+这时调用 `await/1`, 将会阻塞调用者进程.
+
+最后要注意的就是, 这里全部都是函数, 没有宏, 所以**不要使用 `import` 语句**,
+如果使用 import 导入全部函数, 那么会引发 `Promise.then/1` 与 `Kernel.then/1` 的命名冲突.
 
 ## Generater
 
@@ -83,6 +306,8 @@ Promise.of(1)
 defmodule Coner.Generater do
   defmacro delete(m) do
     quote do
+      pid = unquote(m) |> Process.whereis()
+      pid && Process.unregister(pid)
       :code.delete(unquote(m))
       unquote(m) = nil
     end
@@ -196,9 +421,15 @@ g = fun.(1, 2)
 g.next(3)
 |> IO.inspect(label: "shoud be 1, get")
 
+(g in Process.registered()) |> IO.inspect(label: "G is registerd")
+
 g.next(4)
 |> IO.inspect(label: "should be 3+2")
 
+g |> IO.inspect(label: "g is a atom")
 delete(g)
 IO.inspect(g, label: "now g should be nil, in fact is")
+Process.registered() |> IO.inspect(label: "G now is unregisterd")
 ```
+
+## 服务查询的状态

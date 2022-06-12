@@ -71,23 +71,38 @@ Elixir 中, 源文件和字节码文件之间不在是一一对应, 而且模块
 
 ### 内建属性
 
-| Erlang 预定义的属性示例                | 意义                                                                                                              | Elixir对应结构                             |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| `-module(MODULE_NAME)`                         | 设置模块的名字                                                                                               | `defmodule`                                    |
-| `-export(Functions)`                           | 模块中导出函数                                                                                               | `def`                                          |
-| `-import(Module,Functions)`                    | 导入其他模块中的函数                                                                                      | `import Module, only: [Functions]`             |
-| `-compile(Options)`                            | 模块中指定编译选项                                                                                         | `@compile([options])`                          |
-| `-vsn(Vsn)`                                    | 模块版本                                                                                                        | `@vsn("VSN")`                                  |
-| `-on_load(Function)`                           | 指定模块加载时调用的函数名                                                                             | `@on_load ...`                                 |
-| `-nifs(Functions)`                             | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | TODO                                           |
-| `-behaviour(Behaviour)`                        | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
-| `-callback Name(Argument) -> Result.`          | 定义Behaveiour 的回调函数                                                                                    | `@callback function_spec`                      |
-| `-record(Record, Fields).`                     | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
-| `-include("SomeFile.hrl").`                    | 包含预处理                                                                                                     | `require`                                      |
-| `-define(Macro, Replacement).`                 | 定义宏                                                                                                           | `defmacro`, `defmacrop`                        |
-| `-file(File,Line)`                             | 修改了预定义的宏 `?File` 和 `?Line` 的值.                                                                | `@file`                                        |
-| `-type my_type() :: other_have_defined_type()` | 类型定义                                                                                                        | `@type my_type() :: other_have_define_type()`  |
-| `-spec function(type()) -> return_type()`      | 为 `function` 指定规范                                                                                         | `@spec spec function(type()) -> return_type()` |
+| Erlang 预定义的属性示例                  | 意义                                                                                                              | Elixir对应结构                             |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `-module(MODULE_NAME)`                           | 设置模块的名字                                                                                               | `defmodule`                                    |
+| `-export(Functions)`                             | 模块中导出函数                                                                                               | `def`                                          |
+| `-import(Module,Functions)`                      | 导入其他模块中的函数                                                                                      | `import Module, only: [Functions]`             |
+| `-compile(Options)`                              | 模块中指定编译选项                                                                                         | `@compile([options])`                          |
+| `-vsn(Vsn)`                                      | 模块版本                                                                                                        | `@vsn("VSN")`                                  |
+| `-on_load(Function)`                             | 指定模块加载时调用的函数名                                                                             | `@on_load ...`                                 |
+| `-nifs(Functions)`                               | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | TODO                                           |
+| `-behaviour(Behaviour)`                          | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
+| `-callback Name(Argument) -> Result.`[^callback] | 定义 Behaveiour 的回调函数                                                                                   | `@callback function_spec`                      |
+| `-record(Record, Fields).`                       | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
+| `-include("SomeFile.hrl").`                      | 包含预处理                                                                                                     | `require`                                      |
+| `-define(Macro, Replacement).`                   | 定义宏                                                                                                           | `defmacro`, `defmacrop`                        |
+| `-file(File,Line)`                               | 修改了预定义的宏 `?File` 和 `?Line` 的值.                                                                | `@file`                                        |
+| `-type my_type() :: other_have_defined_type()`   | 类型定义                                                                                                        | `@type my_type() :: other_have_define_type()`  |
+| `-spec function(type()) -> return_type()`        | 为 `function` 指定规范                                                                                         | `@spec spec function(type()) -> return_type()` |
+
+Erlang 较老的不支持 `-callback` 模块属性的版本, 通过定义导出函数 `behviour_info/1` 来定义行为.
+就像下面的代码这样.
+
+```erlang
+-export([behaviour_info/1]).
+...
+behaviour_info(callback) ->
+  [{func1, Arity1},...];
+behaviour_info(_) -> undefined.
+```
+
+[^callback]: Elixir 被废弃的 `Behaviour` 模块就是为了帮助我们定义自己的 `behaviour_info` 函数.
+现在因为 Erlang 支持 `-callback` 模块属性, 所以 Elixir 废弃了 `Behaviour` 模块,
+而启用了新的 `@callback` 内置模块属性.
 
 <!-- livebook:{"break_markdown":true} -->
 
