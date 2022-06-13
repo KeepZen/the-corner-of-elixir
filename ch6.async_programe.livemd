@@ -199,7 +199,6 @@ Promise 的创建进程, 可能依旧会收到 `{ref,value}` 消息, 通过 `awa
 会分别返回: **完成** 或 **拒绝** 状态的 Promise.
 
 **警告**:
-
 调用 `new(fun)` 时, 如果 `fun` 函数中既没有调用 `reslove/1` 有没有调用 `reject/1`,
 且没有引发异常, 那么 `new/1` 函数会陷入永久等待. 可以使用 `new/2` 来设置等待时间, 解决这个问题.
 超时后, `new/2` 会返回拒绝状态的 `Promise`, 其中包含的值为一个 Reference.
@@ -300,6 +299,64 @@ Promise.new(fn _, _ -> 1 / 0 end)
 最后要注意的就是, 这里全部都是函数, 没有宏, 所以**不要使用 `import` 语句**,
 如果使用 import 导入全部函数, 那么会引发 `Promise.then/1` 与 `Kernel.then/1` 的命名冲突.
 
+## Stream
+
+Generater 是 ES6 中引入的新的语法, 让我们可以通过 `function*` 来创建产生子.
+有了这个语法, 在 Js 中, 我们就可以产生无限数量的序列了.
+
+Elixir 标准库中, 提供了 `Stream` 模块.
+任意的在枚举过程中一个接一个的产生数据的可枚举数据类型, 都可以叫做 `Stream`[^stream].
+虽说 Stream 模块提供**组合**和**创建** `Stream` 的函数.
+但是从函数的数量上来说, 这个库中提供的, 创建 `Stream` 的函数只有 3 个,
+堪堪占据全部函数的十分之一左右.
+
+[^stream]: 见 [Stream 模块文档](elixir/1.13.0/Stream.html)
+
+对于无限序列, `Stream` 模块提供的 API 非常方便.
+比如让我们产生一个斐波那契数列的 `Stream`:
+
+```elixir
+Stream.unfold({1, 1}, fn {a, b} -> {a, {b, a + b}} end)
+|> Stream.take(10)
+|> Enum.to_list()
+```
+
+但是, 当要求产生特定的序列时, 就比较困难. 比如, 产生斐波那契数列中, 和小于 10000 的序列.
+
+```elixir
+Stream.unfold(
+  {1, 1, 0},
+  fn {a, b, sum} -> if sum < 1000, do: {a, {a + b, b, sum + a}}, else: nil end
+)
+|> Enum.to_list()
+```
+
+这样的 API, 虽然能完成工作, 但是代码的可读性非常差, 阅读这样的代码, 往往一头雾水.
+
+这是因为控制流由 `Stream.unfold/2` 控制的.
+`Stream.unfold(acc,fun)` 通过判断 `fun` 返回结果,
+来决定为流中产生什么元素或者是否结束序列.
+具体的说, 当 `fun` 返回的是 `nil` 的时候, 序列结束.
+但是 `fun` 返回一个二元元组的时候, 元组的第一个元素作为序列的元素,
+第二个元素作为继续调用 `fun` 的参数.
+这就是为什么, `Stream.unfold/2` 第二个参数的类型为
+`(acc() -> {element(), acc()} | nil)` 的原因.
+
+如果要完成更加复杂的工作, 例如写一个从文件中读取内容的 `Stream`,
+那么就必须使用 `Stream.source/3`. 和 `Stream.unfold/2` 类似,
+`Stream.soruce/3` 根据回调函数的返回结果来决定如何产生流的元素和什么时候结束流.
+但是 `Stream.source(start_fun,next_fun,end_fun)`
+因为要调用 `end_fun` 完成最后的资源清理工作,
+所以不能仅要求 `next_fun` 返回 `nil` 来表示流结束.
+`next_fun` 的类型规范是: `(acc() -> {[element()], acc()} | {:halt, acc()})`.
+当返回的结果为`{:halt,acc()}` 的时候, `Stream.source` 调用 `end_fun(acc)`,
+并结束流序列. 但为什么表示需要参数元素的时候, 不能直接返回 `{elememt(), acc()}`
+而必须把要产生的序列放在列表中呢? 这是因为如果返回 `{element(),acc()}` 那么,
+这个就无法产生一个包含 `:halt` 的 Stream 序列了.
+
+Stream 让我想起了 Js 的产生子语法. 如果 Elixir 提供了产生子, 那么产生子函数结合上面定义的
+Promise 就可以写出更加容易读的 Stream.
+
 ## Generater
 
 ```elixir
@@ -313,35 +370,13 @@ defmodule Coner.Generater do
     end
   end
 
-  defmacro fn?(call, do: block) do
+  defmacro defgen({name, _, call}, do: block) do
     uuid = make_uuid()
     process_fun = make_process_fun(call, block, uuid)
 
     args = get_args(call)
-
-    quote do
-      fn unquote_splicing(call) ->
-        pid = spawn(fn -> apply(unquote(process_fun), unquote(args)) end)
-        Process.register(pid, unquote(uuid))
-
-        defmodule unquote(uuid) do
-          def next(v \\ nil) do
-            pid = Process.whereis(unquote(uuid))
-
-            if pid && Process.alive?(pid) do
-              send(pid, {self(), v})
-
-              receive do
-                {unquote(uuid), v} -> v
-              end
-            else
-              :done
-            end
-          end
-        end
-        |> elem(1)
-      end
-    end
+    ast = make_anonymous_function(call, process_fun, args, uuid)
+    {:=, [], [{name, [], nil}, ast]}
   end
 
   defp make_uuid() do
@@ -349,18 +384,6 @@ defmodule Coner.Generater do
     |> to_string()
     |> String.to_atom()
   end
-
-  defp get_args({:when, _, args}) do
-    Enum.reduce_while(args, [], fn {ele}, acc ->
-      if elem(ele, 1) == [if_undefined: :apply] do
-        {:cont, acc ++ [ele]}
-      else
-        {:halt, acc}
-      end
-    end)
-  end
-
-  defp get_args(args), do: args
 
   defp make_process_fun(call, {:__block__, _, stances}, uuid) do
     stances = if is_list(stances), do: stances, else: [stances]
@@ -404,20 +427,84 @@ defmodule Coner.Generater do
   defp transform(ast, _uuid) do
     ast
   end
+
+  defp get_args({:when, _, args}) do
+    Enum.reduce_while(args, [], fn {ele}, acc ->
+      if elem(ele, 1) == [if_undefined: :apply] do
+        {:cont, acc ++ [ele]}
+      else
+        {:halt, acc}
+      end
+    end)
+  end
+
+  defp get_args(args), do: args
+
+  defp make_anonymous_function(call, process_fun, args, uuid) do
+    module = make_module(uuid)
+
+    quote do
+      fn unquote_splicing(call) ->
+        pid = spawn(fn -> apply(unquote(process_fun), unquote(args)) end)
+        Process.register(pid, unquote(uuid))
+
+        unquote(module)
+        |> elem(1)
+      end
+    end
+  end
+
+  defp make_module(uuid) do
+    quote do
+      defmodule unquote(uuid) do
+        def next(v \\ nil) do
+          pid = Process.whereis(unquote(uuid))
+
+          if pid && Process.alive?(pid) do
+            send(pid, {self(), v})
+
+            receive do
+              {unquote(uuid), v} -> v
+            end
+          else
+            :done
+          end
+        end
+      end
+    end
+  end
 end
 ```
+
+现在我们来看一下, 如何使用产生子. 这个模块, 导出了一个宏 `defgen/2`.
+和 `fn` 类似, `defgen` 产生一个匿名函数. 在 `defgen` 内部,
+可以使用关键字 `yield` 表示返回数据, 并中断函数执行. 就像在 Lua 或 Js 中的语法那样.
+
+`defgen fun(a,b) do...end` 不但产生了匿名函数,
+而且把这个匿名函数绑定给了 `fun` 变量.
 
 ```elixir
 import Coner.Generater
 
-fun =
-  fn? [a, b] do
-    c = yield(a)
-    yield(c + b)
-  end
+defgen fun(a, b) do
+  c = yield(a)
+  yield(c + b)
+end
 
+binding()
+```
+
+调用这个新产生的匿名函数, 产生一个模块. 这个模块导出了 `next/0/1`.
+
+```elixir
 g = fun.(1, 2)
-# now c is 3
+g.module_info(:exports)
+```
+
+调用这个模块的 `next()` 会返回产生子产生的元素. `next(v)` 返回产生子产生的元素外,
+还把 `v` 作为 `yield` 的返回值. 当调用 `next()` 的时候, `yield` 的返回值为 `nil`.
+
+```elixir
 g.next(3)
 |> IO.inspect(label: "shoud be 1, get")
 
