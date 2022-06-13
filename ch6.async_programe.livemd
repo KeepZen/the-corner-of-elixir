@@ -1,6 +1,6 @@
 # 异步编程
 
-## Promise
+## 承诺(Promise)
 
 Elixir 对异步编程的支持由 `Task` 模块支持. 但是我很少使用它,
 `Task` 不是一个代数结构类型, 因此无法完成链式操作.
@@ -299,7 +299,7 @@ Promise.new(fn _, _ -> 1 / 0 end)
 最后要注意的就是, 这里全部都是函数, 没有宏, 所以**不要使用 `import` 语句**,
 如果使用 import 导入全部函数, 那么会引发 `Promise.then/1` 与 `Kernel.then/1` 的命名冲突.
 
-## Stream
+## 流(Stream)
 
 Generater 是 ES6 中引入的新的语法, 让我们可以通过 `function*` 来创建产生子.
 有了这个语法, 在 Js 中, 我们就可以产生无限数量的序列了.
@@ -354,20 +354,37 @@ Stream.unfold(
 而必须把要产生的序列放在列表中呢? 这是因为如果返回 `{element(),acc()}` 那么,
 这个就无法产生一个包含 `:halt` 的 Stream 序列了.
 
-Stream 让我想起了 Js 的产生子语法. 如果 Elixir 提供了产生子, 那么产生子函数结合上面定义的
+Stream 让我想起了 Js 的产生子. 如果 Elixir 提供了产生子, 那么产生子函数结合上面定义的
 Promise 就可以写出更加容易读的 Stream.
 
-## Generater
+## 产生子(Generater)
 
 ```elixir
 defmodule Coner.Generater do
-  defmacro delete(m) do
-    quote do
-      pid = unquote(m) |> Process.whereis()
-      pid && Process.unregister(pid)
-      :code.delete(unquote(m))
-      unquote(m) = nil
+  def _del_gen(m) do
+    is_gen = m.module_info(:attributes)[:is_gen]
+    is_gen? = is_gen && __MODULE__ in is_gen
+
+    if is_gen? do
+      pid = Process.whereis(m)
+      pid && Process.exit(pid, :kill)
+      :code.delete(m)
+    else
+      false
     end
+  end
+
+  defmacro del_gen(m) do
+    ast =
+      quote do
+        unquote(__MODULE__)._del_gen(unquote(m))
+        unquote(m) = nil
+      end
+
+    Macro.to_string(ast)
+    |> IO.puts()
+
+    ast
   end
 
   defmacro defgen({name, _, call}, do: block) do
@@ -404,7 +421,15 @@ defmodule Coner.Generater do
     end
   end
 
-  defp transform({:=, _, [left, {:yield, _, [after_yield]}]}, uuid) do
+  defp transform({:=, _, [_, {:yield, _, _}]} = ast, uuid), do: yield_to_send(ast, uuid)
+
+  defp transform({:yield, _, _} = ast, uuid), do: yield_to_send(ast, uuid)
+
+  defp transform(ast, _uuid) do
+    ast
+  end
+
+  defp yield_to_send({:=, _, [left, {:yield, _, [after_yield]}]}, uuid) do
     quote do
       unquote(left) =
         receive do
@@ -415,17 +440,13 @@ defmodule Coner.Generater do
     end
   end
 
-  defp transform({:yield, _, [after_yield]}, uuid) do
+  defp yield_to_send({:yield, _, [after_yield]}, uuid) do
     quote do
       receive do
         {me, nil} -> send(me, {unquote(uuid), unquote(after_yield)})
         {me, _} -> send(me, {unquote(uuid), unquote(after_yield)})
       end
     end
-  end
-
-  defp transform(ast, _uuid) do
-    ast
   end
 
   defp get_args({:when, _, args}) do
@@ -457,10 +478,25 @@ defmodule Coner.Generater do
   defp make_module(uuid) do
     quote do
       defmodule unquote(uuid) do
-        def next(v \\ nil) do
+        Module.register_attribute(__MODULE__, :is_gen, persist: true)
+        @is_gen unquote(__MODULE__)
+        @gc_after_seconds 10 * 1000
+        def running?() do
           pid = Process.whereis(unquote(uuid))
+          t = pid && Process.alive?(pid)
 
-          if pid && Process.alive?(pid) do
+          if t do
+            :timer.apply_after(@gc_after_seconds, unquote(__MODULE__), :_del_gen, [__MODULE__])
+          end
+        end
+
+        def done?() do
+          !__MODULE__.running?()
+        end
+
+        def next(v \\ nil) do
+          if running?() do
+            pid = Process.whereis(unquote(uuid))
             send(pid, {self(), v})
 
             receive do
@@ -494,15 +530,16 @@ end
 binding()
 ```
 
-调用这个新产生的匿名函数, 产生一个模块. 这个模块导出了 `next/0/1`.
+调用这个新产生的匿名函数 `fun`, 返回一个原子, 表示一个模块的名字. 在这个新的模块中, 导出了 `next/0/1`, `done?/1` 和 `running?/1`.
 
 ```elixir
 g = fun.(1, 2)
-g.module_info(:exports)
+is_atom(g) |> IO.inspect()
+g.__info__(:functions)
 ```
 
-调用这个模块的 `next()` 会返回产生子产生的元素. `next(v)` 返回产生子产生的元素外,
-还把 `v` 作为 `yield` 的返回值. 当调用 `next()` 的时候, `yield` 的返回值为 `nil`.
+调用这个模块的 `next()` 会返回产生子产生的元素. `next(v)` 返回产生的元素外,
+还为 `yield` 指定了返回值 `v`. 当调用 `next()` 的时候, `yield` 的返回值为 `nil`.
 
 ```elixir
 g.next(3)
@@ -510,13 +547,17 @@ g.next(3)
 
 (g in Process.registered()) |> IO.inspect(label: "G is registerd")
 
-g.next(4)
-|> IO.inspect(label: "should be 3+2")
-
+g.next(4) |> IO.inspect(label: "should be 3+2")
 g |> IO.inspect(label: "g is a atom")
-delete(g)
-IO.inspect(g, label: "now g should be nil, in fact is")
-Process.registered() |> IO.inspect(label: "G now is unregisterd")
 ```
 
-## 服务查询的状态
+### 垃圾收集
+
+产生子以内存内模块的形式存在, 因此, 当不再需要产生子后, 因为系统不会自动的清除不再需要的模块(?TODO?),
+那么相当于为系统中引入了不能被收集的垃圾.
+
+对于一个已经运行结束的产生子来说, 一段时间后, 系统会自动的完成垃圾收集的工作.
+但是对一个还没有运行结束的产生子, 必须使用宏 `del_gen/1` 宏来手动清理.
+
+另外, 每产生一个新的产生子, 都为系统中引入了一个新的表示原子, 而原子是不能被收集的,
+所以必须节制, **不要在循环中调用 `def_gen` 产生的匿名函数**.
