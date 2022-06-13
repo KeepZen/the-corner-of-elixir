@@ -508,48 +508,83 @@ end
 |> IO.inspect(label: "have :else, same as with_result")
 ```
 
-## 最后的改进
+## 可递归的匿名函数
 
-我们的宏, 要替换核心模块的 `with` 宏, 而做的实际工作, 就是做条件匹配.
-`with` 这个关键字, 通过模块名, 已经能体现了, 
-但是条件匹配其实不是那么直观的从 `maybe` 上反应出来, 也许使用 `conditional_match` 更好点? 
-有些太长了, 不如直接叫 `match`. 为了提示不是普通的匹配操作, 
-应该鼓励大家带着模块名调用这个宏.
-
-为了防止命名冲突, 我们的代码都应该位于一个根名字空间中.
-那么我们可以把宏定义到 `With` 模块中, 而 `With` 模块有在我们的库命名空间中.
-所以最后我们的代码应该是这样的:
+<!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-defmodule MyNameSpace.With do
-  defmacro __using__(_opt) do
-    quote do
-      require unquote(__MODULE__)
-      alias unquote(__MODULE__)
-    end
+fn! fun(n, acc) do
+  if n == 0 do
+   acc
+  else
+    fun.(fun,n-1, acc + n)
+  end
+end
+fun.(1,2)
+```
+
+->
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+fun = fn(fun, n,acc) ->
+  if n == 0 do
+    acc
+  else
+    fun.(fun,n-1,acc + n)
+  end
+end
+fun = fn(n,acc) ->
+  fun.(fun,n,acc)
+end
+```
+
+```elixir
+defmodule Corner.Fn do
+  defmacro fn!({:when, _, [call, guard]}, do: block), do: make_fn(call, guard, block)
+  defmacro fn!(call, do: block), do: make_fn(call, nil, block)
+
+  defp replace(name, with: with_atom, in: block) do
+    # TODO
+    block
   end
 
-  defmacro match(do: body) do
-    quote do
-      try do
-        unquote(body)
-      catch
-        :error, {:badmatch, v} -> v
-      end
-    end
-  end
+  defp make_fn(call, guard, block) do
+    {name, args} = Macro.decompose_call(call)
+    block = replace(name, with: :tem_fun, in: block)
 
-  defmacro match(do: body, else: tail) do
-    quote do
-      try do
-        unquote(body)
-      catch
-        :error, {:badmatch, v} ->
-          case v do
-            unquote(tail)
+    outer_fun =
+      if guard do
+        quote do
+          fn unquote_splicing(args) when unquote(guard) ->
+            tem_fun.(tem_fun, unquote_splicing(args))
           end
+        end
+      else
+        quote do
+          fn unquote_splicing(args) ->
+            tem_fun.(tem_fun, unquote_splicing(args))
+          end
+        end
       end
+
+    # IO.inspect(outer_fun)
+    ast =
+      quote do
+        tem_fun = fn fun, unquote_splicing(args) -> unquote(block) end
+      end
+
+    # IO.inspect(ast)
+    # {a, b, block} = ast
+    assign_name = {:=, [], [{name, [], nil}, outer_fun]}
+
+    quote do
+      unquote(ast)
+      unquote(assign_name)
     end
+    |> Code.eval_quoted()
+    |> IO.inspect()
   end
 end
 ```
@@ -557,12 +592,13 @@ end
 然后我们就可以这样来使用我们代码了:
 
 ```elixir
-use MyNameSpace.With
+import Corner.Fn
 
-With.match do
-  {:ok, a} = {:ok, 1}
-  {:ok, b} = {:error, a + 1}
-  b
+fn! fun(n, acc) do
+  if n == 0 do
+    acc
+  else
+    fun.(fun, n - 1, acc + n)
+  end
 end
-|> IO.inspect()
 ```
