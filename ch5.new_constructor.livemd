@@ -545,46 +545,51 @@ defmodule Corner.Fn do
   defmacro fn!({:when, _, [call, guard]}, do: block), do: make_fn(call, guard, block)
   defmacro fn!(call, do: block), do: make_fn(call, nil, block)
 
-  defp replace(name, with: with_atom, in: block) do
-    # TODO
-    block
+  defp make_fn(call, guard, block) do
+    {name, params} = Macro.decompose_call(call)
+
+    args =
+      1..length(params)
+      |> Enum.map(&{:&, [], [&1]})
+
+    block = replace(name, with: :fun, in: block)
+
+    name = {name, [], nil}
+    fun_var = {:fun, [], nil}
+    make_ast(name, guard, params, args, fun_var, block)
   end
 
-  defp make_fn(call, guard, block) do
-    {name, args} = Macro.decompose_call(call)
-    block = replace(name, with: :tem_fun, in: block)
-
-    outer_fun =
-      if guard do
-        quote do
-          fn unquote_splicing(args) when unquote(guard) ->
-            tem_fun.(tem_fun, unquote_splicing(args))
-          end
-        end
-      else
-        quote do
-          fn unquote_splicing(args) ->
-            tem_fun.(tem_fun, unquote_splicing(args))
-          end
-        end
-      end
-
-    # IO.inspect(outer_fun)
-    ast =
-      quote do
-        tem_fun = fn fun, unquote_splicing(args) -> unquote(block) end
-      end
-
-    # IO.inspect(ast)
-    # {a, b, block} = ast
-    assign_name = {:=, [], [{name, [], nil}, outer_fun]}
-
-    quote do
-      unquote(ast)
-      unquote(assign_name)
+  defp replace(name, with: with_atom, in: block) do
+    walker = fn
+      {^name, b, c} -> {with_atom, b, c}
+      a -> a
     end
-    |> Code.eval_quoted()
-    |> IO.inspect()
+
+    Macro.postwalk(block, walker)
+  end
+
+  defp make_ast(name, nil, params, args, fun, block) do
+    quote do
+      unquote(name) =
+        &(fn unquote(fun), unquote_splicing(params) ->
+            unquote(block)
+          end
+          |> (fn unquote(fun), unquote_splicing(params) ->
+                unquote(block)
+              end).(unquote_splicing(args)))
+    end
+  end
+
+  defp make_ast(name, guard, params, args, fun, block) do
+    quote do
+      unquote(name) =
+        &(fn unquote(fun), unquote_splicing(params) when unquote(guard) ->
+            unquote(block)
+          end
+          |> (fn unquote(fun), unquote_splicing(params) when unquote(guard) ->
+                unquote(block)
+              end).(unquote_splicing(args)))
+    end
   end
 end
 ```
@@ -601,4 +606,6 @@ fn! fun(n, acc) do
     fun.(fun, n - 1, acc + n)
   end
 end
+
+fun.(100, 0)
 ```
