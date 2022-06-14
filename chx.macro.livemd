@@ -54,7 +54,7 @@ C/C++ 中以 `#include` 的形式出现, 通过预处理,
 进而影响读者对原文的理解. 在这里, 译者就是编译器; 原始的书稿内容是常规的代码;
 作者的批注和答复, 就是宏; 译文就是编译后的目标码; 读者就是 CPU 或 VM.
 
-在 C/C++ 以及 Erlang 这些语言中, 宏能完成的工作是非常少的,大部分的工作还是要编译器完成的,
+在 C/C++ 以及 Erlang 这些语言中, 宏能完成的工作是非常少的, 大部分的工作还是要编译器完成的,
 这正像是作者答复译者, 或在书稿中做注释, 而主要的工作还是要由译者完成一样.
 但是这样的意象在处理 Elixir 这样的宏的时候, 就不适用了.
 
@@ -167,16 +167,15 @@ Erlang 中只有模块属性和函数可以被编译到字节码中.
 认识到宏是特殊函数, 那么对宏的调用自然必须遵守对一般函数调用的规则.
 这其中最重要的规则就是: 调用函数时, 当参数个数多于一个的时候,
 参数之间是用 `,` 做分隔符的.
-这实际上就解释了为什么宏调用的时候, 宏的 往往会有 `,` 了.
+这实际上就解释了为什么宏调用的时候, 当宏的参数个数多余一个的时候,
+会有 `,` 了.
 
 在我最初的理解中, 我认为关键字列表语法糖 `do:` 是对保留字 `do` 的模仿.
 但是认识到宏调用本质上也是函数调用, 那么这个理解就应该反转过来了,
 关键字列表 `[do: ...]` 是合法的数据, 但是 `do` 保留字不是数据,
-函数接受的应该是合法的数据, 所以 `do` 实际上的工作就是要创建 `[do: ...]`
+函数 (以及宏) 接受的应该是合法的数据,
+所以 `do` 实际上的工作就是要创建 `[do: ...]`
 这样的关键字列表.
-
-类似于 `do`; `else`, `catch`, `rescue`, `after`
-这些保留字本身也就是用来创建对应的原子的.
 
 如果宏也是函数, 为什么它那么特殊, 必须导入(`import`) 或请求 (`require`) 后,
 对应的模块才能调用呢? 或者换个角度来说: 宏是如何特殊于普通函数的? 
@@ -186,22 +185,67 @@ Erlang 中只有模块属性和函数可以被编译到字节码中.
 
 ```elixir
 defmodule Corner.Macro do
-  defmacro foo(a), do: a
+  defmacro assign_one(a) do
+    IO.puts("assign_one running, a: #{inspect(a)}")
+
+    ast =
+      quote do
+        IO.puts("after the assign_one")
+        unquote(a) = 1
+      end
+
+    IO.puts("assign_one ending")
+    ast
+  end
+
   def bar, do: nil
 end
 
-Corner.Macro.module_info() |> IO.inspect()
+Corner.Macro.module_info(:functions)
 ```
 
-上面的代码中, 我在模块中, 定义了定义了 `foo/0` 宏 和 `bar/1` 函数.
-`module_info` 的返回结果中, 模块的导出中, 可以找到函数 `fun/0`;
-没有找到 `hello/0` 这宏, 但是多了一个 `MACRO-hello/1` 的函数.
-可以猜测, `MACRO-hello/1` 一定和我们定义的宏有关系.
+上面的代码中, 在模块中, 定义了 `assign_one/1` 宏 和 `bar/0` 函数.
+调用 `module_info(:funstions)` 可以看到模块的导出的所有函数.
+
+1. `module_info/0/1` 是所有的 Elixir/Erlang 模块都有的函数.
+2. `__info__/1` 是 Elixir 的 Module 行为提供的, 所有的 Elixir 模块都实现了这个行为.
+3. `bar/0` 是模块中定义的公开方法
+4. `Macro-assign_one/2` 看起了是我们的宏定义中 `assign_one` 相关.
+
+这首先证实了, Elixir 宏是以特殊的 Erlang 代码. 那么接下来,
+我们来看看 `require` 帮我们做了哪些工作.
+
+首先我们看看 require 之后, 代码的效果.
+然后我们设法再不用 require 的时候, 达到同样的效果.
+如果我们能做到, 而且确切的知道, 做到同样的效果的确切步骤,
+那么大概 `require` 就是帮助我们做这些事情的.
+当我们对 `require` 的运行机制有了大约的了解后,
+也许可以帮助我们更轻松的阅读 Elixir 的源码, 从而真正的理解 `require`.
 
 ```elixir
-require Corner.Macro
-import IEx.Helpers
-b(Corner.Macro.__info__())
-Corner.Macro.__info__(:macros)
-Corner.Macro."MACRO-foo"(__ENV__.__CALLER__, :ok)
+alias Corner.Macro, as: M
+
+try do
+  M.assign_one(nil)
+rescue
+  e -> IO.inspect(e)
+end
+
+require M
+M.assign_one(a)
+```
+
+对比上面的代码片段, 第 5 行上下的两部分, 我们可以清楚的知道, require 为我们做了什么.
+
+1. `require` 动态为我们的
+
+```elixir
+M.assign_one(a)
+binding() |> IO.inspect()
+
+IO.puts("========================")
+
+M."MACRO-assign_one"(__ENV__, {:b, [], nil})
+|> Code.eval_quoted()
+|> elem(1)
 ```
