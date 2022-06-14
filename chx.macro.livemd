@@ -235,6 +235,27 @@ require M
 M.assign_one(a)
 ```
 
+上面的代码输出结果为:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+assign_one running, a: {:a, [line: 10], nil}
+assign_one ending
+%UndefinedFunctionError{
+  arity: 1,
+  function: :assign_one,
+  message: nil,
+  module: Corner.Macro,
+  reason: nil
+}
+after the assign_one
+```
+
+为什么? 宏调用的输出会先于第 6 行的输出呢?
+
+<!-- livebook:{"break_markdown":true} -->
+
 对比上面的代码片段, 第 5 行上下的两部分, 我们可以清楚的知道, require 为我们做了什么.
 
 1. `require` 动态为我们的

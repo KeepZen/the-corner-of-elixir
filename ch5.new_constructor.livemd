@@ -6,7 +6,9 @@ Elixir 是一个特别灵活的语言, 这样不但是说, Elixir 本身提供�
 更加重要的是, 如果我们不满意 Elixir 提供的控制结构, 那么可以按照自己的意图,
 来定义自己的控制结构.
 
-## 赋值与思维流
+## 赋值
+
+### 赋值与思维流
 
 确切的说, `=` 叫做匹配操作符, 而不是赋值表达式. 
 但是变量可以匹配任意的值, 所以实际上, elixir 中还是用 `=` 来做赋值的操作.
@@ -33,7 +35,7 @@ Elixir 是一个特别灵活的语言, 这样不但是说, Elixir 本身提供�
 
 我更希望写出的代码能和思维流一致, 这样写代码的时候流畅, 阅读的时候也更轻松.
 
-## 设计赋值语句
+### 设计赋值语句
 
 Elixir 支持宏编程, 这就给我们提供了设计自己的赋值语句提供了可能.
 但是 `=` 是一个特殊形式, 所以不能从新定义它, 而只能利用 `=` 
@@ -98,7 +100,7 @@ end
 
 看起来不错吧, 现在让我们来看看, 如何来实现 `assgin/2`.
 
-## 赋值实现
+### 赋值实现
 
 我们需要把 `assgin/2` 定义为一个宏, 这个宏的功能非常的简单, 只是 `=` 的语法糖嘛, 所以可以这样来实现.
 
@@ -222,7 +224,7 @@ Demo.do_work()
 
 在 `assign/2` 的帮助下, 我们写的 Elixir 代码, 几乎也可以叫做到 free-point 了.
 
-## with 结构
+## with
 
 如果要选**最不喜欢的语言结构**, Elixir 的 `with` 是我的答案.
 
@@ -301,7 +303,7 @@ end
 所以我认为本质上, `with` 语句只是帮助我们写了 `try` 块. 
 我认为理想的 `with` 语句应该只要 **体** 和 **尾** 两部分就可以了.
 
-## 特殊表达与保留字
+### 特殊表达与保留字
 
 在前面的章节中, 已经多次出现 **特殊表单** (Special Forms)这个短语了, 
 但是特殊表单到底意味着什么呢?
@@ -311,11 +313,10 @@ end
 对保留字的限制有所放宽, 比如 Javascript 中, 保留字虽然还不允许作为变量存在,
 但是已经可以作为对象的方法或者字段名了.
 
-在 Elixir 中, 特殊表单更多的不是语言对于这些保留字的限制, 
-而在于这些特殊表单提供的语法, 在 Elixir 的语法中, 无法以正确的语法表示.
+在 Elixir 中, 有些特殊表单是没法用 Elixir 的语法来实现的.
 
-比如 `with` 特殊表单, 它的特殊就在于其头部的语句个数是不定的, 
-而 Elixir 中, 无论是函数还是宏的定义, 都不运行有不定参数存在的, 
+比如 `with` 这个特殊表单, 它的特殊就在于其参数个数是不定的, 
+而 Elixir 中, 无论是函数还是宏的定义, 都不允许有不定参数存在的, 
 所以使用 Elixir 自身的语法是没法定义 `with` 这样的参数个数不定的宏.
 但是 `with` 可以作为变量吗? 可以作为我们的函数名吗?
 让我们来探索一下.
@@ -340,13 +341,16 @@ A.with(1, 2)
 |> IO.inspect(label: "with can use as function name")
 ```
 
-特性表单和保留字在 Elixir 中是两个概念, Elixir 有保留字. 
-比如 `do`, `in` `and` `or`等, 但是 `with` 不是, 只要不是保留字, 
-都可以作为变量, 以及函数名, 甚至模块名.
+特殊表居然可以用作变量和函数名. 而且即使用作变量, 也不影响它作为特殊表达的功能.
+
+但是保留字不一样, Elixir 中也有保留字, 虽然非常非常的少.
+只有: `true`, `false`, `nil`,`when`, `and`, `or`, `not`,`in`, `fn`, `do`,
+`end`,`throw`, `catch`,`rescue`, `after` 和 `else`, 共 16 个.
+但是 `with` 不是, 只要不是保留字, 就可以作为变量, 以及函数名, 甚至模块名.
 
 从上面的代码的输出中, 我们可以看出, 实际上 Elixir 对 `with` 几乎没有做限制.
-但是我们不能把我们定义的 `with` 函数或宏导入到当前环境中, 
-因为 `Kernel` 模块中已经导入了 `with` 宏了.
+但是我们不能把我们定义的 `with` 函数或宏直接导入到当前环境中, 
+因为 `with` 作为特殊表达, 已经导入了所有环境了.
 
 例如在下面的代码中, 我们只是导入了上面的代码中定义的模块 A, 就引发了编译器的报错.
 
@@ -356,20 +360,68 @@ import A
 
 回到对 `with` 的讨论上.
 
-我们不满意 `with` 结构, 现在我们明白, 我们可以定义自己的 `with` 宏.
-但是这样定义的不能直接导入到客户端的上下文中, 
-就算通过 `import` 的 `:expcet` 选项来排除 `Kernel` 模块的 `with` 宏,
-从来导入我们的定义的 `with` 宏. 但是因为定义的 `with` 和 
-`Kernel` 定义的 `with` 宏是不兼容的, 这样的导入后, 写出的代码会引发困惑.
+我不满意 `with` 结构, 现在知道, 我们可以定义自己的 `with` 宏.
+但是这样使用这个名字不好. 
+首先, 使用这个名字, 使得定义的不能直接导入到客户端的上下文中,
+而只能用 `require` 加载宏, 然后带着模块名来使用我们定义的宏.
+那样的话, 我们的代码看起来就不那么整洁了. 所以这样是因为我们无法通过
+`import` 的 `:expcet` 选项来排除特殊表单. 例如下面的代码直接引发编译错误.
 
-Erlang 的新版本 OTP 25 中引入了新的特性 Maybe[^erlang-maybe].
-实际上解决的就是 `with` 语句在 Elixir 中解决的问题.
-为此, Erlang 引入了新的操作符 `?=`, `Exp1 ?= Exp2` 叫做条件匹配表达式.
+```elixir
+defmodule CanNotExceptSpecailForm do
+  import Kernel.SpecialForms, except: [with: 1]
+  # ... other code not use Kernel.with
 
-因此, 为了向 Erlang 靠拢, 我们可以把宏命名为 maybe.
+  Kernel.SpecialForms.with {:ok, a} <- {:ok, 1} do
+    IO.puts(a)
+  end
+end
+```
+
+最后, 即使不是特殊表达, 而是一般的宏, 如果我们自定义的和 `Kernel` 模块中的不兼容的话,
+还是不建议使用同名覆盖的策略. 让我们看以下, 假如我们要覆盖 `if/2` 这个宏会发生什么吧.
+
+```elixir
+defmodule IF do
+  import Kernel, except: [if: 2]
+
+  defmacro __using__(_opt) do
+    quote do
+      import Kernel, except: [if: 2]
+      import IF
+    end
+  end
+
+  defmacro if(a, b) do
+    a && b
+  end
+end
+
+defmodule ExceptWithButStillUseIt do
+  use IF
+  a = 1
+  if(a, IO.puts("hello"))
+  # ... other code use the IF.if
+  Kernel.if(a, do: IO.puts(a))
+end
+```
+
+这里的问题, 归结起来主要是两点:
+
+1. 对于不熟悉我们的模块的人来说, 看到第 16 行的 `if` 语句会让非常的困惑.
+2. 在已经导入我们的宏的上下文中, 如 18 行那样, 必须使用 `Kernel.if` 的时候,
+   就只能带着 `Kernel` 模块前缀了.
+
+总之, 我们的宏不应该叫做 `with`, 那么应该叫什么呢?
+
+Erlang 的新版本 OTP 25 中引入了新的特性 `maybe`[^erlang-maybe].
+它实际上和 `with` 解决一样的问题. 因此, 为了向 Erlang 靠拢, 我们把它命名为 `maybe`.
+
 [^erlang-maybe]: 详细内容见, https://www.erlang.org/doc/reference_manual/expressions.html#maybe
 
-## 我们的宏的用法
+<!-- livebook:{"break_markdown":true} -->
+
+### maybe 的用法
 
 首先, 让我们确定如何使用 `maybe`.
 对于使用 `with` 的代码:
@@ -428,19 +480,21 @@ end
 
 需要注意的是:
 
-1. 我们的 `maybe` 中使用的是 `=` 而不再是 `<-`, 而且也不用引入新的条件匹配操作符.
-2. 因为取消了 `with` 头部, 所以 `action_with_a_and_b`
-   对应的代码中匹配错误也会被捕获, 这和 `with` 中的语义是不一样的.
+1. 我们的 `maybe` 中使用的是 `=` 而不再是 `<-`, 而且和 Erlang 中的 `maybe` 也不一样,
+   我们不用引入新操作符(Erlang 的 `maybe` 结构中, 引入了新的操作符 `?=`).
+2. 因为取消了 `with` 头部, 所以 `action_with_a_and_b` 对应的代码,
+   如果发生匹配错误也会直接返回匹配操作符的右值或跳转到 `else` 段落.
+   `with` 中, 如果发生匹配错误, 会抛出异常的, 这是一点不同.
 
-## 我们宏的定义
+### maybe 的定义
 
-现在让我们定义我们的 `maybe` 宏.
+现在让我们定义 `maybe` 宏.
 
 我们的 `maybe` 接受一个参数, `[do: body, else: tail]`,
 `maybe` 宏把代码转化成为对应的 `try` 语句块.
 
 ```elixir
-defmodule With do
+defmodule Corner.Maybe do
   defmacro maybe(do: body) do
     quote do
       try do
@@ -466,12 +520,12 @@ defmodule With do
 end
 ```
 
-## 测试我们的定义
+### 测试maybe
 
-现在让我们测试我们的定义.
+现在让我们测试一下.
 
 ```elixir
-import With
+import Corner.Maybe
 # test case 1
 with_result =
   with {:ok, a} <- {:ok, 1},
@@ -512,11 +566,12 @@ end
 
 匿名函数, 因为没有名字, 所以不能直接的在内部调用自己.
 计算机科学中, 这个问题, 可以通过不动点组合子来完成[^fixed_point_combinators].
-但是 Y 组合子, 如果不查看文档的话, 我推导不出来.
+但是诚实的将, 对于 Y 组合子, 如果不查看文档的话, 我不能写出正确的表达.
+对我来说, Y 组合子太绕了.
 
 [^fixed_point_combinators]: 见 Wikipedia[&Lt;不动点组合子&Gt;](https://en.wikipedia.org/wiki/Fixed-point_combinator)词条.
 
-不使用 Y 组合子, 当然也可以完成任务的.
+不使用 Y 组合子, 当然也可以完成匿名函数的递归例如:
 
 <!-- livebook:{"force_markdown":true} -->
 
@@ -534,7 +589,7 @@ end
 ```
 
 这样的代码框架几乎是固定的, 所以可以定义一个宏 `fn!` 来为自动生产这样的框架.
-这样我们就可以使用下面的代码, 来做上面代码同样的工作:
+例如, 我想这样来写代码:
 
 <!-- livebook:{"force_markdown":true} -->
 
@@ -548,7 +603,7 @@ fn! fun(n, acc) do
 end
 ```
 
-`fn!` 和 `fn` 很像, 也是定义了匿名函数, 但是在 `fn!` 的上下文中,
+`fn!` 和 `fn` 很像, 也是定义匿名的函数, 但是在 `fn!` 的上下文中,
 可以用函数名来完成递归调用. 从这一点上来说, `fn!` 可以看作是 `fn` 的加强版.
 但是限制也是很明显的, `fn!` 不支持多子句.
 例如, 下面的代码:
@@ -579,7 +634,11 @@ end
 
 所以, 如果匿名函数不需要递归调用, 而需要多分支, 那么还是用 `fn` 方便.
 
-目前看起来不错, 接下来让我们看看 `fn!` 宏的实现.
+那么如何来实现 `fn!` 呢?
+
+<!-- livebook:{"break_markdown":true} -->
+
+### `fn!` 的定义
 
 ```elixir
 defmodule Corner.Fn do
@@ -592,14 +651,13 @@ defmodule Corner.Fn do
     {name, params} = Macro.decompose_call(call)
 
     fun_var = {:fun, [], nil}
-    block |> IO.inspect(label: "block")
-    block = transform_recurrence(name, block)
+    block = make_recurrence_call_work(name, block)
 
     make_ast({name, [], nil}, guard, params, fun_var, block)
-    |> tap(&(Macro.to_string(&1) |> IO.puts()))
+    # |> tap(&(Macro.to_string(&1) |> IO.puts()))
   end
 
-  defp transform_recurrence(name, block) do
+  defp make_recurrence_call_work(name, block) do
     walker = fn
       # fun.(...args) -> fun.(fun,...args)
       {{:., meta1, [{^name, _, _} = fun]}, meta2, args} ->
@@ -613,7 +671,7 @@ defmodule Corner.Fn do
   end
 
   defp make_ast(name, nil, params, tem_fun, block) do
-    quote do
+    quote location: :keep do
       unquote(tem_fun) = fn unquote(name), unquote_splicing(params) ->
         unquote(block)
       end
@@ -625,7 +683,7 @@ defmodule Corner.Fn do
   end
 
   defp make_ast(name, guard, params, tem_fun, block) do
-    quote do
+    quote location: :keep do
       unquote(tem_fun) = fn fun, unquote_splicing(params) when unquote(guard) ->
         unquote(block)
       end
@@ -665,3 +723,10 @@ signal.(7) |> IO.inspect()
 signal.(-1) |> IO.inspect()
 signal.(0) |> IO.inspect()
 ```
+
+> 100 + 99 + ... + 1: 5050   
+> :+  
+> :\-  
+> :zero
+
+看起来, 我们成功了.
