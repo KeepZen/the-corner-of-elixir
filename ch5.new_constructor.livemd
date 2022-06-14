@@ -2,7 +2,7 @@
 
 ## 定义自己的控制控制结构
 
-Elixir 是一个特别灵活的语言, 这样说, 不但是说, Elixir 本身提供的语法结构非常灵活, 
+Elixir 是一个特别灵活的语言, 这样不但是说, Elixir 本身提供的语法结构非常灵活, 
 更加重要的是, 如果我们不满意 Elixir 提供的控制结构, 那么可以按照自己的意图,
 来定义自己的控制结构.
 
@@ -510,25 +510,18 @@ end
 
 ## 可递归的匿名函数
 
-<!-- livebook:{"force_markdown":true} -->
+匿名函数, 因为没有名字, 所以不能直接的在内部调用自己.
+计算机科学中, 这个问题, 可以通过不动点组合子来完成[^fixed_point_combinators].
+但是 Y 组合子, 如果不查看文档的话, 我推导不出来.
 
-```elixir
-fn! fun(n, acc) do
-  if n == 0 do
-   acc
-  else
-    fun.(fun,n-1, acc + n)
-  end
-end
-fun.(1,2)
-```
+[^fixed_point_combinators]: 见 Wikipedia[&Lt;不动点组合子&Gt;](https://en.wikipedia.org/wiki/Fixed-point_combinator)词条.
 
-->
+不使用 Y 组合子, 当然也可以完成任务的.
 
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-fun = fn(fun, n,acc) ->
+tem_fun = fn(fun, n,acc) ->
   if n == 0 do
     acc
   else
@@ -536,76 +529,139 @@ fun = fn(fun, n,acc) ->
   end
 end
 fun = fn(n,acc) ->
-  fun.(fun,n,acc)
+  tem_fun.(tem_fun,n,acc)
 end
 ```
 
+这样的代码框架几乎是固定的, 所以可以定义一个宏 `fn!` 来为自动生产这样的框架.
+这样我们就可以使用下面的代码, 来做上面代码同样的工作:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+fn! fun(n, acc) do
+  if n == 0 do
+   acc
+  else
+    fun.(n-1, acc + n)
+  end
+end
+```
+
+`fn!` 和 `fn` 很像, 也是定义了匿名函数, 但是在 `fn!` 的上下文中,
+可以用函数名来完成递归调用. 从这一点上来说, `fn!` 可以看作是 `fn` 的加强版.
+但是限制也是很明显的, `fn!` 不支持多子句.
+例如, 下面的代码:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+signal = fn 
+   a when a > 0 -> 1
+   a when a == 0 -> 0
+   a -> -1
+end
+```
+
+如果一定要用 `fn!` 来定义的话, 就必须这样来写:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+fn! singal(a) do
+  cond do
+    a > 0 -> 1
+    a == 0 -> 0
+    a -> -1
+  end
+end
+```
+
+所以, 如果匿名函数不需要递归调用, 而需要多分支, 那么还是用 `fn` 方便.
+
+目前看起来不错, 接下来让我们看看 `fn!` 宏的实现.
+
 ```elixir
 defmodule Corner.Fn do
-  defmacro fn!({:when, _, [call, guard]}, do: block), do: make_fn(call, guard, block)
+  defmacro fn!({:when, _, [call, guard]}, do: block),
+    do: make_fn(call, guard, block)
+
   defmacro fn!(call, do: block), do: make_fn(call, nil, block)
 
   defp make_fn(call, guard, block) do
     {name, params} = Macro.decompose_call(call)
 
-    args =
-      1..length(params)
-      |> Enum.map(&{:&, [], [&1]})
-
-    block = replace(name, with: :fun, in: block)
-
-    name = {name, [], nil}
     fun_var = {:fun, [], nil}
-    make_ast(name, guard, params, args, fun_var, block)
+    block |> IO.inspect(label: "block")
+    block = transform_recurrence(name, block)
+
+    make_ast({name, [], nil}, guard, params, fun_var, block)
+    |> tap(&(Macro.to_string(&1) |> IO.puts()))
   end
 
-  defp replace(name, with: with_atom, in: block) do
+  defp transform_recurrence(name, block) do
     walker = fn
-      {^name, b, c} -> {with_atom, b, c}
-      a -> a
+      # fun.(...args) -> fun.(fun,...args)
+      {{:., meta1, [{^name, _, _} = fun]}, meta2, args} ->
+        {{:., meta1, [fun]}, meta2, [fun | args]}
+
+      a ->
+        a
     end
 
     Macro.postwalk(block, walker)
   end
 
-  defp make_ast(name, nil, params, args, fun, block) do
+  defp make_ast(name, nil, params, tem_fun, block) do
     quote do
-      unquote(name) =
-        &(fn unquote(fun), unquote_splicing(params) ->
-            unquote(block)
-          end
-          |> (fn unquote(fun), unquote_splicing(params) ->
-                unquote(block)
-              end).(unquote_splicing(args)))
+      unquote(tem_fun) = fn unquote(name), unquote_splicing(params) ->
+        unquote(block)
+      end
+
+      unquote(name) = fn unquote_splicing(params) ->
+        unquote(tem_fun).(unquote(tem_fun), unquote_splicing(params))
+      end
     end
   end
 
-  defp make_ast(name, guard, params, args, fun, block) do
+  defp make_ast(name, guard, params, tem_fun, block) do
     quote do
-      unquote(name) =
-        &(fn unquote(fun), unquote_splicing(params) when unquote(guard) ->
-            unquote(block)
-          end
-          |> (fn unquote(fun), unquote_splicing(params) when unquote(guard) ->
-                unquote(block)
-              end).(unquote_splicing(args)))
+      unquote(tem_fun) = fn fun, unquote_splicing(params) when unquote(guard) ->
+        unquote(block)
+      end
+
+      unquote(name) = fn unquote_splicing(params) ->
+        unquote(tem_fun).(unquote(tem_fun), unquote_splicing(params))
+      end
     end
   end
 end
 ```
 
-然后我们就可以这样来使用我们代码了:
+最后, 让我们看看 `fn!` 是否按照我们的预期工作:
 
 ```elixir
 import Corner.Fn
 
-fn! fun(n, acc) do
+fn! sum(n, acc) do
   if n == 0 do
     acc
   else
-    fun.(fun, n - 1, acc + n)
+    sum.(n - 1, acc + n)
   end
 end
 
-fun.(100, 0)
+sum.(100, 0) |> IO.inspect(label: "100 + 99 + ... + 1")
+
+fn! signal(n) do
+  cond do
+    n > 0 -> :+
+    n == 0 -> :zero
+    n < 0 -> :-
+  end
+end
+
+signal.(7) |> IO.inspect()
+signal.(-1) |> IO.inspect()
+signal.(0) |> IO.inspect()
 ```
