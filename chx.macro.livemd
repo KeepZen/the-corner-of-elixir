@@ -77,7 +77,7 @@ Elixir 的编译器实际上就是宏的解释器.
 [^chinese-room]: 百度百科词条[&Lt;中文房间&Gt;](https://baike.baidu.com/item/%E4%B8%AD%E6%96%87%E6%88%BF%E9%97%B4/3581768)
 [^c-macro]: 有关 C 语言宏的图灵完备性的讨论见 https://stackoverflow.com/questions/3136686/is-the-c99-preprocessor-turing-complete
 
-## 编译器与宏
+## 宏与编译器
 
 Elixir 的编译器是 `elixirc`. 我们现在来探索一下编译器.
 
@@ -233,6 +233,7 @@ end
 
 require M
 M.assign_one(a)
+binding() |> IO.inspect(label: "binding")
 ```
 
 上面的代码输出结果为:
@@ -240,7 +241,7 @@ M.assign_one(a)
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-assign_one running, a: {:a, [line: 10], nil}
+assign_one running, a: {:a, [line: 9], nil}
 assign_one ending
 %UndefinedFunctionError{
   arity: 1,
@@ -250,9 +251,25 @@ assign_one ending
   reason: nil
 }
 after the assign_one
+binding: [a: 1]
 ```
 
-为什么? 宏调用的输出会先于第 6 行的输出呢?
+为什么宏调用的输出会先于第 6 行的输出呢?
+首先, 我们知道宏的输入和输出都是抽象语法树(AST), 宏调用在编译时运行.
+也就是说, `try...end` 块编译为字节码 (记为字节码1) 后,
+第 9 行开始执行, 所以输出了相应的输出语句.
+`assign_one` 的返回值, 被编译器转化为字节码2,
+然后第 10 行 `binding` 返回的 AST 被编译为字节码3.
+在运行时, 字节码块依次运行:
+| 运行顺序 | 字节码块 | 输出内容范围|
+|---------|---------|-----------|
+| 1       | 字节码1  | 3~9 行|
+| 2       | 字节码2  | 10 行 |
+| 3       | 字节码3  | 11 行 |
+
+通过上面的输出, 我们能得到得观察结果有:
+
+1. `require` 改变了运行时的环境
 
 <!-- livebook:{"break_markdown":true} -->
 
