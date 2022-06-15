@@ -184,7 +184,7 @@ Erlang 中只有模块属性和函数可以被编译到字节码中.
 让我们用实验来探索.
 
 ```elixir
-defmodule Corner.Macro do
+defmodule Export.MacroDef do
   defmacro assign_one(a) do
     IO.puts("assign_one running, a: #{inspect(a)}")
 
@@ -201,7 +201,7 @@ defmodule Corner.Macro do
   def bar, do: nil
 end
 
-Corner.Macro.module_info(:functions)
+Export.MacroDef.module_info(:functions)
 ```
 
 上面的代码中, 在模块中, 定义了 `assign_one/1` 宏 和 `bar/0` 函数.
@@ -223,7 +223,9 @@ Corner.Macro.module_info(:functions)
 也许可以帮助我们更轻松的阅读 Elixir 的源码, 从而真正的理解 `require`.
 
 ```elixir
-alias Corner.Macro, as: M
+IO.inspect("Beign")
+alias Export.MacroDef, as: M
+b_reqs = __ENV__.requires
 
 try do
   M.assign_one(nil)
@@ -231,18 +233,21 @@ rescue
   e -> IO.inspect(e)
 end
 
-require M
-M.assign_one(a)
+require(M) |> IO.inspect(label: "require return")
+# M.assign_one(a)
 binding() |> IO.inspect(label: "binding")
+
+(__ENV__.requires -- b_reqs)
+|> IO.inspect(label: "The diff of __ENV__.requires")
 ```
 
-上面的代码输出结果为:
+上面的代码运行后, 控制台的输出结果不难预测.
+但是去掉第 11 的注释后, 控制台的输出是这样的:
 
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-assign_one running, a: {:a, [line: 9], nil}
+```
+assign_one running, a: {:a, [line: 11], nil}
 assign_one ending
+"Beign"
 %UndefinedFunctionError{
   arity: 1,
   function: :assign_one,
@@ -250,40 +255,80 @@ assign_one ending
   module: Corner.Macro,
   reason: nil
 }
+require return: Corner.Macro
 after the assign_one
-binding: [a: 1]
+binding: [a: 1, b_reqs: [Application, Kernel, Kernel.Typespec]]
+The diff of __ENV__.requires: [Corner.Macro]
 ```
 
-为什么宏调用的输出会先于第 6 行的输出呢?
-首先, 我们知道宏的输入和输出都是抽象语法树(AST), 宏调用在编译时运行.
-也就是说, `try...end` 块编译为字节码 (记为字节码1) 后,
-第 9 行开始执行, 所以输出了相应的输出语句.
-`assign_one` 的返回值, 被编译器转化为字节码2,
-然后第 10 行 `binding` 返回的 AST 被编译为字节码3.
-在运行时, 字节码块依次运行:
-| 运行顺序 | 字节码块 | 输出内容范围|
-|---------|---------|-----------|
-| 1       | 字节码1  | 3~9 行|
-| 2       | 字节码2  | 10 行 |
-| 3       | 字节码3  | 11 行 |
+为什么宏调用的输出会先于第 1 行的输出呢?
 
-通过上面的输出, 我们能得到得观察结果有:
+这时因为宏的调用是在 Elixir 的编译器中运行的,
+Elixir 编译器**把普通的函数调用编译为字节码**;
+而**对宏调用, 则在编译时执行宏调用, 然后把宏调用返回的 ast 编译为字节码**.
+编译结束后, 这些字节码, 交给 Erlang 运行时系统 (Erlang Runtime System, ERTS)
+来执行的这些字节码.
 
-1. `require` 改变了运行时的环境
+因此, 输出中的 1~2 行是 Elixir 编译器的输出结果,
+其他的则是 ERTS 执行字节码的结果.
 
-<!-- livebook:{"break_markdown":true} -->
+如果我们把上面代码中第 5 行中的 `nil` 改为其他的变量, 像第 11 行中那样,
+那么编译器会报错, 提示变量不存在.
+而调用 `require` 后, 第 11 行代码中, `a` 被转化为了 ast: `{:a, [line: 11], nil}`.
+这是 `require` 在编译时做的工作.
 
-对比上面的代码片段, 第 5 行上下的两部分, 我们可以清楚的知道, require 为我们做了什么.
+观察输出, 可以知道 `require` 返回请求的模块名 (输出的 11 行),
+而且修改了运行时的环境(输出的最后一行). 这是 `require` 对运行时的影响.
 
-1. `require` 动态为我们的
+现在只剩下最后一点了. 我们定义的 `assign_one` 是一个一元的宏, 但是 `MACRO-assing_one`
+是一个二元的函数. 所以, `require` 除了帮助我们把 `a` 转化为 ast 外,
+还自动为我们提供了第一个参数.
+
+这个参数就是当前的执行环境, 也就是 `__ENV__` 的值. 下面, 让我们看看, 不借助 `require`,
+如何来调用宏.
 
 ```elixir
-M.assign_one(a)
-binding() |> IO.inspect()
+fun = fn ->
+  ast = M."MACRO-assign_one"(__ENV__, {:b, [], nil})
+  IO.puts("MARCO-assign_one have run.")
+  IO.puts("Now run the ast in ERTS.")
 
-IO.puts("========================")
+  Code.eval_quoted(ast)
+  |> elem(1)
+  |> IO.inspect()
+end
 
-M."MACRO-assign_one"(__ENV__, {:b, [], nil})
-|> Code.eval_quoted()
-|> elem(1)
+IO.puts("before call fun.()")
+IO.puts("=========================")
+fun.()
 ```
+
+上面的代码的输出为:
+
+```
+before call fun.()
+=========================
+assign_one running, a: {:b, [], nil}
+assign_one ending
+MARCO-assign_one have run.
+Now run the ast in ERTS.
+after the assign_one
+[b: 1]
+```
+
+注意这里的输出顺序.
+可以看出, 在完全是在 ERTS 对字节码执行的结果.
+
+在匿名函数 `fun` 的定义中:
+
+1. 我们执行了 `MACRO-sign_one/2` 函数, 它返回了 `ast`, 这模拟的是 Elixir 编译器对宏的调用.
+2. 把 `ast` 交给 `Code.eval_quote` 执行.
+   这是模拟 REST 对字节码的执行. REST 执行字节码后, 会影响 REST 的环境.
+   `Code.eval_quote` 返回一个二元元组, `{value, binding}`,
+   `value` 是 ast 代码运行的最终结果, `bingding` 表示代码运行后, 环境的状态.
+
+上面的步骤缺少了对 ast 的编译. `Code.compile_quote` 可以用来编译 ast,
+但是如果 ast 对应的代码不是一个宏, 那么 `Code.compile_quote` 就只是执行这些 ast 代码,
+而不是把他们编译为字节码, 而且抛弃了执行 ast 对环境造成的影响.
+
+所以, 在 Erlang 的环境中, 没有办法使用 Elixir 宏提供的便利.

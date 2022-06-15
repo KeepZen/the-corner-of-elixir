@@ -79,7 +79,7 @@ Elixir 中, 源文件和字节码文件之间不在是一一对应, 而且模块
 | `-compile(Options)`                              | 模块中指定编译选项                                                                                         | `@compile([options])`                          |
 | `-vsn(Vsn)`                                      | 模块版本                                                                                                        | `@vsn("VSN")`                                  |
 | `-on_load(Function)`                             | 指定模块加载时调用的函数名                                                                             | `@on_load ...`                                 |
-| `-nifs(Functions)`                               | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | TODO                                           |
+| `-nifs(Functions)`                               | 指定了模块中定义的那些函数, 可能会被作为外部语言接口(NIF)使用 `erlang:load_nif/2` 加载 | (?TODO?)                                          |
 | `-behaviour(Behaviour)`                          | 指定模块实现了行为(Behaviour).                                                                             | `@behaviour` `@impl`                           |
 | `-callback Name(Argument) -> Result.`[^callback] | 定义 Behaveiour 的回调函数                                                                                   | `@callback function_spec`                      |
 | `-record(Record, Fields).`                       | 定义记录                                                                                                        | Record 模块中的 `defrecord`                |
@@ -372,7 +372,7 @@ defmodule Corner.ModuleAttr do
   IO.inspect(@i, label: "@i")
 end
 
-Corner.ModuleAttr.module_info(:attributes) |> IO.inspect(label: "attrs")
+Corner.ModuleAttr.__info__(:attributes) |> IO.inspect(label: "attrs")
 ```
 
 `persist: true` 可以把属性持久化到模块属性中;
@@ -393,7 +393,10 @@ Corner.ModuleAttr.module_info(:attributes) |> IO.inspect(label: "attrs")
 1. 所有需要持久化的属性值都被记录为列表,
 2. 每次赋值都当作列表中的一项, 被单独记录, 而不是合并相同属性名后记录.
 
-## 模块中的内容
+最后, `__info__/1` 是 `Module` 模块中定义的回调函数.
+Elixir 定义的所有模块, 都实现了 `Module` 行为.
+
+## defmodule 上下文中的内容
 
 以前的章节中, 我们知道 `defmodle` 上下文中, 除了 `def*` 系列宏之外, 还可以使用其他语法结构.
 函数必须定义在模块中, 这是来自 Erlang 的规定, 所以 `def` `defp` 只能在模块中使用,
@@ -449,3 +452,102 @@ Elixir 在这里的处理和 Java 中的处理非常的类似.
 抽象出的模块动态调度的通用方法.
 
 有关协议与行为的更多讨论, 见后面的[&Lt;协议与行为&Gt;](./ch10.protocol_and_behaviour.livemd)章节.
+
+## 模块内省
+
+这一小节, 我们探索如何在运行时获取一个模块的信息.
+
+前面的小结中, 我们说到, Elixir 中定义的模块, 都实现了 `Module` 行为.
+也就是说都有 `__info__/1` 函数.
+Erlang 的编译器自动的为每个模块插入了两个导出函数 `module_info/0/1`.
+每个 Elixir 代码, 最后也是要编译为 Erlang 字节码的,
+所以一个空的 Elixir 模块, 编译后至少有这三个导出函数的.
+这三个函数是模块内省的基础.
+
+### module_info/0
+
+`module_info/0` 给出了模块的信息包括:
+
+1. 模块名字 `:module`
+2. 所有的导出 `:exports`
+3. 持久化的属性 `:attributes`
+4. 模块编译时的信息 `:compile`
+5. 模块的数字签名 `:md5`
+
+其他两个函数, 接受的参数都是原子, 其中大部分和 `module_info/0` 返回的 key 相同.
+
+### module_info/1
+
+`module_info/1` 支持的的输入参数除了 `module_info/0` 的五个原子外,
+还包含: `:functions`, `:nifs` 和 `:native`[^erlang-module].
+
+[^erlang-module]: 见 Erlang 参考文档, [模块章节](https://www.erlang.org/doc/reference_manual/modules.html#module_info-1).
+
+### __info__/1
+
+`__info__` 支持以 6 原子为输入.
+`module_info/0` 的 5 个原子, `__info__`, 不支持以 `:exports` 为参数;
+增加了`:functions` 和 `:macros`.
+
+### 差异
+
+这里 `__info__/1` 和 `__module__/1` 都支持 `:functions`, 但其含义不同.
+
+**`__info__(:functions)` 返回的是 Elixir 模块的定义的公开函数的子集**,
+模块中以 `_` 为前缀的函数在不显示.
+
+**`module_info(:functions)` 返回的是模块内所有的函数**,
+包括没有被导出的私有函数.
+
+### 模块探索
+
+知道了这些信息, 就不难写一个模块来帮助我们完成模块内省的工作了.
+
+```elixir
+defmodule Module.Explorer do
+  def funs(m) do
+    m.module_info(:functions)
+    |> Enum.reject(&macro?/1)
+  end
+
+  def pub_funs(m) do
+    m.module_info(:exports)
+    |> Enum.reject(&macro?/1)
+  end
+
+  def priv_funs(m) do
+    funs(m) -- pub_funs(m)
+  end
+
+  defp macro?({atom, _}) do
+    "#{atom}" =~ ~r/MACRO-/
+  end
+
+  def macros(m) do
+    m.module_info(:functions)
+    |> Enum.filter(&macro?/1)
+    |> Enum.map(&fun_2_macro/1)
+  end
+
+  def pub_macros(m) do
+    m.__info__(:macros)
+  rescue
+    _ -> []
+  end
+
+  def priv_macros(m) do
+    macros(m) -- pub_macros(m)
+  end
+
+  defp fun_2_macro({atom, arity}) do
+    "MACRO-" <> name = "#{atom}"
+    {String.to_atom(name), arity - 1}
+  end
+
+  for name <- [:md5, :compile, :attributes, :module] do
+    def unquote(name)(m) do
+      m.module_info(unquote(name))
+    end
+  end
+end
+```
