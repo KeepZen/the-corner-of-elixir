@@ -1,8 +1,10 @@
 # 冷知识
 
-## 函数参数格式
+## 函数参数个数
 
-在阅读 Elixir 文档的&Lt;类型规范&Gt;的[&Lt;内建的类型&Gt;](/elixir/1.13.1/typespecs.html#built-in-types)小节中, 我发现了一个以前没有注意到的知识: Elixir 中函数参数个数的限制.
+在阅读 Elixir 文档的
+&Lt;[类型规范&bullet;内建的类型](https://hexdocs.pm/elixir/typespecs.html#built-in-types)&Gt;
+小节中, 我发现了一个以前没有注意到的知识: Elixir 中函数参数个数的限制.
 
 [^term]: 见[Erlang参考手册数据类型](https://www.erlang.org/doc/reference_manual/data_types.html#terms)相关章节.
 
@@ -368,19 +370,6 @@ s.x |> IO.inspect(label: :x)
 delete(s)
 s |> IO.inspect()
 ```
-
-## Elixir代码是如何编译到模块中
-
-Erlang 代码, 函数对应的代码被编译到可 `.beam` 字节码中的 `Code` 段中.
-函数 `:beam_lib.chunks(Module,[:abstract_code])` 可以用来查看编译后字节的抽象码.
-
-在 Erlang 中也没有私有函数和非私有函数的说法, 只有导出函数, 函数和私有函数,
-在 `Code` 段中的表示是没有差别的. `def` 和 `defp` 的差别, 反映在模块属性 `export` 中.
-
-但是 Elixir 的宏呢? 要知道 Elixir 的宏可是运行在编译时的,
-通过分析 Elixir 反汇编后的抽象码, 可以知道:
-Elixir 的宏也是以函数的形式编译到字节码中的, 在字节码中,
-宏的名字被统一加了 `MACRO-` 的前缀; 而且多了一个表示调用者上下文的参数.
 
 ## 超时
 
