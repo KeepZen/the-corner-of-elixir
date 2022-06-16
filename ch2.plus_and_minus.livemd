@@ -13,7 +13,7 @@
 (1 - 1) |> IO.inspect(label: "1 -1")
 a = 1
 (1 -a) |> IO.inspect(label: "1 -a")
-a -1 
+a -1
 ```
 
 在上面的代码示例中, 当时我按照书籍示例的代码, 输入 `a - 1`,
@@ -29,7 +29,7 @@ a 的值的确是数值 1, 那么我就更困惑了, 那怎么会出错呢?
 仔细比较后发现, 出错的代码变量在减号的后面, 那么我改回去,
 `a - 1`, 怎么又正确了? 灵异事件?
 
-当时, 我刚开始学习 Elixir, 还有更多内容等待我去学习呢! 
+当时, 我刚开始学习 Elixir, 还有更多内容等待我去学习呢!
 既然正确了, 我就没有仔细追究背后的原因.
 
 等我开始用 Elixir 写更长代码后, 当这个问题再次出现的时候,
@@ -59,15 +59,15 @@ spaces around the unary operator
 
 #### 1. Elixir 中函数调用时可以省略小括号
 
-这就是为什么, 在 iex 中, 我们可以像使用 shell 命令那样使用 `cd`, `r` `h` 
+这就是为什么, 在 iex 中, 我们可以像使用 shell 命令那样使用 `cd`, `r` `h`
 等等函数的.
 
 函数定义在模块中, 当被导入到其他环境后, 就可以不带模块名, 而直接使用函数名来调用了.
-所以我们可以使用 `div(1, 2)` 来代替 `Kernel.div(1,2)`, 
-但是函数调用的小括号也是可以省略的, 省略小括号后, 
+所以我们可以使用 `div(1, 2)` 来代替 `Kernel.div(1,2)`,
+但是函数调用的小括号也是可以省略的, 省略小括号后,
 就成了 `div 1, 2`.
 
-函数调用可以省略括号, 为什么要这样做呢? 
+函数调用可以省略括号, 为什么要这样做呢?
 我认为有以下两个原因.
 
 1. 对于零元无副作用的函数来说, 实际上和常量一样. Elixir 和 Erlang 中,
@@ -98,7 +98,7 @@ If you want to perform an operation on the variable a,
 use spaces around the unary operator
 ```
 
-看起来是因为编译器优先把标识符 `a` 解释为函数, 而实际上它是一个变量, 所以才引发错误的. 
+看起来是因为编译器优先把标识符 `a` 解释为函数, 而实际上它是一个变量, 所以才引发错误的.
 可是为什么编译器不首先把标识符解释为变量呢? 这样, 就可以把 `a -1` 解释为对 `a` 减去 1,
 而不是以 `-1` 为参数来调用函数 `a`.
 
@@ -108,7 +108,7 @@ use spaces around the unary operator
 
 ## 标识符优先被解释为变量
 
-首先, 我们导入一个零元变量 `:math.pi`, 然后定义一个同名的变量 `pi`, 
+首先, 我们导入一个零元变量 `:math.pi`, 然后定义一个同名的变量 `pi`,
 然后我们看看, 使用标识符 `pi` 的时候, 得到的 `:math.pi` 的值,
 还是我们自定义的值.
 
@@ -197,27 +197,26 @@ IO.inspect(abs(-9), label: "abs(-9)")
 显然是有两种解释的:
 
 1. 两个 `abs` 都是变量, 那么结果当然自然是 0;
-2. 第一个 abs 是函数, 第二个 abs 是变量, 那么返回的结果应该是变量 
+2. 第一个 abs 是函数, 第二个 abs 是变量, 那么返回的结果应该是变量
    `abs` 的绝对值, 也就是 2.
 
 答案是 0. 也就是操作符 `-` 把两边操作数都当作是变量.
 
-但是这样的代码`abs -abs`呢? 也依然有两种解释, 
-实际上这一次因为 `-` 和第二个 `abs` 之间没有空格, 
-更应该优先把 `-` 解释为对变量 `abs` 的取反. 
-如果这样解释的话, 那么第一个 `abs` 解释成什么呢? 
+但是这样的代码`abs -abs`呢? 也依然有两种解释,
+实际上这一次因为 `-` 和第二个 `abs` 之间没有空格,
+更应该优先把 `-` 解释为对变量 `abs` 的取反.
+如果这样解释的话, 那么第一个 `abs` 解释成什么呢?
 似乎只能解释为函数, 那么结果应该是 2.
 
 但是实际上, 编译器抛出了一个错误.
 
-> (CompileError) :"abs -abs" looks like a function call but there is a variable named "abs".
-> If you want to perform a function call, use parentheses:
-> 
-> `abs(-abs)`
-> 
-> If you want to perform an operation on the variable abs,
-> use spaces around the unary operator
-
+```
+(CompileError) :"abs -abs" looks like a function call but there is a variable named "abs".
+If you want to perform a function call, use parentheses:
+`abs(-abs)`
+If you want to perform an operation on the variable abs,
+use spaces around the unary operator
+```
 为什么, 编译器不优先把 `-abs` 解释为对 `abs` 的取反操作呢?
 
 因为在别的语法环境中, `-abs` 作为整体解释, 会出现问题.
@@ -231,14 +230,15 @@ IO.inspect(abs(-9), label: "abs(-9)")
 
    实际上编译器在这种情况下, 把两个 `abs` 都解释为变量.
 
-2. `abs -abs -abs` 呢?   
-   如果两个 `-abs` 都解释为对变量取反, 而把第一个 `abs` 解释为函数, 
+2. `abs -abs -abs` 呢?
+
+   如果两个 `-abs` 都解释为对变量取反, 而把第一个 `abs` 解释为函数,
    那么整个表达式等价于 `abs(2 2)` 还是 `abs(2) 2`?
    但是无论`abs(2 2)` 还是 `abs(2) 2` 都不是 Elixir 的正确语法.
 
 3. 要想 `abs -abs -abs` 有意义, 只能把两个 `-abs` 做不同的解释才行.
 
-   1. 把 `abs -abs -abs` 解释为 `(abs) - abs(-abs)`, 是可行的, 
+   1. 把 `abs -abs -abs` 解释为 `(abs) - abs(-abs)`, 是可行的,
       但是对编译器的实现来说来说, 这样太复杂了.
    2. 把 `abs -abs -abs` 解释为 `(abs -  abs) - abs` 就彻底放弃了对 `-abs` 优先解释.
 
@@ -246,12 +246,12 @@ IO.inspect(abs(-9), label: "abs(-9)")
 
 ### 为什么报错
 
-上面的分析, 我们看到, 只要坚持把 `-abs` 解释为 `-` 和 `abs` 两个token, 
-就可以得到一致的解析结果, 为什么当编译器遇到 `abs -abs` 的时候报错呢? 这是因为, 
+上面的分析, 我们看到, 只要坚持把 `-abs` 解释为 `-` 和 `abs` 两个token,
+就可以得到一致的解析结果, 为什么当编译器遇到 `abs -abs` 的时候报错呢? 这是因为,
 有时候, 我们写 `-abs` 的时候, 我们的意图真的就是要对 `abs` 取反. 如果编译器一律把
 `x -abs` 解释为 `x` 减去 `abs`, 那么代码有可能实际上违背了程序员的真实意图.
 
-抛出错误, 强迫程序员明确 `-` 的意义, 可以保证, Elixir 代码更强壮, 
+抛出错误, 强迫程序员明确 `-` 的意义, 可以保证, Elixir 代码更强壮,
 这符合 Erlang 的 Let it crash 哲学.
 在编译时奔溃好过在运行时奔溃.
 
