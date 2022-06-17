@@ -595,7 +595,8 @@ end
 <!-- livebook:{"force_markdown":true} -->
 
 ```elixir
-fn! fun(n, acc) do
+fn! fun do
+  (n, acc) ->
   if n == 0 do
    acc
   else
@@ -606,36 +607,6 @@ end
 
 `fn!` 和 `fn` 很像, 也是定义匿名函数, 但是在 `fn!` 的上下文中,
 可以用函数名来完成递归调用. 从这一点上来说, `fn!` 可以看作是 `fn` 的加强版.
-但是限制也是很明显的, `fn!` 不支持分句.
-例如, 下面的代码:
-
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-signal = fn 
-   a when a > 0 -> 1
-   a when a == 0 -> 0
-   a -> -1
-end
-```
-
-如果一定要用 `fn!` 来定义的话, 就必须这样来写:
-
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-fn! singal(a) do
-  cond do
-    a > 0 -> 1
-    a == 0 -> 0
-    a -> -1
-  end
-end
-```
-
-所以, 如果匿名函数不需要递归调用, 而需要多分支, 那么还是用 `fn` 方便.
-
-那么如何来实现 `fn!` 呢?
 
 <!-- livebook:{"break_markdown":true} -->
 
@@ -643,57 +614,74 @@ end
 
 ```elixir
 defmodule Corner.Fn do
-  defmacro fn!({:when, _, [call, guard]}, do: block),
-    do: make_fn(call, guard, block)
+  defmacro fn!(name, do: block) do
+    case syntax_check(block) do
+      {:ok, arity} ->
+        tem_fun = make_fn(name, block)
 
-  defmacro fn!(call, do: block), do: make_fn(call, nil, block)
+        params = Macro.generate_arguments(arity, nil)
 
-  defp make_fn(call, guard, block) do
-    {name, params} = Macro.decompose_call(call)
+        ast =
+          quote do
+            _tem = unquote(tem_fun)
 
-    fun_var = {:fun, [], nil}
-    block = make_recurrence_call_work(name, block)
+            unquote(name) = fn unquote_splicing(params) ->
+              _tem.(_tem, unquote_splicing(params))
+            end
+          end
+          |> tap(&(Macro.to_string(&1) |> Code.string_to_quoted!() |> IO.inspect(label: :ast2)))
 
-    make_ast({name, [], nil}, guard, params, fun_var, block)
-    # |> tap(&(Macro.to_string(&1) |> IO.puts()))
-  end
+        IO.inspect(ast, label: :ast1)
 
-  defp make_recurrence_call_work(name, block) do
-    walker = fn
-      # fun.(...args) -> fun.(fun,...args)
-      {{:., meta1, [{^name, _, _} = fun]}, meta2, args} ->
-        {{:., meta1, [fun]}, meta2, [fun | args]}
+        :ok
 
-      a ->
-        a
-    end
-
-    Macro.postwalk(block, walker)
-  end
-
-  defp make_ast(name, nil, params, tem_fun, block) do
-    quote location: :keep do
-      unquote(tem_fun) = fn unquote(name), unquote_splicing(params) ->
-        unquote(block)
-      end
-
-      unquote(name) = fn unquote_splicing(params) ->
-        unquote(tem_fun).(unquote(tem_fun), unquote_splicing(params))
-      end
+      :error ->
+        raise SyntaxError, "the cause must have the same arity."
     end
   end
 
-  defp make_ast(name, guard, params, tem_fun, block) do
-    quote location: :keep do
-      unquote(tem_fun) = fn fun, unquote_splicing(params) when unquote(guard) ->
-        unquote(block)
+  defp make_fn(name, body) do
+    new_body = Enum.map(body, &transe_recurrrent_call(name, &1))
+    {:fn, [], new_body}
+  end
+
+  defp syntax_check([{:->, _, [args | _]} | others]) do
+    args =
+      case args do
+        [{:when, _, args}] ->
+          {_, args} = List.pop_at(args, -1)
+          args
+
+        args ->
+          args
       end
 
-      unquote(name) = fn unquote_splicing(params) ->
-        unquote(tem_fun).(unquote(tem_fun), unquote_splicing(params))
-      end
+    case others do
+      [] ->
+        {:ok, length(args)}
+
+      [{:->, _, [args2 | _]} | _] when length(args) == length(args2) ->
+        syntax_check(others)
+
+      true ->
+        :error
     end
   end
+
+  defp transe_recurrrent_call(
+         name = {atom, _, _},
+         {:->, meta, [args | body]}
+       ) do
+    new_args = [name | args]
+    new_body = Macro.postwalk(body, &fixed_current_call(atom, &1))
+    {:->, meta, [new_args | new_body]}
+  end
+
+  defp fixed_current_call(name, {{:., m1, [{name, _, _} = fun]}, m2, args}) do
+    {{:., m1, [fun]}, m2, [fun | args]}
+  end
+
+  defp fixed_current_call(_, ast), do: ast
 end
 ```
 
@@ -702,27 +690,12 @@ end
 ```elixir
 import Corner.Fn
 
-fn! sum(n, acc) do
-  if n == 0 do
-    acc
-  else
-    sum.(n - 1, acc + n)
-  end
+fn! sum do
+  n, acc when n == 0 -> acc
+  n, acc -> sum.(n - 1, acc + n)
 end
 
 sum.(100, 0) |> IO.inspect(label: "100 + 99 + ... + 1")
-
-fn! signal(n) do
-  cond do
-    n > 0 -> :+
-    n == 0 -> :zero
-    n < 0 -> :-
-  end
-end
-
-signal.(7) |> IO.inspect()
-signal.(-1) |> IO.inspect()
-signal.(0) |> IO.inspect()
 ```
 
 > 100 + 99 + ... + 1: 5050   
