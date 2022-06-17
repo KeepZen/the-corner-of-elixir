@@ -617,26 +617,24 @@ defmodule Corner.Fn do
   defmacro fn!(name, do: block) do
     case syntax_check(block) do
       {:ok, arity} ->
+        var = {:TEM_fun, [], nil}
         tem_fun = make_fn(name, block)
-
         params = Macro.generate_arguments(arity, nil)
 
-        ast =
-          quote do
-            _tem = unquote(tem_fun)
+        quote do
+          unquote(var) = unquote(tem_fun)
 
-            unquote(name) = fn unquote_splicing(params) ->
-              _tem.(_tem, unquote_splicing(params))
-            end
+          unquote(name) = fn unquote_splicing(params) ->
+            unquote(var).(unquote(var), unquote_splicing(params))
           end
-          |> tap(&(Macro.to_string(&1) |> Code.string_to_quoted!() |> IO.inspect(label: :ast2)))
 
-        IO.inspect(ast, label: :ast1)
+          unquote(var) = nil
+        end
 
-        :ok
+      # |> tap(&(Macro.to_string(&1) |> IO.puts()))
 
       :error ->
-        raise SyntaxError, "the cause must have the same arity."
+        raise SyntaxError, "the clauses must have the same arity."
     end
   end
 
@@ -672,9 +670,25 @@ defmodule Corner.Fn do
          name = {atom, _, _},
          {:->, meta, [args | body]}
        ) do
-    new_args = [name | args]
     new_body = Macro.postwalk(body, &fixed_current_call(atom, &1))
+
+    new_args =
+      if new_body != body do
+        make_args(args, name)
+      else
+        name = "_#{atom}" |> String.to_atom()
+        make_args(args, {name, [], nil})
+      end
+
     {:->, meta, [new_args | new_body]}
+  end
+
+  defp make_args([{:when, meta, args}], fun) do
+    [{:when, meta, [fun | args]}]
+  end
+
+  defp make_args(args, fun) do
+    [fun | args]
   end
 
   defp fixed_current_call(name, {{:., m1, [{name, _, _} = fun]}, m2, args}) do
@@ -696,11 +710,23 @@ fn! sum do
 end
 
 sum.(100, 0) |> IO.inspect(label: "100 + 99 + ... + 1")
+
+fn! singal do
+  n when n > 0 -> :+
+  n when n < 0 -> :-
+  0 -> :zero
+end
+
+singal.(1) |> IO.inspect()
+# singal.(-1) |> IO.inspect()
+# singal.(0) |> IO.inspect()
 ```
 
-> 100 + 99 + ... + 1: 5050   
-> :+  
-> :\-  
-> :zero
+```
+100 + 99 + ... + 1: 5050
+:+
+:-
+:zero
+```
 
 看起来, 我们成功了.
