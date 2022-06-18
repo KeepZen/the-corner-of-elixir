@@ -7,9 +7,9 @@ Elixir 对异步编程的支持由 `Task` 模块支持. 但是我很少使用它
 Javascipt 中的 Promise 不一样, 它成功的解决了回调地狱问题.
 因此我希望能把这个类型引入到 Elixir 语言中.
 
-我们将要定义的 Promise 模块, 对外提供的接口有 8 个函数, 其中 6 个来源于 Javascript 的
-Promise API, 但是这里没有定义 `catch`. `catch` 在 Elixiir 中是保留字,
-不允许用作函数名, 因此这里用 `on_error` 来代替.
+我们将要定义的 Promise 模块, 对外提供的接口有 8 个函数, 其中 6 个来源于
+Javascript 的 Promise API, 但是这里没有定义 `catch`.
+`catch` 在 Elixiir 中是保留字, 不允许用作函数名, 因此这里用 `on_error` 来代替.
 
 最后的 2 个函数: `of/1` 和 `map(promise,fun/1)` 是函子的通用函数.
 
@@ -367,6 +367,133 @@ Stream 让我想起了 Javascript 的产生子. 如果 Elixir 提供了产生子
 Promise 就可以写出更加容易读的 Stream.
 
 ## 产生子(Generater)
+
+首先来分析产生子的语法.
+
+我打算使用宏 `defgen` 来产生一个匿名函数, 这个匿名函数调用后, 产生一个透明结构, 表示产生子.
+所以, 大概的语法是这样的:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+defgen generater_name do
+  a, b when a > b -> 
+   c = yield a
+   d = yield c + b
+   yield d
+  a, b ->
+    yield a + b
+end
+
+g = generater_name(3,2)
+3 = g |> next(1) # c is 1
+3 = g |> next(4) # d is 4
+4 = g |> next(:any)
+true = g |> done?()
+```
+
+在 `defgen` 上下文中, 可以使用 `yield`. `yield a` 会等待 `next(g,v\\nil)` 的执行.
+等 `next(g,v\\nil)` 执行后, `next/2` 会得到返回值 `a`, 
+在产生子内部 `yield a` 的返回值是 `{:ok, v}`.
+产生子函数中最后一个 `yield` 语句执行完成后, 再调用 `next(g,v)` 会返回 `:done`.
+
+那么该如何来实现呢? Elixir 现有的语法中, 如何组合出这样的功能呢?
+首先 `receive` 会暂定一个进程的执行, 找到收到需要的数据, 才接着执行.
+所以, 产生子函数, 应该运行在另外的一个进程中, 当 `generater_name/2`
+被调用的时候, 产生子函数执行, 遇到第一个 `yield` 语句, 停止执行,
+等待 `next/2` 函数发送继续执行的信号. 收到 `next/2` 的继续执行信号后,
+表达式 `yield a` 完成如下工作:
+
+1. 参数 `a` 发送给 `next`
+2. 把 `next` 发送过来的数据作为 `yeild a` 的返回值传递后其他语句
+3. 继续执行其他语句, 直到遇到新的 `yeild` 语句
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- Learn more at https://mermaid-js.github.io/mermaid -->
+
+```mermaid
+sequenceDiagram
+    participant  主进程
+    participant  产生子进程
+    主进程->> 产生子进程: 启动产生子进程
+    产生子进程-->>产生子进程: 运行, 遇到 yield 后,<br>等待主进程发送信号
+    主进程->> 产生子进程: {:continue,3} --- next(g,1)
+    产生子进程->>主进程: {:ok, b} --- yield b
+    主进程 ->> 产生子进程: {:continue, 4} --- next(g, 4)
+    产生子进程->>主进程: {:ok, 1 + b} --- yield c+b
+    主进程 ->> 产生子进程: {:continue,:any} --- next(g, :any)
+    产生子进程->>主进程: {:ok, 4} -- yield d
+    主进程 -->> 主进程: 子进程还活着吗?
+    主进程 ->> 主进程: 没有
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+所以 `defgen name do...end` 产生一个匿名函数, 这个匿名函数绑定给了变量 `name`.
+调用匿名函数 `name` 会启动产生子进程, 并返回一个透明结构.
+这个透明结构, 对应于 Javascript 的产生子迭代器,
+但是, 在我们这里, 用它来作为主进程与产生子进程通信的信道.
+如果我们愿意, 还可以为这个信道实现枚举协议, 
+这样就可以使用 `Enum` 模块和 `for` 来处理产生的序列了.
+
+```elixir
+quote do
+  defgen hello do
+    a, b ->
+      c = yield a
+      yield c + b
+  end
+  TEM = fn _hello, ref, a, b ->
+    _hello, a, b ->
+      c = yield a
+      yield c + b
+  end
+  hello = fn a, b ->
+    ref = make_ref()
+    pid = sparn(fn ->TEM.(TEM,ref,a, b) end)
+    %{pid: pid, ref: ref}
+  end
+  TEM = nil
+end
+```
+
+```elixir
+defmodule Corner.Generater do
+  defmacro defgen(name, do: block) do
+    case clause_arity_check(block) do
+      {:ok, arity} ->
+        make_any
+
+      :error ->
+        raise SyntaxError, "语法错误"
+    end
+  end
+
+  defp clause_arity_check([{:->, _, [args | _]} | others]) do
+    args =
+      case args do
+        [{:when, _, args}] ->
+          {_, args} = List.pop_at(args, -1)
+          args
+
+        args ->
+          args
+      end
+
+    case others do
+      [] ->
+        {:ok, length(args)}
+
+      [{:->, _, [args2 | _]} | _] when length(args) == length(args2) ->
+        syntax_check(others)
+
+      true ->
+        :error
+    end
+  end
+end
+```
 
 ```elixir
 defmodule Coner.Generater do
