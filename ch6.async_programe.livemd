@@ -368,41 +368,25 @@ Promise 就可以写出更加容易读的 Stream.
 
 ## 产生子(Generater)
 
-首先来分析产生子的语法.
+定义产生子的宏, 就叫做 `defgen` 吧.
 
-我打算使用宏 `defgen` 来产生一个匿名函数, 这个匿名函数调用后, 产生一个透明结构, 表示产生子.
-所以, 大概的语法是这样的:
-
-<!-- livebook:{"force_markdown":true} -->
-
-```elixir
-defgen generater_name do
-  a, b when a > b -> 
-   c = yield a
-   d = yield c + b
-   yield d
-  a, b ->
-    yield a + b
-end
-
-g = generater_name(3,2)
-3 = g |> next(1) # c is 1
-3 = g |> next(4) # d is 4
-4 = g |> next(:any)
-true = g |> done?()
-```
-
-在 `defgen` 上下文中, 可以使用 `yield`. `yield a` 会等待 `next(g,v\\nil)` 的执行.
-等 `next(g,v\\nil)` 执行后, `next/2` 会得到返回值 `a`, 
-在产生子内部 `yield a` 的返回值是 `{:ok, v}`.
+我们使用 Javascript 产生子类似的语法. 在 `defgen` 上下文中, 可以使用 `yield`.
+表达式 `yield a` 会等待 `next(g,v\\nil)` 的执行.
+待 `next(g,v\\nil)` 执行后, `next/2` 会得到返回值 `{:ok, a}`;
+而在产生子内部 `yield a` 的返回值是 `v`.
 产生子函数中最后一个 `yield` 语句执行完成后, 再调用 `next(g,v)` 会返回 `:done`.
 
+和 Javascript 的产生子一点点不同在于, 在第一次调用 `next(g,v)` 的时候,
+就可以提供任意的值 `v`. 在 Javascript 中, 产生子函数, 返回的迭代子(记为 `g`),
+第一次调用 `g.next(v)` 时, 传给迭代函数的值 `v` 被丢弃了.
+我一直认为这时一个实现的 bug. 现在有机会来自己实现产生子了,
+我希望, 第一次调用 `next(g,v)` 传入的值 `v` 不会被丢弃.
+
 那么该如何来实现呢? Elixir 现有的语法中, 如何组合出这样的功能呢?
-首先 `receive` 会暂定一个进程的执行, 找到收到需要的数据, 才接着执行.
-所以, 产生子函数, 应该运行在另外的一个进程中, 当 `generater_name/2`
-被调用的时候, 产生子函数执行, 遇到第一个 `yield` 语句, 停止执行,
-等待 `next/2` 函数发送继续执行的信号. 收到 `next/2` 的继续执行信号后,
-表达式 `yield a` 完成如下工作:
+首先 `receive` 会暂停一个进程的执行, 直到收到需要的数据, 才接着执行.
+所以, 产生子函数, 应该运行在另外的一个进程中, 当`defgen` 返回的匿名函数被调用的时候,
+产生子函数开始执行, 直到遇到第一个 `yield` 语句, 停止执行. 等待 `next/2` 函数发送信号.
+当产生子进程, 收到 `next/2` 的发送的信号后, 表达式 `yield a` 完成如下工作:
 
 1. 参数 `a` 发送给 `next`
 2. 把 `next` 发送过来的数据作为 `yeild a` 的返回值传递后其他语句
@@ -416,14 +400,12 @@ true = g |> done?()
 sequenceDiagram
     participant  主进程
     participant  产生子进程
-    主进程->> 产生子进程: 启动产生子进程
+    主进程->> 产生子进程: 启动产生子进程 g = generater.(...)
     产生子进程-->>产生子进程: 运行, 遇到 yield 后,<br>等待主进程发送信号
-    主进程->> 产生子进程: {:continue,3} --- next(g,1)
-    产生子进程->>主进程: {:ok, b} --- yield b
-    主进程 ->> 产生子进程: {:continue, 4} --- next(g, 4)
-    产生子进程->>主进程: {:ok, 1 + b} --- yield c+b
-    主进程 ->> 产生子进程: {:continue,:any} --- next(g, :any)
-    产生子进程->>主进程: {:ok, 4} -- yield d
+    主进程->> 产生子进程: 1 --- next(g,1)
+    产生子进程->>主进程:  {:ok,b} --- yield b
+    主进程-->> 产生子进程: ...
+    产生子进程-->>主进程:  ...
     主进程 -->> 主进程: 子进程还活着吗?
     主进程 ->> 主进程: 没有
 ```
@@ -434,43 +416,21 @@ sequenceDiagram
 调用匿名函数 `name` 会启动产生子进程, 并返回一个透明结构.
 这个透明结构, 对应于 Javascript 的产生子迭代器,
 但是, 在我们这里, 用它来作为主进程与产生子进程通信的信道.
-如果我们愿意, 还可以为这个信道实现枚举协议, 
+如果我们愿意, 还可以为这个信道/迭代器实现枚举协议,
 这样就可以使用 `Enum` 模块和 `for` 来处理产生的序列了.
 
-```elixir
-quote do
-  defgen hello do
-    a, b ->
-      c = yield a
-      yield c + b
-  end
-  TEM = fn _hello, ref, a, b ->
-    _hello, a, b ->
-      c = yield a
-      yield c + b
-  end
-  hello = fn a, b ->
-    ref = make_ref()
-    pid = sparn(fn ->TEM.(TEM,ref,a, b) end)
-    %{pid: pid, ref: ref}
-  end
-  TEM = nil
-end
-```
+`defgen fun(a,b) do...end` 和 第 5章 [&Lt;定制新结构&Gt;](ch5.new_constructor.livemd)
+的递归匿名函数小节中, 定义的 `fn!/2` 宏有大量的功能是相同的:
+
+1. 它们都定义匿名函数,
+2. 在宏的上下文中, 都可以完成对定义的匿名函数的递归调用.
+3. 还帮助我们把这个匿名函数绑定给了变量.
+
+这些共同的功能, 表现在代码上就成了辅助模块 `Corner.Helpers`.
 
 ```elixir
-defmodule Corner.Generater do
-  defmacro defgen(name, do: block) do
-    case clause_arity_check(block) do
-      {:ok, arity} ->
-        make_any
-
-      :error ->
-        raise SyntaxError, "语法错误"
-    end
-  end
-
-  defp clause_arity_check([{:->, _, [args | _]} | others]) do
+defmodule Corner.Helpers do
+  def clauses_arity_check([{:->, _, [args | _]} | others]) do
     args =
       case args do
         [{:when, _, args}] ->
@@ -486,214 +446,183 @@ defmodule Corner.Generater do
         {:ok, length(args)}
 
       [{:->, _, [args2 | _]} | _] when length(args) == length(args2) ->
-        syntax_check(others)
+        clauses_arity_check(others)
 
       true ->
         :error
     end
   end
+
+  def make_fn(name, body, make_args) do
+    new_body = Enum.map(body, &transe_recurrrent_call(make_args, name, &1))
+    {:fn, [], new_body}
+  end
+
+  defp transe_recurrrent_call(
+         make_args,
+         name = {atom, _, _},
+         {:->, meta, [args | body]}
+       ) do
+    new_body = Macro.postwalk(body, &fixed_current_call(atom, &1))
+
+    new_args =
+      if new_body != body do
+        make_args.(args, name)
+      else
+        name = "_#{atom}" |> String.to_atom()
+        make_args.(args, {name, [], nil})
+      end
+
+    {:->, meta, [new_args | new_body]}
+  end
+
+  defp fixed_current_call(name, {{:., m1, [{name, _, _} = fun]}, m2, args}) do
+    {{:., m1, [fun]}, m2, [fun | args]}
+  end
+
+  defp fixed_current_call(_, ast), do: ast
 end
 ```
 
-```elixir
-defmodule Coner.Generater do
-  def _del_gen(m) do
-    is_gen = m.module_info(:attributes)[:is_gen]
-    is_gen? = is_gen && __MODULE__ in is_gen
+在辅助模块的帮助下, 我们就可以专心写与 `defgen` 相关的核心功能了.
 
-    if is_gen? do
-      pid = Process.whereis(m)
-      pid && Process.exit(pid, :kill)
-      :code.delete(m)
-    else
-      false
-    end
-  end
+<!-- livebook:{"disable_formatting":true} -->
 
-  defmacro del_gen(m) do
-    quote do
-      unquote(__MODULE__)._del_gen(unquote(m))
-      unquote(m) = nil
-    end
-  end
+````elixir
+defmodule Corner.Generater do
+  defstruct ref: nil, pid: nil
 
-  defmacro defgen({name, _, call}, do: block) do
-    uuid = make_uuid()
-    process_fun = make_process_fun(call, block, uuid)
+  alias Corner.Helpers
 
-    args = get_args(call)
-    ast = make_anonymous_function(call, process_fun, args, uuid)
-    {:=, [], [{name, [], nil}, ast]}
-  end
+  defmacro defgen(name, do: block) do
+    case Helpers.clauses_arity_check(block) do
+      {:ok, arity} ->
+        var = {:TEM_fun, [], nil}
+        tem_fun = Helpers.make_fn(name, block, &make_args/2)
+        params = Macro.generate_arguments(arity, nil)
 
-  defp make_uuid() do
-    NaiveDateTime.utc_now()
-    |> to_string()
-    |> String.to_atom()
-  end
+        quote do
+          unquote(var) = unquote(tem_fun)
 
-  defp make_process_fun(call, {:__block__, _, stances}, uuid) do
-    stances = if is_list(stances), do: stances, else: [stances]
-    make_process_fun(call, stances, uuid)
-  end
+          unquote(name) = fn unquote_splicing(params) ->
+            ref = make_ref()
+            me = self()
+            fun = fn -> 
+              try do
+                unquote(var).(unquote(var), me, ref, unquote_splicing(params)) 
+              rescue
+                error -> send(me, {ref, {:error, error,__STACKTRACE__}})
+              end
+            end
+            pid = spawn(fun)
+            struct(unquote(__MODULE__), pid: pid, ref: ref)
+          end
 
-  defp make_process_fun(call, t, uuid) when is_tuple(t) do
-    make_process_fun(call, [t], uuid)
-  end
-
-  defp make_process_fun(call, stances, uuid) do
-    stances = Enum.map(stances, &transform(&1, uuid))
-
-    quote do
-      fn unquote_splicing(call) ->
-        (unquote_splicing(stances))
-      end
-    end
-  end
-
-  defp transform({:=, _, [_, {:yield, _, _}]} = ast, uuid),
-    do: yield_to_send(ast, uuid)
-
-  defp transform({:yield, _, _} = ast, uuid), do: yield_to_send(ast, uuid)
-
-  defp transform(ast, _uuid), do: ast
-
-  defp yield_to_send({:=, _, [left, {:yield, _, [after_yield]}]}, uuid) do
-    quote do
-      unquote(left) =
-        receive do
-          {me, unquote(left)} ->
-            send(me, {unquote(uuid), unquote(after_yield)})
-            unquote(left)
+          unquote(var) = nil
+          unquote(var) || true
         end
+        |> Macro.postwalk(&yield_to_send/1)
+      # |> tap(&(Macro.to_string(&1) |> IO.puts()))
+
+      :error ->
+        {:=, [name, {:fn, [], block}]}
     end
   end
 
-  defp yield_to_send({:yield, _, [after_yield]}, uuid) do
+  def next(%__MODULE__{} = m, v \\ nil) do
+    if running?(m) do
+      %{pid: pid, ref: ref} = m
+      send(pid, v)
+  
+      receive do
+        {^ref, [v]} -> {:ok, v}
+        {^ref,v} -> v        
+      end
+    else
+      :done
+    end
+  end
+
+  def running?(%__MODULE__{pid: pid}) do
+    pid && Process.alive?(pid)
+  end
+
+  def done?(%__MODULE__{} = m), do: !running?(m)
+
+  @pid {:pid, [], nil}
+  @ref {:ref, [], nil}
+  defp make_args([{:when, meta, args}], fun) do
+    [{:when, meta, [fun, @pid, @ref | args]}]
+  end
+
+  defp make_args(args, fun) do
+    [fun, @pid, @ref | args]
+  end
+  @doc false && """
+  Transform `c = yield a`
+  """
+  defp yield_to_send({:=, m1, [left, {:yield, _,_}=yield_exp]}) do
+    receive_and_send = yield_to_send(yield_exp)
+
+    {:=, m1, [left, receive_and_send]}
+  end
+
+  @doc false && """
+  Transform `yield a` to
+  ```
+  receive do
+    v -> send(pid,{ref,[a]})
+    v
+  end
+  ```
+  """
+  defp yield_to_send({:yield, _meta, exp}) do
+    pid = @pid
+    ref = @ref
+
     quote do
       receive do
-        {me, nil} -> send(me, {unquote(uuid), unquote(after_yield)})
-        {me, _} -> send(me, {unquote(uuid), unquote(after_yield)})
+        v ->
+          send(unquote(pid), {unquote(ref), unquote(exp)})
+          v
       end
     end
   end
 
-  defp get_args({:when, _, args}) do
-    Enum.reduce_while(args, [], fn {ele}, acc ->
-      if elem(ele, 1) == [if_undefined: :apply] do
-        {:cont, acc ++ [ele]}
-      else
-        {:halt, acc}
-      end
-    end)
-  end
-
-  defp get_args(args), do: args
-
-  defp make_anonymous_function(call, process_fun, args, uuid) do
-    module = make_module(uuid)
-
-    quote do
-      fn unquote_splicing(call) ->
-        pid = spawn(fn -> apply(unquote(process_fun), unquote(args)) end)
-        Process.register(pid, unquote(uuid))
-
-        unquote(module)
-        |> elem(1)
-      end
-    end
-  end
-
-  defp make_module(uuid) do
-    quote do
-      defmodule unquote(uuid) do
-        Module.register_attribute(__MODULE__, :is_gen, persist: true)
-        @is_gen unquote(__MODULE__)
-        @gc_after_seconds 10 * 1000
-        def running?() do
-          pid = Process.whereis(unquote(uuid))
-          t = pid && Process.alive?(pid)
-
-          if t do
-            :timer.apply_after(
-              @gc_after_seconds,
-              unquote(__MODULE__),
-              :_del_gen,
-              [__MODULE__]
-            )
-          end
-        end
-
-        def done?() do
-          !__MODULE__.running?()
-        end
-
-        def next(v \\ nil) do
-          if running?() do
-            pid = Process.whereis(unquote(uuid))
-            send(pid, {self(), v})
-
-            receive do
-              {unquote(uuid), v} -> v
-            end
-          else
-            :done
-          end
-        end
-      end
-    end
-  end
+  defp yield_to_send(a), do: a
 end
-```
+````
 
-现在我们来看一下, 如何使用产生子. 这个模块, 导出了一个宏 `defgen/2`.
-和 `fn` 类似, `defgen` 产生一个匿名函数. 在 `defgen` 内部,
-可以使用关键字 `yield` 表示返回数据, 并中断函数执行. 就像在 Lua 或 Js 中的语法那样.
-
-`defgen fun(a,b) do...end` 不但产生了匿名函数,
-而且把这个匿名函数绑定给了 `fun` 变量.
+下面, 让我们来演示一下, 如何使用产生子.
+首先, 用 `defgen` 定义产生子函数.
 
 ```elixir
-import Coner.Generater
+import Corner.Generater
 
-defgen fun(a, b) do
-  c = yield(a)
-  yield(c + b)
+defgen fun do
+  a, b when a > b ->
+    c = yield(a)
+    d = yield(c + b)
+    yield(d)
+
+  a, b ->
+    yield(a + b)
 end
 
 :fun in (binding() |> Keyword.keys())
+true = is_function(fun, 2)
 ```
 
-调用这个新产生的匿名函数 `fun`, 返回一个原子, 表示一个模块的名字. 在这个新的模块中,
-导出了 `next/0/1`, `done?/1` 和 `running?/1`.
+接着, 调用这个新产生的匿名函数 `fun`, 返回一个产生子结构 `g`.
+然后调用 `next(g,v)` 来迭代产生子. 当产生子函数出现错误的时候,
+`next/2` 会返回 `{:error,Exception,[stakcs]}`.
 
 ```elixir
-g = fun.(1, 2)
-is_atom(g) |> IO.inspect()
-g.__info__(:functions)
+g = fun.(3, 2)
+# c is 1
+{:ok, 3} = g |> next(1)
+# d is 4
+{:ok, 3} = g |> next(4)
+{:ok, 4} = g |> next(:any)
+true = g |> done?()
 ```
-
-调用这个模块的 `next()` 会返回产生子产生的元素. `next(v)` 返回产生的元素外,
-还为 `yield` 指定了返回值 `v`. 当调用 `next()` 的时候, `yield` 的返回值为 `nil`.
-
-```elixir
-g.next(3)
-|> IO.inspect(label: "shoud be 1, get")
-
-(g in Process.registered()) |> IO.inspect(label: "G is registerd")
-
-g.next(4) |> IO.inspect(label: "should be 3+2")
-g |> IO.inspect(label: "g is a atom")
-```
-
-### 垃圾收集
-
-产生子以内存内模块的形式存在, 因此, 当不再需要产生子后,
-因为系统不会自动的清除不再需要的模块(?TODO?),
-那么相当于为系统中引入了不能被收集的垃圾.
-
-对于一个已经运行结束的产生子来说, 一段时间后, 系统会自动的完成垃圾收集的工作.
-但是对一个还没有运行结束的产生子, 必须使用宏 `del_gen/1` 宏来手动清理.
-
-另外, 每产生一个新的产生子, 都为系统中引入了一个新的表示原子, 而原子是不能被收集的,
-所以必须节制, **不要在循环中调用 `def_gen` 产生的匿名函数**.
