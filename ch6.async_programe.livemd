@@ -656,10 +656,14 @@ defimpl Enumerable, for: Corner.Generater do
 
       true ->
         case G.next(g) do
-          {:ok, v} -> reduce(g, fun.(v, acc), fun)
+          {:ok, v} ->
+            reduce(g, fun.(v, acc), fun)
+
           {:error, error, stack} ->
             {:done, {:error, error: error, stack: stack}}
-          :done -> {:done, acc}
+
+          :done ->
+            {:done, acc}
         end
     end
   end
@@ -680,6 +684,8 @@ defimpl Enumerable, for: Corner.Generater do
   end
 end
 ```
+
+然后, 我们就是可以使用 `Enum` 模块, 甚至 `for` 结构来处理我们的产生子结构了.
 
 ```elixir
 defgen gen2 do
