@@ -5,41 +5,43 @@
 就像 `case` 和 `cond` 一度让我感觉选择困难一样,
 面对协议和行为, 我往往也难以做出抉择.
 
-但是这种困难和语言无关, 因为它不是语义方面的的问题, 而是系统设计知识不足带来了.
+但是这种困难和语言无关, 因为它不是语义方面的的问题, 而是系统设计知识不足带来的.
 
 可以这样理解, 协议就是 OOP 编程中的接口 (Java) 或者纯抽象类(C++);
-而行为就是一般的抽象类. 至少协议和行为解决的问题与 OOP 中接口与抽象类解决的问题是一样的.
+而行为就是一般的抽象类. 至少协议和行为解决的问题与 OOP
+中接口与抽象类解决的问题是一样的.
 
-接口和协议可以看作一个系统的 API 接口, 系统的使用者只需要关心系统提供了那些功能,
+接口和协议可以看作一个系统的 API 接口, 使用者只需要关心系统提供了那些功能,
 而不用关心这些功能是如何实现的.
 
-抽象类或行为可以看作是可供 DIY 的产品. 基础的功能行为已经为我们定义好了,
-系统各个部分交互的规则也已经完成了, 但是具体的业务需求部分, 需要用户自己 DIY.
+抽象类或行为可以看作是可供 DIY 的产品. 基础的功能, 行为(`Behavior`)
+已经为我们定义好了, 系统各个部分交互的规则也已经完成了,
+但是具体的业务需求部分, 需要用户自己 DIY.
 
 如果我们的代码最主要的目的, 是简化系统的调用, 那么应该使用协议及其实现.
 如果代码提供的服务, 需要支持定制化的开发, 那么就应该使用协议.
 
 ## 协议到底是什么
 
-首先, 在底层协议和协议的实现到底是什么?
+首先在底层, 协议和协议的实现到底是什么?
 
 Erlang 中根本没有协议这样的语法概念. Elixir 运行在 Erlang 的虚拟机中,
-所以 Elixir 是用了 Erlang 中的概念为为我们抽象除了协议这一新概念.
+所以 Elixir 是用了 Erlang 中的概念为我们抽象出了协议这一新概念.
 
 和协议关系最密切的概念就是行为, 就像上一节描述的那样, 这两个概念密切到我不知道如何选择.
 现在又知道, 协议是高级的概念, 那么可以肯定, 协议的概念一定构建在行为的基础上.
 
-行为是模块的属性, 是模块发成的声明: 实现了某个模块中所有的 `@callback` 属性.
+行为是模块的属性, 是模块发出的声明: 实现了某个模块中所有的 `@callback` 属性.
 
-而一个理想的协议模块, 除了对实现的动态调度的相关函数外, 没有其他函数.
+而一个理想的协议模块, 除了实现的动态调度的相关函数外, 没有其他函数.
 那么协议这个概念本质上, 就是 Elixir 帮助我们更简单的完成对行为的动态调度.
 
 ## 协议与模块
 
 在前面的模块的章节中, 我们已经知道了 `defprotocol` 和 `defimpl` 宏的调用,
 和 `defmodule` 的调用一样, 在编译后会产生编译模块, 反映到文件系统中就是 `.beam` 文件.
-我们还知道, `defmodule` 是支持嵌套定义的, 那么这就意味着, `defprotocol` 和 `defimpl`
-除了定义在顶层的作用域外, 还可以嵌套在 `defmodule` 的上下文中.
+我们还知道, `defmodule` 是支持嵌套定义的, 那么这就意味着, `defprotocol` 和
+`defimpl` 除了定义在顶层的作用域外, 还可以嵌套在 `defmodule` 的上下文中.
 
 现在让我们定义一个 `Corner.Addable` 协议.
 
@@ -59,8 +61,8 @@ end
 分别是: `Elixir.Corner.beam`,`Elixir.Coner.Addable.beam`,
 `Elixir.Coner.Addable.Integer` 和 `Elixir.Corner.Addable.Float`.
 
-也就是说, 如果在模块内使用 `defprotocol`, 那么它的变现类似于 `defmodule`,
-最后产生的模块明会添加外部模块前缀. 而协议的实现代码,
+也就是说, 如果在模块内使用 `defprotocol`, 那么它的变化类似于 `defmodule`,
+最后产生的模块命会添加外部模块前缀. 而协议的实现代码,
 实际上是定义在 `Protocol.Type` 这样的模块中的.
 而不再添加外部模块的前缀.
 
@@ -69,7 +71,7 @@ end
 这新的实现, 是位于模块 <s>Corner.TimeSpan.</s>Corner.Addable.Corner.TimeSpan 中,
 这里没有添加外部模块的前缀 **Corner.TimeSpan**.
 
-也就是说, `defimpl Protocol, for: Type` 无论再哪里, 都一样展开为 `Protocol.Type`,
+也就是说, `defimpl Protocol, for: Type` 无论在哪里, 都一样展开为 `Protocol.Type`,
 而不会因为嵌套在其他模块结构中, 而添加新的前缀.
 
 ```elixir
@@ -92,22 +94,23 @@ end
 
 在这种模块嵌套的代码中, 要特别留意上下文. 请注意上面的代码片段中的 `__MODULE__`,
 在不同的上下文中, 其展开结果是不一样的.
-第 4 行的 `__MODULE__` 展开为 `Corner.TimeSpan` 不出乎我所料.
+第 5 行的 `__MODULE__` 展开为 `Corner.TimeSpan` 在意料之中.
 但是第 12 行的 `__MODULE__` 展开是什么呢? 或者说,
 第 8 行的最终的语义和第 9 行一样吗? 通过控制台的输出,
-我们知道是第 12 行的 `__MODULE__` 展开为 `Corner.Addable.Corner.TimeSpan`.
-因此不难推测, 注释掉的第 8 行, 其语义与第 9 行的是不同的.
+我们知道是第 13 行的 `__MODULE__` 展开为 `Corner.Addable.Corner.TimeSpan`.
+因此不难推测, 注释掉的第 9 行, 其语义与第 10 行的是不同的.
 虽然上面的讨论已经知道 `defimpl` 是要定义一个新的模块,
-但是我第一次编码的时候, 还是犯了第 8 行这样的错.
+但是我第一次编码的时候, 还是犯了第 9 行这样的错.
 
-因为 `defprotocol` `defimpl` 实际上是要创建一个模块,
+因为 `defprotocol` 和 `defimpl` 实际上是要创建模块,
 除了 `defprotocol` 对核心模块的少数几个宏做了限制外[^protocol],
-大部分的功能并没有限制, 所以就像我们可以在 `defmodule` 的上下执行
-`def*` 以外的其他表达式那样, 在 `defprotocol`, 和 `defimpl` 上下文中也可以这样做.
+大部分的功能并没有限制, 所以就像我们可以在 `defmodule` 的上下文中执行
+`def*` 以外的其他表达式那样, 在 `defprotocol` 和 `defimpl` 上下文中也可以这样做.
 
 [^protocol]: 见 Elixir 协议模块源码的 第[690~703](https://github.com/elixir-lang/elixir/blob/7e4fbe657dbf9c3e19e3d2bd6c17cc6d724b4710/lib/elixir/lib/protocol.ex#L684) 行.
 
-现在我们知道了, `defimpl` 可以嵌套到 `defmodule` 中, 那么 `defimpl` 内部可以嵌套 `defimpl` 调用吗?
+现在我们知道了, `defimpl` 可以嵌套到 `defmodule` 中, 那么 `defimpl`
+内部可以嵌套 `defimpl` 调用吗?
 或者再推广一下: `defimpl` 都可以在什么样的上下文中调用呢?
 
 以前的章节中, 我们见到的 `defimpl` 调用的上下文有:
@@ -136,7 +139,7 @@ end
 ```
 
 编译这段代码, 得到了编译错误. 
-错误是对 `defimpl` 的调用引发的, 错误的原因是不能加载模块 `Addable2`.
+错误是 `defimpl` 引发的, 错误的原因是不能加载模块 `Addable2`.
 这说明, 调用 `defimpl` 的时候, 会加载 `:for` 选项指定的模块.
 现在还没有完成 `Addable2` 模块的定义, 所以加载这个模块自然是失败的.
 
@@ -160,9 +163,9 @@ Corner.Addable2.say_hello()
 但是要注意第 4 行, 这里使用 `Kernel.def` 远程方法调用的语法来调用 `def/2`,
 因为在 `defprotocol` 上下文中, 特意排除了核心模块 `def/2` 的导入.
 
-在上面的代码片段中, 我最初以为 `defprotocol` 上下文中, 必须有 `def/1` 语句,
-但是后来发现不用; 原来还以为不可以定义自己的函数的,
-现在发现可以使用远程方法来定义自己的函数, 就像上面的代码第 6~8 行中那样.
+在实验上面的代码片段前, 我以为 `defprotocol` 上下文中, 必须有 `def/1` 语句,
+但是现在直到, 不是的. 原来还以为, `defprotocl` 上下文中, 不可以定义自己的函数,
+现在发现, 可以使用远程方法的语法, 来定义自己的函数; 就像上面的代码第 7~9 行中那样.
 
 最后强调一下: 虽然可以像上面的代码片段那样, 用 `defprotocol` 来定义模块,
 但是绝对不推荐这样做.
@@ -187,7 +190,7 @@ end
 ```
 
 **`defimpl` 中可以嵌入 `defimpl`; `defimpl` 在 `defimpl` 调用的上下文中,
-与在顶层的上下文中没有区别**.
+与在顶层的作用域上下文中, 没有区别**.
 
 这还真的出乎我的意料. 但是这样做, 除了让代码变得丑陋外, 一点其他用处也没有.
 
@@ -221,12 +224,13 @@ Elixir 中不允许命名函数嵌套, 但是知道了上面的知识,
 
 让我们再回到对协议的讨论上来.
 
-协议看起了足够的简单. 看起来它对模块做了限制, 使其上下文中, 只能使用 `def/1` 宏.
+协议看起了足够的简单. 看起来 `defprotocol` 只是作了限制的 `defmodule`: 其上下文中,
+只能使用 `def/1` 宏.
 
 但是实际上不是这么简单的.
 
 首先协议对其中的定义函数是有限制的, 协议中的函数, 不可以为零元函数.
-所以在 `defprotocol` 上下文中使用的 `def/1` 是从新定义的, 而不是 `Kernel.def/1`.
+所以在 `defprotocol` 上下文中使用的 `def/1` 是重新定义的, 而不是 `Kernel.def/1`.
 当我们在协议中定义零元函数的时候, 会引发编译错误.
 
 ```elixir
@@ -236,7 +240,7 @@ end
 ```
 
 上面我们展示了, `defprotocol` 对 `def/1` 的限制; 
-接下来, 我们看一下协议也对函数有辅助:
+接下来, 我们会看到协议对函数也有辅助:
 协议会对其中定义的函数的第一个参数做类型检查.
 
 ```elixir
@@ -284,7 +288,7 @@ Protocol.add_one("One + ") |> IO.inspect(label: "add_one(\"One + \")")
 ```
 
 实际上, 协议对函数的辅助, 只是实现对模块的动态调度的自然结果;
-而对函数的限制, 这是实现动态调度的必然要求.
+而对函数的限制, 则是实现动态调度的必然要求.
 
 协议实际帮助我们消弭模块名, 来实现函数的动态调度.
 但是 Elixir 动态调度只能通过模式匹配来完成.
@@ -294,9 +298,10 @@ Protocol.add_one("One + ") |> IO.inspect(label: "add_one(\"One + \")")
 2. 函数名
 3. 参数模式, guard 子句
 
-协议要动态调度是要消除模块之间的差异的, 所以在这里, 模块不能作为动态调度的依据了.
-协议的实现中, 函数名都是一样的, 所以它自然也不能用作动态调度的依据.
-零元函数, 因为没有参数, 所以最后可以用来区分不同模块的因子也不再有用.
+* 协议要动态调度, 就是要消除模块之间的差异的, 所以在这里, 模块不能作为动态调度的依据了.
+* 协议的实现中, 函数名都是一样的, 所以它自然也不能用作动态调度的依据.
+* 零元函数, 因为没有参数, 所以最后可以用来区分不同函数的因子, 也不再有用.
+
 这就是协议上下文中要求 `def/1` 定义的函数, 必须至少含有一个参数的原因.
 
 上面我们看到了, 协议的确做到了对协议实现模块的动态调度. 但是它是如何做到的呢?
@@ -304,13 +309,13 @@ Protocol.add_one("One + ") |> IO.inspect(label: "add_one(\"One + \")")
 ## 协议动态调度
 
 Elixir 协议模块文档的[反射章节](https://hexdocs.pm/elixir/Protocol.html#module-reflection),
-告诉我们每个协议模块都会包含了以下三个, 用来完成对协议及其实现模块的反射操作的函数:
+告诉我们每个协议模块, 都会包含了以下三个用来完成, 协议及其实现模块的反射操作的函数:
 
 1. `__protocol__/1` 返回这个协议模块的相关的元信息.
 2. `impl_for/1` 返回给定数据的处理模块, 或者返回 `nil`.
 3. `impl_for!/1` 和上面的函数类似, 但是如果没有找到对应的实现的话, 会引发异常.
 
-所以通过 `impl_for` 或 `impl_for!` 可以完成动态调用实现模块的功能.
+所以通过 `impl_for` 或 `impl_for!` 可以完成对实现模块的动态调用.
 比如我们上面定义的 `Corner.Addable` 协议,
 `defprotocol` 为我们生成的模块中, `add/2` 函数就可以非常简单的这样来实现[^generater]:
 
@@ -326,14 +331,15 @@ defmodule Corner.Addable do
 end
 ```
 
-[^generater]: 这是我的猜测, 所以 `defpotocol` 真正产生的代码和这里的代码不一样.
+[^generater]: 这是我的猜测, 所以 `defpotocol` 真正产生的代码和这里的代码肯定不一样.
 
 但是 `impl_for` 和 `impl_for!` 又是如何完成它们的工作的呢?
 
 前面我们已经知道, 协议的实现模块的模块名都是以协议模块的模块名为前缀的.
 要完成 `impl_for` 和 `impl_for!` 可以分成两部走:
 
-1. 在运行时获取所有的模块, 并依据模块名筛选出以协议名为前缀的模块. 但是这样找出的模块不能保证就一定是协议的实现.
+1. 在运行时获取所有的模块, 并依据模块名筛选出以协议名为前缀的模块.
+但是这样找出的模块不能保证就一定是协议的实现.
 2. 探测这些找到的模块的元信息, 来确认模块是否的确是协议的实现.
 
 那么第一个关键就是如何在运行时获取系统中的模块呢?
@@ -349,10 +355,12 @@ Erlang 的标准库的 `:code` 模块提供了这样两个函数:
 
 接下来我们探索一下, `defprotocl` 和 `defimpl` 如何配合,
 以便可以通过模块的元信息来确认某个模块是协议的实现的.
-协议的实现模块, 有一个 `:__protocol__` 属性, 其值为: `[protocol: Protocol, for: Type]`.
+协议的实现模块, 有一个 `:__protocol__` 属性, 其值为:
+`[protocol: Protocol, for: Type]`.
 我们可以通过 `ProtoclImpl.__info__(:attributes)` 或
 `Module.module_info(:attributes)`来获模块的所有的属性.
-这两个函数返回的都是关键字列表, 因此我们可以通过 Access 协议来获取 `:__protocol__` 对应的值.
+这两个函数返回的都是关键字列表, 因此我们可以通过 Access 协议来获取
+`:__protocol__` 对应的值.
 下面的代码, 获取了 `Corner.Addable.Integer` 模块的 `:__protocol__` 属性的值:
 
 ```elixir
@@ -363,34 +371,34 @@ Corner.Addable.Integer.module_info(:attributes)[:__impl__]
 
 1. 根据数据, 判断对应的模块. 我想相应的代码, 大概是这样的:
    ```elixir
-      def data_to_mod(d) do
-        cond do
-          is_tuple(d) -> Tuple
-          is_atom(d) -> Atom
-          is_list(d) -> List
-          is_bitstring(d) -> BitString
-          is_integer(d) -> Integer
-          is_float(d) -> Float
-          is_function(d) -> Function
-          is_pid(d) -> PID
-          is_map(d) -> Map
-          is_port(d) -> Port
-          is_reference(d) -> Reference
-          is_struct(d) -> :struct
-          _ -> Any
-        end
-      end
+            def data_to_module(d) do
+              cond do
+                is_tuple(d) -> Tuple
+                is_atom(d) -> Atom
+                is_list(d) -> List
+                is_bitstring(d) -> BitString
+                is_integer(d) -> Integer
+                is_float(d) -> Float
+                is_function(d) -> Function
+                is_pid(d) -> PID
+                is_map(d) -> Map
+                is_port(d) -> Port
+                is_reference(d) -> Reference
+                is_struct(d) -> :struct
+                _ -> Any
+              end
+            end
    ```
-2. 根据协议实行的 `:__protoco__` 来找到合适的处理模块, 代码大概是这样:
+2. 根据协议实现的 `:__protoco__` 属性值, 来找到合适的处理模块, 代码大概是这样:
    ```elixir
-   def filter([protocol: pro, for: mod ], d) do
-     t = data_to_mod(d)
-     if t == :struct and %mod{} = d do
-       true
-     else
-       mod == t
-     end
-   end
+         def filter([protocol: pro, for: mod ], d) do
+           t = data_to_module(d)
+           if t == :struct and %mod{} = d do
+             true
+           else
+             mod == t
+           end
+         end
    ```
 
 那么 `imp_for` 和 `impl_for!` 大概就是这样的:
@@ -477,8 +485,9 @@ end
 我这里的代码所以短, 是因为我只对 Integer 和 Float 做了展开,
 其他 9 个基本类型的账号, 都用 `...` 代替的缘故.
 
-通过查看 Elixir 的源码, 还可以知道, 每个协议的实现模块中都有一个 `__impl__(:target)` 函数.
-这是 `defimpl` 与 `defprotocol` 打的配合, 为的是消除命名冲突.
+通过查看 Elixir 的源码, 还可以知道, 每个协议的实现模块中都有一个
+`__impl__(:target)` 函数. 这是 `defimpl` 与 `defprotocol`
+打的配合, 为的是消除命名冲突.
 
 Elixir 的实现, 时间复杂度为 O(0), 而我的实现, 实际复杂多为 O(1). 😳
 
