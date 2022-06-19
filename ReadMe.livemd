@@ -1,8 +1,8 @@
 # 角落里的长生不老药
 
-## Section
+## 目录
 
-*The Corner of Elixir*
+### *The Corner of Elixir*
 
 * [第一章 前言](ch1.intruction.livemd)
 * [第二章 加和减](ch2.plus_and_minus.livemd)

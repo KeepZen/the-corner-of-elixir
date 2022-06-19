@@ -14,8 +14,10 @@ Javascript 的 Promise API, 但是这里没有定义 `catch`.
 最后的 2 个函数: `of/1` 和 `map(promise,fun/1)` 是函子的通用函数.
 
 1. `Promise` 构造函数 `Promise.new((reslove,reject)->any)`
-2. `Promise` 特化的构造函数 `Promise.reslove(v)` 把 `v` 转化为已完成的 `Promise` 结构.
-3. `Promise` 特化的构造函数 `Promise.reject(v)` 把 `v` 转化为已拒绝的 `Promise` 结构.
+2. `Promise` 特化的构造函数 `Promise.reslove(v)` 把 `v` 转化为已完成的
+    `Promise` 结构.
+3. `Promise` 特化的构造函数 `Promise.reject(v)` 把 `v` 转化为已拒绝的
+    `Promise` 结构.
 4. `Promise` 的转化换函数 `Promise.then(promise,fun, error_hanlder\\nil)`
 5. `Promise` 错误处理函数`Promise.on_error(promise,fun)`
 6. `Promise` 解构函数 `await(promise)` 返回 `Promise` 中包含的类型
@@ -65,7 +67,12 @@ defmodule Promise do
     )
 
     receive do
-      {^ref, p} -> p
+      {^ref, p} ->
+        if is_struct(p, __MODULE__) do
+          p
+        else
+          %__MODULE__{state: :rejected, result: p}
+        end
     after
       timeout -> %__MODULE__{state: :rejected, result: ref}
     end
@@ -258,9 +265,11 @@ ExUnit.run()
 ### 数据转化函数
 
 `map`, `then` 和 `on_error` 是三个函数转化函数.
-其中 `then/1-2` 和 `on_error` 与 Javascript 的 Promise API 的对应函数功能相同[^js_promise].
-`then/1` 只处理 **已完成** 状态的 Promise, `then/2` 接受两个转化函数,
-第一个处理 **已完成** 状态的, 第二个处理 **拒绝** 状态的. `on_error/1` 只处理 **拒绝状态** 的 Promise.
+其中 `then/1-2` 和 `on_error` 与 Javascript 的 Promise API
+的对应函数功能相同[^js_promise]. `then/1` 只处理 **已完成** 状态的 Promise,
+`then/2` 接受两个转化函数,
+第一个处理 **已完成** 状态的, 第二个处理 **拒绝** 状态的. `on_error/1` 只处理
+**拒绝状态** 的 Promise.
 
 [^js_promise]: 见 MDN [Promise 参考页面](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
@@ -363,24 +372,22 @@ Stream.unfold(
 而必须把要产生的序列放在列表中呢? 这是因为如果返回 `{element(),acc()}` 那么,
 `Stream.unflod/2` 就无法产生一个包含 `:halt` 的 Stream 序列了.
 
-Stream 让我想起了 Javascript 的产生子. 如果 Elixir 提供了产生子, 那么产生子函数结合上面定义的
-Promise 就可以写出更加容易读的 Stream.
+Stream 让我想起了 Javascript 的产生子. 如果 Elixir 提供了产生子,
+那么产生子函数结合上面定义的 Promise 就可以写出更加容易读的 Stream.
 
 ## 产生子(Generater)
 
 定义产生子的宏, 就叫做 `defgen` 吧.
 
-我们使用 Javascript 产生子类似的语法. 在 `defgen` 上下文中, 可以使用 `yield`.
-表达式 `yield a` 会等待 `next(g,v\\nil)` 的执行.
-待 `next(g,v\\nil)` 执行后, `next/2` 会得到返回值 `{:ok, a}`;
-而在产生子内部 `yield a` 的返回值是 `v`.
-产生子函数中最后一个 `yield` 语句执行完成后, 再调用 `next(g,v)` 会返回 `:done`.
+我们使用 Javascript 产生子函数类似的语法. 在 `defgen` 上下文中, 可以使用 `yield`.
+表达式 `yield a` 会等待 `next/2` 的执行. 待 `next/2` 执行后, `next/2`
+会得到返回值 `{:ok, a}`; 而在产生子内部, `yield a` 的返回值是 `next/2` 的第二个参数.
+产生子函数中最后一个 `yield` 语句执行完成后, 再调用 `next/2` 会返回 `:done`.
 
-和 Javascript 的产生子一点点不同在于, 在第一次调用 `next(g,v)` 的时候,
-就可以提供任意的值 `v`. 在 Javascript 中, 产生子函数, 返回的迭代子(记为 `g`),
-第一次调用 `g.next(v)` 时, 传给迭代函数的值 `v` 被丢弃了.
-我一直认为这时一个实现的 bug. 现在有机会来自己实现产生子了,
-我希望, 第一次调用 `next(g,v)` 传入的值 `v` 不会被丢弃.
+在 Javascript 中, 产生子函数返回的迭代器(记为 `g`), 第一次调用 `g.next(v)` 时,
+传给 `next` 方法的值 `v` 被丢弃了. 我一直认为这时一个实现的 bug.
+现在有机会来自己实现产生子, 我希望, 第一次调用 `next(g,v)` 传入的值 `v` 不会被丢弃.
+在第一次调用 `next/2` 的时候, 就可以为 `next/2` 的第二参数提供任意的值.
 
 那么该如何来实现呢? Elixir 现有的语法中, 如何组合出这样的功能呢?
 首先 `receive` 会暂停一个进程的执行, 直到收到需要的数据, 才接着执行.
@@ -402,7 +409,7 @@ sequenceDiagram
     participant  产生子进程
     主进程->> 产生子进程: 启动产生子进程 g = generater.(...)
     产生子进程-->>产生子进程: 运行, 遇到 yield 后,<br>等待主进程发送信号
-    主进程->> 产生子进程: 1 --- next(g,1)
+    主进程->> 产生子进程: v --- next(g,v)
     产生子进程->>主进程:  {:ok,b} --- yield b
     主进程-->> 产生子进程: ...
     产生子进程-->>主进程:  ...
@@ -419,7 +426,8 @@ sequenceDiagram
 如果我们愿意, 还可以为这个信道/迭代器实现枚举协议,
 这样就可以使用 `Enum` 模块和 `for` 来处理产生的序列了.
 
-`defgen fun(a,b) do...end` 和 第 5章 [&Lt;定制新结构&Gt;](ch5.new_constructor.livemd)
+`defgen fun(a,b) do...end` 和 第 5章
+[&Lt;定制新结构&Gt;](ch5.new_constructor.livemd)
 的递归匿名函数小节中, 定义的 `fn!/2` 宏有大量的功能是相同的:
 
 1. 它们都定义匿名函数,
@@ -507,9 +515,9 @@ defmodule Corner.Generater do
           unquote(name) = fn unquote_splicing(params) ->
             ref = make_ref()
             me = self()
-            fun = fn -> 
+            fun = fn ->
               try do
-                unquote(var).(unquote(var), me, ref, unquote_splicing(params)) 
+                unquote(var).(unquote(var), me, ref, unquote_splicing(params))
               rescue
                 error -> send(me, {ref, {:error, error,__STACKTRACE__}})
               end
@@ -533,10 +541,10 @@ defmodule Corner.Generater do
     if running?(m) do
       %{pid: pid, ref: ref} = m
       send(pid, v)
-  
+
       receive do
         {^ref, [v]} -> {:ok, v}
-        {^ref,v} -> v        
+        {^ref,v} -> v
       end
     else
       :done
@@ -625,4 +633,68 @@ g = fun.(3, 2)
 {:ok, 3} = g |> next(4)
 {:ok, 4} = g |> next(:any)
 true = g |> done?()
+```
+
+现在让我们给产生子结构提供提供枚举实现.
+
+```elixir
+defimpl Enumerable, for: Corner.Generater do
+  alias Corner.Generater, as: G
+
+  def reduce(%G{}, {:halt, acc}, _fun) do
+    {:halted, acc}
+  end
+
+  def reduce(%G{} = g, {:suspend, acc}, _fun) do
+    {:suspended, acc, fn _acc -> Process.exit(g.pid, :kill) end}
+  end
+
+  def reduce(%G{} = g, {:cont, acc}, fun) do
+    cond do
+      G.done?(g) ->
+        {:done, acc}
+
+      true ->
+        case G.next(g) do
+          {:ok, v} -> reduce(g, fun.(v, acc), fun)
+          {:error, error, stack} ->
+            {:done, {:error, error: error, stack: stack}}
+          :done -> {:done, acc}
+        end
+    end
+  end
+
+  def count(%G{} = g) do
+    reduce(g, {:cont, 0}, fn _, {:cont, c} -> {:cont, c + 1} end)
+  end
+
+  def member?(%G{} = g, n) do
+    reduce(g, {:cont, false}, fn
+      v, _ when n == v -> {:halt, true}
+      _, acc -> acc
+    end)
+  end
+
+  def slice(%G{}) do
+    {:error, __MODULE__}
+  end
+end
+```
+
+```elixir
+defgen gen2 do
+  () ->
+    yield(1)
+    yield(2)
+    yield(3)
+end
+
+g = gen2.()
+
+[1, 2, 3] =
+  for v <- g do
+    v
+  end
+
+true = done?(g)
 ```
