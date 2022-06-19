@@ -138,7 +138,7 @@ defprotocol Addable2 do
 end
 ```
 
-编译这段代码, 得到了编译错误. 
+编译这段代码, 得到了编译错误.
 错误是 `defimpl` 引发的, 错误的原因是不能加载模块 `Addable2`.
 这说明, 调用 `defimpl` 的时候, 会加载 `:for` 选项指定的模块.
 现在还没有完成 `Addable2` 模块的定义, 所以加载这个模块自然是失败的.
@@ -239,7 +239,7 @@ defprotocol ZeroArityFun do
 end
 ```
 
-上面我们展示了, `defprotocol` 对 `def/1` 的限制; 
+上面我们展示了, `defprotocol` 对 `def/1` 的限制;
 接下来, 我们会看到协议对函数也有辅助:
 协议会对其中定义的函数的第一个参数做类型检查.
 
