@@ -26,7 +26,7 @@ Javascript 的 Promise API, 但是这里没有定义 `catch`.
 8. 函子通用转化换函数 `Promise.map(promise,fun)`
 
 ```elixir
-defmodule Promise do
+defmodule Corner.Promise do
   @type state :: :pending | :fulfilled | :rejected
   @opaque t :: %__MODULE__{state: state, result: any()}
   defstruct state: :pending, result: nil
@@ -222,7 +222,7 @@ ExUnit.start(atom_run: false)
 
 defmodule PromiseTest.New do
   use ExUnit.Case
-
+  alias Corner.Promise
   test "Promise.new(fun_is_arity_one)" do
     assert 1 ==
              Promise.new(fn reslove -> reslove.(1);2 end)
@@ -505,32 +505,34 @@ defmodule Corner.Generater do
   defmacro defgen(name, do: block) do
     case Helpers.clauses_arity_check(block) do
       {:ok, arity} ->
-        var = {:TEM_fun, [], nil}
-        tem_fun = Helpers.make_fn(name, block, &make_args/2)
+        tem_fun = {:TEM_fun, [], nil}
+        tem_fun_ast = Helpers.make_fn(name, block, &make_args/2)
         params = Macro.generate_arguments(arity, nil)
 
         quote do
-          unquote(var) = unquote(tem_fun)
+          unquote(tem_fun) = unquote(tem_fun_ast)
 
           unquote(name) = fn unquote_splicing(params) ->
             ref = make_ref()
             me = self()
+
             fun = fn ->
               try do
-                unquote(var).(unquote(var), me, ref, unquote_splicing(params))
+                unquote(tem_fun).(unquote(tem_fun), me, ref, unquote_splicing(params))
               rescue
-                error -> send(me, {ref, {:error, error,__STACKTRACE__}})
+                error -> send(me, {ref, {:error, error, __STACKTRACE__}})
               end
             end
+
             pid = spawn(fun)
             struct(unquote(__MODULE__), pid: pid, ref: ref)
           end
 
-          unquote(var) = nil
-          unquote(var) || true
+          unquote(tem_fun) = nil
+          unquote(tem_fun) || true
         end
         |> Macro.postwalk(&yield_to_send/1)
-      # |> tap(&(Macro.to_string(&1) |> IO.puts()))
+        # |> tap(&(Macro.to_string(&1) |> IO.puts()))
 
       :error ->
         {:=, [name, {:fn, [], block}]}
@@ -544,7 +546,7 @@ defmodule Corner.Generater do
 
       receive do
         {^ref, [v]} -> {:ok, v}
-        {^ref,v} -> v
+        {^ref, v} -> v
       end
     else
       :done
@@ -566,24 +568,27 @@ defmodule Corner.Generater do
   defp make_args(args, fun) do
     [fun, @pid, @ref | args]
   end
-  @doc false && """
-  Transform `c = yield a`
-  """
-  defp yield_to_send({:=, m1, [left, {:yield, _,_}=yield_exp]}) do
+
+  @doc false &&
+         """
+         Transform `c = yield a`
+         """
+  defp yield_to_send({:=, m1, [left, {:yield, _, _} = yield_exp]}) do
     receive_and_send = yield_to_send(yield_exp)
 
     {:=, m1, [left, receive_and_send]}
   end
 
-  @doc false && """
-  Transform `yield a` to
-  ```
-  receive do
-    v -> send(pid,{ref,[a]})
-    v
-  end
-  ```
-  """
+  @doc false &&
+         """
+         Transform `yield a` to
+         ```
+         receive do
+           v -> send(pid,{ref,[a]})
+           v
+         end
+         ```
+         """
   defp yield_to_send({:yield, _meta, exp}) do
     pid = @pid
     ref = @ref
@@ -703,4 +708,94 @@ g = gen2.()
   end
 
 true = done?(g)
+```
+
+## 异步函数
+
+Javascript 中还有异步函数的概念, 异步函数, 返回的对象就是 Promise. 有了 Promise 之后,
+再定义异步函数就简单多了. 对于一个普通函数或匿名函数, 只要把其返回值转化为 Promise 结构就好了.
+为于 Javascript 的异步编程 API 保持一致, 定义异步函数的宏命名为 `async`.
+
+```elixir
+defmodule Corner.Async do
+  defmacro async({:fn, meta, ast}) do
+    new_ast = arrow_return_promise(ast)
+
+    {:fn, meta, new_ast}
+    |> tap(&(Macro.to_string(&1) |> IO.puts()))
+  end
+
+  defmacro async({atom, _meta, args}, do: body) when atom in [:def, :defp] do
+    new_body = return_promise(body)
+
+    case atom do
+      :def ->
+        quote do
+          def(unquote_splicing(args), do: unquote(new_body))
+        end
+
+      :defp ->
+        quote do
+          defp(unquote_splicing(args), do: unquote(new_body))
+        end
+    end
+    |> tap(&(Macro.to_string(&1) |> IO.puts()))
+  end
+
+  defmacro async({:defgen, _, [fun_name]}, do: block) do
+    new_block = arrow_return_promise(block)
+
+    quote do
+      import Corner.Generater
+      defgen(unquote(fun_name), do: unquote(new_block))
+    end
+    |> Macro.to_string()
+    |> IO.puts()
+  end
+
+  defp return_promise(ast) do
+    quote do
+      alias Corner.Promise
+
+      try do
+        unquote(ast)
+      rescue
+        err ->
+          IO.inspect("make a reject promise")
+          Promise.reject({err, __STACKTRACE__})
+      else
+        v ->
+          IO.inspect("make a reslove promise")
+          if is_struct(v, Promise), do: v, else: Promise.reject(v)
+      end
+    end
+  end
+
+  defp arrow_return_promise(abt) do
+    walker = fn
+      {:->, meta, [args, body]} ->
+        new_body = return_promise(body)
+        {:->, meta, [args, new_body]}
+
+      ast ->
+        ast
+    end
+
+    Macro.postwalk(abt, walker)
+  end
+end
+```
+
+```elixir
+import Corner.Async
+
+async defgen(fun) do
+  a, b ->
+    yield(a)
+    yield(b)
+end
+
+is_function(fun, 2)
+g = fun.(1, 2)
+next(g)
 ```
