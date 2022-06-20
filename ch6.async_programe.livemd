@@ -167,7 +167,13 @@ defmodule Corner.Promise do
     {_, v} = do_await(p, timeout)
 
     if is_struct(v, __MODULE__) do
-      v.result
+      v = v.result
+
+      if is_struct(v, __MODULE__) do
+        await(v, timeout)
+      else
+        v
+      end
     else
       v
     end
@@ -280,6 +286,8 @@ ExUnit.run()
 中添加元数据, 以表明它是哪种状态获得的值.
 
 ```elixir
+alias Corner.Promise
+
 Promise.reject({:r, 3})
 |> Promise.map(&if elem(&1, 0) == :r, do: elem(&1, 1) + 1, else: raise("error"))
 |> Promise.await()
@@ -494,15 +502,13 @@ end
 
 在辅助模块的帮助下, 我们就可以专心写与 `defgen` 相关的核心功能了.
 
-<!-- livebook:{"disable_formatting":true} -->
-
 ````elixir
 defmodule Corner.Generater do
-  defstruct ref: nil, pid: nil
+  defstruct ref: nil, pid: nil, async: false
 
   alias Corner.Helpers
 
-  defmacro defgen(name, do: block) do
+  defmacro defgen(name, async \\ false, do: block) do
     case Helpers.clauses_arity_check(block) do
       {:ok, arity} ->
         tem_fun = {:TEM_fun, [], nil}
@@ -510,11 +516,13 @@ defmodule Corner.Generater do
         params = Macro.generate_arguments(arity, nil)
 
         quote do
+          # unquote(async_env)
           unquote(tem_fun) = unquote(tem_fun_ast)
 
           unquote(name) = fn unquote_splicing(params) ->
             ref = make_ref()
             me = self()
+            async = unquote(async)
 
             fun = fn ->
               try do
@@ -525,14 +533,15 @@ defmodule Corner.Generater do
             end
 
             pid = spawn(fun)
-            struct(unquote(__MODULE__), pid: pid, ref: ref)
+            struct(unquote(__MODULE__), pid: pid, ref: ref, async: unquote(async))
           end
 
           unquote(tem_fun) = nil
           unquote(tem_fun) || true
         end
-        |> Macro.postwalk(&yield_to_send/1)
-        # |> tap(&(Macro.to_string(&1) |> IO.puts()))
+        |> Macro.postwalk(&yield_to_send(async, &1))
+
+      # |> tap(&(Macro.to_string(&1) |> IO.puts()))
 
       :error ->
         {:=, [name, {:fn, [], block}]}
@@ -558,7 +567,6 @@ defmodule Corner.Generater do
   end
 
   def done?(%__MODULE__{} = m), do: !running?(m)
-
   @pid {:pid, [], nil}
   @ref {:ref, [], nil}
   defp make_args([{:when, meta, args}], fun) do
@@ -569,40 +577,49 @@ defmodule Corner.Generater do
     [fun, @pid, @ref | args]
   end
 
-  @doc false &&
-         """
-         Transform `c = yield a`
-         """
-  defp yield_to_send({:=, m1, [left, {:yield, _, _} = yield_exp]}) do
-    receive_and_send = yield_to_send(yield_exp)
+  @doc """
+       Transform `c = yield a`
+       """ && false
+  defp yield_to_send(async, {:=, m1, [left, {:yield, _, _} = yield_exp]}) do
+    receive_and_send = yield_to_send(async, yield_exp)
 
     {:=, m1, [left, receive_and_send]}
   end
 
-  @doc false &&
-         """
-         Transform `yield a` to
-         ```
-         receive do
-           v -> send(pid,{ref,[a]})
-           v
-         end
-         ```
-         """
-  defp yield_to_send({:yield, _meta, exp}) do
+  @doc """
+       Transform `yield a` to
+       ```
+       receive do
+         v -> send(pid,{ref,[a]})
+         v
+       end
+       ```
+       """ && false
+  defp yield_to_send(async, {:yield, _meta, exp}) do
     pid = @pid
     ref = @ref
+
+    return_value =
+      if async do
+        quote do
+          [Promise.reslove(unquote(exp))]
+        end
+      else
+        quote do
+          unquote(exp)
+        end
+      end
 
     quote do
       receive do
         v ->
-          send(unquote(pid), {unquote(ref), unquote(exp)})
+          send(unquote(pid), {unquote(ref), unquote(return_value)})
           v
       end
     end
   end
 
-  defp yield_to_send(a), do: a
+  defp yield_to_send(_, a), do: a
 end
 ````
 
@@ -660,9 +677,19 @@ defimpl Enumerable, for: Corner.Generater do
         {:done, acc}
 
       true ->
+        alias Corner.Promise
+
         case G.next(g) do
           {:ok, v} ->
-            reduce(g, fun.(v, acc), fun)
+            new_v =
+              if g.async and is_struct(v, Promise) do
+                [v] = Promise.await(v)
+                if is_struct(v, Promise), do: Promise.await(v), else: v
+              else
+                v
+              end
+
+            reduce(g, fun.(new_v, acc), fun)
 
           {:error, error, stack} ->
             {:done, {:error, error: error, stack: stack}}
@@ -710,11 +737,16 @@ g = gen2.()
 true = done?(g)
 ```
 
-## 异步函数
+## 异步函数(async)
 
-Javascript 中还有异步函数的概念, 异步函数, 返回的对象就是 Promise. 有了 Promise 之后,
-再定义异步函数就简单多了. 对于一个普通函数或匿名函数, 只要把其返回值转化为 Promise 结构就好了.
-为于 Javascript 的异步编程 API 保持一致, 定义异步函数的宏命名为 `async`.
+Javascript 中还有异步函数的概念.
+为了和 Javascript 的异步编程 API 保持一致, 定义异步函数的宏,
+我命名为 `async`. 在前面, 我们已经定义 `Corner.Promise` 模块.
+`async` 要做的最主要的工作就是修改抽象语法树, 把抽象语法树的返回值,
+封装成 `Corner.Promise` 结构.
+`async` 在其上下文中, 还为 `Corner.Promise` 命名了别名,
+并导入了 `Corner.Promise.await/1-2`.
+这样, 在其内部就可以方便的处理 `Promise` 结构了.
 
 ```elixir
 defmodule Corner.Async do
@@ -722,7 +754,7 @@ defmodule Corner.Async do
     new_ast = arrow_return_promise(ast)
 
     {:fn, meta, new_ast}
-    |> tap(&(Macro.to_string(&1) |> IO.puts()))
+    # |> tap(&(Macro.to_string(&1) |> IO.puts()))
   end
 
   defmacro async({atom, _meta, args}, do: body) when atom in [:def, :defp] do
@@ -739,7 +771,8 @@ defmodule Corner.Async do
           defp(unquote_splicing(args), do: unquote(new_body))
         end
     end
-    |> tap(&(Macro.to_string(&1) |> IO.puts()))
+
+    # |> tap(&(Macro.to_string(&1) |> IO.puts()))
   end
 
   defmacro async({:defgen, _, [fun_name]}, do: block) do
@@ -747,31 +780,34 @@ defmodule Corner.Async do
 
     quote do
       import Corner.Generater
-      defgen(unquote(fun_name), do: unquote(new_block))
+      defgen(unquote(fun_name), true, do: unquote(new_block))
     end
-    |> Macro.to_string()
-    |> IO.puts()
+
+    # |> Macro.to_string() |> IO.puts()
   end
 
   defp return_promise(ast) do
     quote do
       alias Corner.Promise
+      import Corner.Promise, only: [await: 2, await: 1]
 
       try do
         unquote(ast)
       rescue
         err ->
-          IO.inspect("make a reject promise")
           Promise.reject({err, __STACKTRACE__})
       else
         v ->
-          IO.inspect("make a reslove promise")
-          if is_struct(v, Promise), do: v, else: Promise.reject(v)
+          if is_struct(v, Promise) do
+            v
+          else
+            Promise.reject(v)
+          end
       end
     end
   end
 
-  defp arrow_return_promise(abt) do
+  defp arrow_return_promise(abs) do
     walker = fn
       {:->, meta, [args, body]} ->
         new_body = return_promise(body)
@@ -781,21 +817,26 @@ defmodule Corner.Async do
         ast
     end
 
-    Macro.postwalk(abt, walker)
+    Macro.postwalk(abs, walker)
   end
 end
 ```
+
+现在我们为 `fn`, `def`, `defp` 和 `defgen` 提供异步编程的支持.
 
 ```elixir
 import Corner.Async
 
 async defgen(fun) do
   a, b ->
+    yield(Promise.reslove(3))
     yield(a)
     yield(b)
 end
 
 is_function(fun, 2)
-g = fun.(1, 2)
-next(g)
+
+for v <- fun.(1, 2) do
+  v
+end
 ```
