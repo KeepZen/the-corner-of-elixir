@@ -139,34 +139,27 @@ end
 `text_match` 完成的是对 `Kernel.=~/2` 函数的兼容,
 `text_pattern_confirm` 是以正则表达式为模式来作模式确认的.
 
-第 3 个情形:  对单独的变量作模式的处理, 和其他都不一样.
-其他情形, `=~/2` 返回的总是 `true` 或 `false`. 第三种情形,
-一定是一个编码疏忽, 所以, 这种情形, `=~/2` 抛出一个错误,
-提示语法错误.
-相关代码如下:
+第 3 个情形:  对单独的变量作模式的处理, `Kernel.=~/2` 是一个函数,
+第一个参数只要是字符串类型就可以, 除了使用字符串字面量外,
+也可以用绑定了字符串得变量来作为 `Kernel.=~/2` 的第一个参数.
+当模式确认操作符宏 `=~/2` 的第一个参数是一个变量的时候,
+宏运行在编译时, 而 Elixir 是一个动态编程语言, 变量绑定的值是什么类型,
+只有在运行时才能知道. 所以宏定义中, 无法更具变量的值作进一步的区分.
+为了和 `Kernel.=~/2` 兼容, 只好把这种情形都用 `Kernel.=~/2` 处理. 
+当变量绑定的值不是字符串的时候, `Kernel.=~/2` 就会抛出异常.
+这时单独变量情形的特殊情况. 相关代码如下:
 ```elixir
 defmacro left =~ right do
   cond do
     # text_match and regex_confirem
     match?({_atom, _, _}, left) ->
-      singal_variable_pattern_handle!(left, right)
+      text_match(left, right)
     #other condintion ...
   end
 end
-# ...
-defp singal_variable_pattern_handle!({atom, _, _}, _right) do
-  quote do
-    message =
-      "The first paramse of pattern confirm operater should " <>
-        "be a pattern, but get a variable `#{unquote(atom)}`, "<>
-        "this will be aways match."
-    raise SyntaxError, message
-  end
-end
 ```
-像上面已经解释的那样, `singal_variable_pattern_handle!/2` 就只是产生一个异常.
-
-最复杂的是对其他模式的处理. 这里的困难在于如何为普通的变量添加下划线前缀.
+最复杂的是对其他模式的处理. 主要的困难在于如何为普通的变量添加下划线前缀.
+普通变量是指: 1. 变量不是以 `_` 为前缀, 2. 变量不是 pin (`^`) 操作符的操作数.
 
 相关代码为:
 ```elixir
@@ -181,15 +174,25 @@ defmacro left =~ right do
   end
 end
 
-defp prewalker({:^, meta, args}) do
+defp other_pattern_confirm(left, right) do
+  new_left = Macro.prewalk(left, &prewalker/1)
+  quote do
+    match?(unquote(new_left), unquote(right))
+  end
+end
+
+defp prewalker({atom, meta, args}) when atom in [:^, :%{}, :%, :{}] do
   args =
     Enum.map(
       args,
       fn
-        {atom, meta, value} -> {atom, [:exclude | meta], value}
+        {atom, meta, value} ->
+          {atom, [:exclude | meta], value}
+        {atom, other} when atom not in [:^, :%{}, :%, :{}] ->
+          {atom, prewalker(other)}
       end
     )
-  {:^, meta, args}
+  {atom, meta, args}
 end
 
 defp prewalker({atom, [:exclude | meta], value}),
@@ -206,292 +209,389 @@ end
 defp prewalker(ast), do: ast
 ```
 
-要完成对模式中变量的修改, 我们需要对模式的抽象语法树作遍历.
-这里使用 `Macro.prewalk/2` 来对抽象语法树执行前序遍历.
+要完成对模式中普通变量的修改, 我们需要对模式的抽象语法树作遍历.
+这里使用 `Macro.prewalk/2` 对抽象语法树, 执行前序遍历.
 
-如果存在 `^a` 这样的表达式, 那么会首先执行第一个 `prewalker/1` 分句,
-这个分句是为了在之后的遍历中, 区分 `^a` 和 `a` 而作的准备工作.
-这个分句为, 表达式 `^a` 中的 `a` 的抽象语法树,
-添加元数据,  `:exclude`, 以标记这个 `a` 不需要转化为 `_a`.
+如果存在 `^a` 这样的表达式, 那么执行第一个 `prewalker/1` 分句,
+这个分句是为了在之后的遍历中区分 `^a` 和 `a` 而作的准备工作.
+这个分句为表达式 `^a` 中的 `a` 的抽象语法树,
+添加元数据, `:exclude`, 以标记这个 `a` 不需要转化为 `_a`.
 
-第二个 `prewalker/1` 分句处理标记过的变量的抽象语法树, 去掉添加的 `:exclude` 标记,
+第二个 `prewalker/1` 分句处理标记过的变量, 去掉添加的 `:exclude` 标记,
 还原为起初的样子.
 
 第三个 `prewalker/1` 分句处理没有被标记为 `:exclude` 的变量的抽象语法树.
 如果变量名以 `_` 为前缀, 那么不用处理; 否则为变量添加 `_` 前缀. 
 
-最后一个 `prewalker/1` 分句对所有其他的抽象语法树, 保持不变原样返回.
+最后一个 `prewalker/1` 分句对所有其他的抽象语法树, 保持不变, 原样返回.
 
-`Macro.prewalk/2` 在调用第一个分句后, 对其返回的结果, 会继续使用之后的分句作遍历.
-后面的三个分句中, 有一个会执行. 这样我们就完成了对普通变量添加 `_` 前缀的工作.
+`Macro.prewalk/2` 在调用第一个分句后, 对其返回的结果, 会继续使用后面的分句作遍历.
+后面的三个分句中, 有一个会执行. 这样就完成了对普通变量添加 `_` 前缀的工作.
 
-最后, 让我们测试以下我们的代码:
+最后, 让我们看看如何使用我们的模式确认操作符 `=~`, 首先我们的定义兼容: `Kernel.=~/2`.
+
 ```elixir
-defmodule PatternConfirmerTest do
-  use ExUnit.Case, async: true
-  doctest Corner.PatternConfirmer
-  use Corner.PatternConfirmer
-
-  test "string =~ regex" do
-    t = "hello" =~ ~r/hell/
-    assert t == true
-    f = "hello" =~ ~r/wolrd/
-    refute f
-    regex = ~r/hel{1,2}o/
-    t = "hello" =~ regex
-    t2 = "helo" =~ regex
-    assert t and t2
-    f = "world" =~ regex
-    refute f
-  end
-
-  test "regex =~ string" do
-    t = ~r/hel{1,2}o$/ =~ "hello"
-    assert t == true
-    t = ~r/hel{1,2}o$/ =~ "helo"
-    assert t
-    f = ~r/hel{1,2}o$/ =~ "world"
-    refute f
-  end
-
-  test "patter_just_a_varibal" do
-    assert_raise Corner.PatternConfirmer.SyntaxError, fn ->
-      quote do
-        use Corner.PatternConfirmer
-        regex = ~r/hel{1,2}o/
-        regex =~ "hello"
-      end
-      |> Code.eval_quoted()
-    end
-  end
-
-  test "other_patter =~ value " do
-    t = [a, b] =~ [1, 2]
-    assert t
-    a = 1
-    array = {1, 2}
-
-    f = {^a, b} =~ array
-    assert f
-    t1 = 1 =~ 1
-    assert t1
-    t = {1, _} =~ {1, 2}
-    assert t
-
-    [f1] = [
-      1 =~ 2
-    ]
-
-    refute f1
-
-    f2 = [1, _] =~ {1, 2}
-    refute f2
-  end
-end
+use Corner.PatternConfirmer
+"hello" =~ ~r/hell/ # true
+"hello" =~ ~r/wolrd/ # false
+regex = ~r/hel{1,2}o/
+"hello" =~ regex # true
+"helo" =~ regex #true
+"world" =~ regex #false
+str = "hello"
+regex = ~r/hel{1,2}o/
+str =~ regex #true
 ```
-
-注意这里的测试代码, 必须把宏调用的结果存放到变量(这里是 `t` 或 `f` 等等)里,
-然后使用宏 `assert`/`refute` 判定这个变量的值. 直接使用 `assert 1 =~ 1` 会报错.
-
-在 &Lt;Elixir Meta Programming&Gt; 这本书中, 作者对宏测试给出的建议是:
-测试宏的结果, 而不是测试宏如何工作.
-
-把宏的结果, 放在变量中, 然后判断这个变量, 就是测试宏的结果.
-
-这是一个结论, 所以如此原因比较复杂. 对我们的例子来说,
-所以不能直接使用 `assert/refute` 来测试, 是因为 `assert`/`refute` 也是宏,
-且它们会改变其后的表达式 `pattern =~ expection` 的抽象语法树,
-从而影响待测试的模式确认操作符 `=~/2` 的输入.
-
-这是 `assert/refute` 宏的 bug, 这个 bug 的修复工作, 在 Elixir 1.13.4
-版本中已经启用.
+当我们使用用魔符来创建表达式得时候, 正则表达式, 也可以作为模式确认操作符 `=~`
+的第一个操作数.
+```elixir
+~r/hell/ =~ "hello" #true
+~R/hel{1,2}o/ =~ "hello" #true
+~R/hel{1,2}o/ =~ "helo" #true 
+```
+但是传递给模式确认操作符 `=~/2` 的第一个参数为一个变量的时候,
+这个变量的绑定值不是字符串, 而是其他值得时候, 就会抛出错误.
+```elixir
+a = ~r/hell/
+a =~ "hello" #raise FunctionClauseError
+```
+最后, 对其他模式的支持:
+```elixir
+[a, b] =~ [1, 2] # true
+a = 1; array = {1, 2}
+{^a, b} =~ array #true
+1 =~ 1 #true
+{1, _} =~ {1, 2} #true
+1 =~ 2 #false
+[1, _] =~ {1, 2} #false
+%{a: a, b: b} = %{a: :ok, b: :bad} #true
+```
 ## 按模式提取信息
 
-和 `match?/2` 以及 `~=` 提供的功能刚好相反, Elixir 中也提供了,
+与 `match?/2` 以及 `~=` 提供的功能刚好相反, Elixir 中也提供了,
 专注于按模式提取数据的语法结构:
 
 1. `destructure/2` 针对列表
 2. `get_in/2` 针对 Access 行为
 
-这些函数的用法, 在 Elixir 的文档中有详细的说明,
-我不能解释的更好. 如果你 (读者) 不明白, **他们是用来提取数据的**,
-是什么意思, 那么建议读一读 Elixir
-[destructure](https://hexdocs.pm/elixir/Kernel.html#destructure/2) 和
-[get_in](https://hexdocs.pm/elixir/Kernel.html#get_in/2) 的文档.
-
-我喜欢 `descructure` 这个函数, 它让我怀念 Javascript 的解构操作符 `...`.
+我喜欢 `descructure` 这个函数, 它让我怀念 Javascript 的解构操作.
 可惜 `descruture/2` 这个函数只支持对列表的解构.
-那么我们来定义自己的解构操作符吧.
+例如下面 Javascript 代码:
+````javascript
+let [a,b] = [1]
+console.log(a) \\1
+console.log(b) \\undefined
+````
+Elixir 中对应的代码为:
+````elixir
+destructure([a,b],[1])
+IO.inspect(a) # 1
+IO.inspect(b) #nil
+````
+Javascript 中的结构, 不但可以应用于数组, 也可以应用于对象.
+例如
+````javascript
+let {a,b} = {a: 1}
+console.log(a) \\1
+console.log(b) \\ undefined
+````
+而 Elixir 的 `destructure/2` 当前版本还不支持其他的类型的解构.
+
+Javascript 的解构操作, 对嵌套的支持也很好.
+````javascript
+let c = null;
+[a,[b,c]] = [1,[2,3]]
+console.log(a) \\1
+console.log(b) \\2
+console.log(c) \\3
+let d = null;
+[a, [b,c,d]] = [1, [2,3]]
+console.log(a) \\ 1
+console.log(b) \\ 2
+console.log(c) \\ 3
+console.log(d) \\undefined
+````
+而 Elixir 的 `destructure/2`, 即使对列表的解构, 列表中嵌套列表是, 
+解构操作也不会递归展开. 例如和上面 Javascript 对应的 Elixir 代码, 在当前的版本中,
+会抛出 MatchError 错误:
+````elixir
+c = nil
+destructure([a,[b,c]],[1,[2,3]])
+IO.puts(a) #1
+IO.puts(b) #2
+IO.puts(c) #3
+destructure([a,[b,c,d]],[1,[2,3]]) #抛出错误 
+````
+和模式确认操作符类似, 我们可以定义一个新的操作符, 来完成按模式提取操作(Extract base
+Pattern). 这个宏应该是一个二元宏. 以操作符的形式提供可以让代码的可读性更强.
+
+向左箭头 `<-` 或 `<~` 操作符都是我心目中的候选者. 但是 `<-` 在 `for` 和 `with`
+结构中承担有一定的功能, 如果以 `<-` 作为我们的操作符, 那么我们还需要考虑 `for` 和
+`with` 解构中的 `<-` 操作符的兼容容问题. 为了少些一些代码, 同时也减少使用者的迷惑,
+`<~` 是我最后的选择. 将要定义的 `<~` 操作符要完成按模式提取的操作,
+因此把它命名为模式提取操作符 (Pattern Extracter).
+
+Elixir 中, 可以用来完成数据组合的有以下几种类型:
+1. 列表
+2. 元组
+3. map
+
+我们将要定义的模式提取操作符 `<~`, 第一个参数是一个模式 `pattern`;
+第二个参数是一个值 `value`. `pattern` 现在不但可以是列表,
+还支持元组和 map 字面量. 而且对嵌套模式提取也提供支持.
+
+现在, 让我们分析一下模式提取操作应该完成的功能:
+1. 当 `pattern` 与 `value` 完全匹配, 那么 `pattern`
+中的变量都会绑定相匹配的值.
+2. 当 `pattern` 匹配 `value` 的一部分的时候, `pattern` 中的变量也完成值绑定,
+*而不是抛出匹配失败*. 就像表达式 `destructure([a,b], [1,2,3])`,
+完成变量 `a` 绑定为 `1`, `b` 绑定 `2` 那样.
+3. 当 `value` 的模式是 `pattern` 的一部分的时候, 那么 `pattern` 中多出的变量,
+都绑定为 `nil`, 就像 `destructure([a,b,c],[1])` 为变量 `a` 绑定为 `1`,
+`b` 和 `c` 绑定为 `nil` 那样.
+
+和模式确认操作符 `=~/2` 类似, 这里我们也根据模式提取操作符 `<~` 的模式的不同情形,
+分别处理:
+1. 列表
+2. 元组
+3. map
+4. 其他情形
+
+将要定义的模式提取操作符, 需要对嵌套解构作处理, 那么必然的涉及到递归调用.
+在实现的时候, 我们使用一个私有函数来完成宏的工作.
+所以要这样是因为对宏作递归调用比较的麻烦. 而对函数作递归调用就简单了.
+所以整个宏, 就只是对私有函数 `my_destructure/2` 的调用;
+而 `my_destructure/2` 函数则根据模式的不同情形完成具体的处理工作.
 
 ```elixir
-defmodule Corner.Desructure do
-  defmacro left <~ right do
+defmodule Corner.PatternExtracter do
+  defmacro pattern <~ value do
+    my_destructure(pattern, value)
+  end
+  defp my_destructure(pattern, value) do
     cond do
-      match?({:%{}, _, _}, left) ->
-        destructure_map(left, right)
+      is_list(pattern) ->
+        destructure_list(pattern, value)
 
-      is_ast_tuple(left) ->
-        destructure_tuple(left, right)
+      Ast.is_tuple?(pattern) ->
+        destructure_tuple(pattern, value)
 
-      is_list(left) ->
-        quote do: Kernel.destructure(unquote(left), unquote(right))
+      not Ast.is_struct?(pattern) and Ast.is_map?(pattern) ->
+        destructure_map(pattern, value)
 
       true ->
-        quote do: unquote(left) = unquote(right)
+        raise_syntax_error(pattern)
     end
   end
-
-  defp is_ast_tuple({:{}, _, _}), do: true
-  defp is_ast_tuple({_, _}), do: 2
-  defp is_ast_tuple(_), do: false
-
-  defp destructure_map(left, right) do
-    default_val = make_default(left)
-
-    quote do
-      unquote(left) = Map.merge(unquote(default_val), unquote(right))
-    end
-  end
-
-  defp make_default(ast) do
-    Macro.postwalk(ast, &varable_to_nil/1)
-  end
-
-  defp varable_to_nil({atom, _, tag})
-       when is_atom(atom) and tag in [Elixir, nil],
-       do: nil
-
-  defp varable_to_nil(v), do: v
-
-  defp destructure_tuple(left, right) do
-    left_size = ast_tuple_size(left)
-
-    quote do
-      right = unquote(right)
-      diff = unquote(left_size) - tuple_size(right)
-
-      patch_right =
-        case diff do
-          0 ->
-            right
-
-          # left < right
-          diff when diff < 0 ->
-            Tuple.drop(right, diff)
-
-          # left > right
-          diff ->
-            fun = fn
-              f, tuple, 0 -> tuple
-              f, tuple, n -> f.(f, Tuple.append(tuple, nil), n - 1)
-            end
-
-            fun.(fun, right, diff)
-        end
-
-      unquote(left) = patch_right
-    end
-  end
-
-  defp ast_tuple_size(tuple_ast) do
-    case is_ast_tuple(tuple_ast) do
-      2 -> 2
-      true -> length(elem(tuple_ast, 2))
-      false -> raise "require a tuple, this is not a tuple."
-    end
-  end
+  #...other code
 end
 ```
+这样的代码, 非常的清晰明了, 基本上不用作解释. `Ast` 是辅助模块,
+用来帮助我们完成对某些抽象语法树的确认工作. 比如这里用到的 `Ast.is_tuple?/1`,
+`Ast.is_map?/1` 等, 用来检查输入的 ast 是否是对应类型的字面量表达式的抽象语法树.
+这里我们并没有支持结构 (struct).
 
-让我们测试一下:
+所以不支持结构是因为, 编译阶段无法对结构作做出确认.
+模式提取操作符关注的是提取, 结构名无关数据而仅关乎匹配确认,
+如果模式中附带了结构形式, 对于数据的提取不会有帮助,
+但是数据的结构与模式中提供的结构不一致的时候, 还会引发匹配错误.
+与其让这种错误在运行时发生, 不如在编译时就直接报错.
 
+列表, 元组和 map 之外的其他情形, 记录外, 还可以有单个变量表示模式.
+单变量模式, 语法上虽然是合法的, 但是其效果应该等同于匹配操作符 `=`.
+如果不是使用错误, 那么就应该使用匹配操作符 `=`.
+此外, 模式的最后一种情形就是 pin 操作符与变量的组合表达式 `^pattern`,
+这种模式是对 `pattern` 绑定的值做模式确认的, 在模式确认中或许有意义,
+在按模式提取数据是, 完全没有意义. 所以, 其他的情形,
+我们的宏抛出错误语法错误.
+
+首先让来看看列表如何实现模式提取的. 对列表来说,
+`Kernel.destructure/2` 已经很好的完成了列表中无嵌套结构的模式匹配了.
+所以我们最主要的工作就是如何实现列表中嵌套结构的匹配.
+例如这样的 `[a, [b,c,d]] <~ [1, [2]]`. 要实现把变量 `a` 绑定 `1`,
+`b` 绑定为 `2`, `c` 和 `d` 都绑定为 `nil`. 我们可以把这个表达式转化:
+`destructure([a,mid_var], [1,[2]])` 和 `destructure([b,c,d],mid_var)`.
+
+所以要做的工作就是识别出列表中的嵌套结构,
+并通过中间变量作为桥梁来完成内部嵌套结构的解构.
+
+对应的代码为:
+````elixir
+defp destructure_list(pattern, value) when is_list(pattern) do
+  {
+    var_patterns,
+    nest_destructure_ast
+  } = Helpers.split_nest_pattern(pattern, &my_destructure/2)
+  quote generated: true do
+    destructure(unquote(var_patterns), unquote(value))
+    unquote_splicing(nest_destructure_ast)
+  end
+end
+defmodule Helpers do
+  def split_nest_pattern(ast, fun) do
+    {var_patterns, map} = change_composed_pattern_to_variable(ast)
+    nest_destruct_ast = Enum.map(map, &fun.(elem(&1, 0), elem(&1, 1)))
+    {var_patterns, nest_destruct_ast}
+  end
+  defp change_composed_pattern_to_variable(ast) do
+    {patterns, map} =
+      for ele <- ast, reduce: {[], %{}} do
+        {patterns, map} ->
+          if Ast.is_composed_type?(ele) do
+            mid_var = Macro.unique_var(:var_for_destruct, __MODULE__)
+            patterns = [mid_var | patterns]
+            map = Map.put(map, ele, mid_var)
+            {patterns, map}
+          else
+            {[ele | patterns], map}
+          end
+      end
+    {Enum.reverse(patterns), map}
+  end
+end
+````
+这里最主要的工作由 `Helpers.split_nest_pattern/2` 完成.
+它完成两个工作:
+1. 使用中间变量替换 `pattern` 中的嵌套解构;
+2. 对中间变量和替换的嵌套解构做递归解构操作.
+
+第一个工作由 `Helpers.change_composed_pattern_to_variable/1` 完成.
+第二个工作由 `Enum.map` 这个语句完成, 因为 `destructure_list/2` 中,
+我们传递给 `split_nest_pattern/2` 的第二个参数就是我们的 `my_structure/2`.
+
+对元组的处理和列表的处理非常类似.
+````elixir
+defp destructure_tuple(pattern, tuple) do
+  pattern_size = Ast.tuple_size(pattern)
+  {patterns, nest_destruct_ast} =
+    Ast.tuple_to_list(pattern)
+    |> Helpers.split_nest_pattern(&my_destructure/2)
+  pattern = {:{}, [], patterns}
+  quote do
+    tuple = unquote(tuple)
+    m = unquote(__MODULE__).Helpers
+    patch_right = m.make(tuple, to_size: unquote(pattern_size))
+    unquote(pattern) = patch_right
+    unquote_splicing(nest_destruct_ast)
+  end
+end
+````
+这里的区别就是, 我们是使用匹配操作符 `=`
+完成元组的匹配工作的. 要保证元组匹配时不抛出错误,
+需要保证匹配操作符 `=` 两边的元组大小一样.
+这个工作由 `Helpers.make(tuple,to_size: size)` 完成.
 ```elixir
-ExUnit.start(auto_run: false)
-
-defmodule DesructureTest do
-  use ExUnit.Case, async: true
-  import Corner.Desructure
-
-  test "desturcture from map literal" do
-    %{a: a, b: b} <~ %{a: 1, b: 2}
-    assert a == 1
-    assert b == 2
-    %{a: a} <~ %{}
-    assert a == nil
+def make(tuple, to_size: size) do
+  diff = tuple_size(tuple) - size
+  case diff do
+    0 -> tuple
+    n when n > 0 -> Tuple.drop(tuple, n, at: :tail)
+    n when n < 0 -> Tuple.padding(tuple, -n, at: :tail)
   end
+end
+```
+上面代码中的 `Tuple` 是 `Corner.Tuple` 的别名, 是辅助模块.
 
-  test "desturcture from map value" do
-    map = %{a: 1, b: 2}
-    %{a: a, b: b} <~ map
-    assert a == 1
-    assert b == 2
-    map = %{}
-    %{a: a} <~ map
-    assert a == nil
-  end
+对 map 的解构处理由 `destructure_map(pattern, value)` 完成.
+这里代码框架与列表以及元组的处理相同. 为了避免匹配操作符 `=` 抛出匹配错误,
+要根据 `pattern` 构建一个所有的值都为 `nil` 的对象.
+然后把 `value` 与新创建的 map 合并. 这样相等于为 `pattern` 中存在,
+而 `value` 中不存在的字段创建了默认值.
+````elixir
+defp destructure_map(pattern, value) do
+  keys = Ast.map_keys(pattern)
 
-  test "desturcture nest from map not work very well" do
-    map = %{a: %{b: 1}, c: 1}
-    %{a: %{b: b}, c: c, d: d} <~ map
-    assert b == 1
-    assert c == 1
-    assert d == nil
+  {values, nest_destruct_ast} =
+    Ast.map_values(pattern)
+    |> Helpers.split_nest_pattern(&my_destructure/2)
 
-    assert_raise MatchError, fn -> %{a: %{c: c}} <~ map end
-  end
+  map = Ast.make_map(keys, values)
+  default_value = make_default(pattern)
 
-  test "desturcture from tuple literal" do
-    {a, b} <~ {1, 2}
-    assert a == 1 and b == 2
-    {a} <~ {}
-    assert a == nil
-  end
-
-  test "desturcture from tuple value" do
-    tuple = {1, 2}
-    {a, b} <~ tuple
-    assert a == 1 and b == 2
-    tuple = {}
-    {a} <~ tuple
-    assert a == nil
-    {a, b} <~ tuple
-    assert a == nil and b == nil
-    {a, b, c} <~ tuple
-    assert a == nil and b == nil and c == nil
-  end
-
-  test "desturcture nest from tuple not work very well" do
-    tuple = {1, c: 1}
-    {a, [c: c], d} <~ tuple
-    assert a == 1 and c == 1 and d == nil
-    assert_raise MatchError, fn -> {a, [c: c, d: d]} <~ tuple end
-  end
-
-  test "destructure list as Kernel.desturcture" do
-    [a, b] <~ [1]
-    assert a == 1 and b == nil
-  end
-
-  test "<~ work as `=` for varable" do
-    a <~ {}
-    assert a == {}
+  quote do
+    unquote(map) = Map.merge(unquote(default_value), unquote(value))
+    unquote_splicing(nest_destruct_ast)
   end
 end
 
-ExUnit.run()
-```
+defp make_default(ast) do
+  Macro.postwalk(ast, &variable_to_nil/1)
+end
 
-我们定义的新的操作符 `<~`, 对于列表, 元组和 Map 的单层结构, 可以完美的解构,
-但是对于嵌套结构的支持还只是停留在了, 模式匹配操作符 `=` 的基础上,
-就像 `destructer/2` 一样.
+defp variable_to_nil({atom, _, context})
+     when is_atom(atom) and context in [Elixir, nil],
+     do: nil
 
-## 模式匹配操作符
+defp variable_to_nil(v), do: v
+````
+模式提取操作符 `<~` 兼容并增强了 `Kerner.destructure/2`.
+````elixir
+import Corner.PatternExtracter
+[a, b] <~ [1, 2, 3]
+a == 1 # true
+b == 2 # true
+array = [1, 2, 3]
+[a, b] <~ array
+a == 1 #true
+b == 2 #true
+[a, b, c] <~ [1]
+a == 1 #true
+b == nil #true
+c == nil #true
+
+[a,[b,c]] <~ [1,[2]]
+a == 1 # true
+b == 2 # true
+c == nil # true
+destructure([a,[b,c]],[1,2]) #raise badmatch error
+````
+对于元组, 我们可以这样使用:
+````elixir
+{a, b} <~ {1, 2}
+a == 1 # true
+b == 2 # true
+{a, b} <~ {1}
+a == 1 # true
+b == nil #true
+{a} <~ {1, 2}
+a == 1 #true
+
+{a, {b, c}} <~ {1, {2}, 3}
+a == 1 and b == 2 and c == nil # true
+{a, {b, c}} <~ {1, {2, 3, 4}, 5}
+a == 1 and b == 2 and c == 3 #true
+````
+当模式为 map 时, 可以这样来使用:
+````elixir
+%{a: a, b: b} <~ %{a: 1, c: 3}
+a == 1 and b == nil # true
+map = %{a: 1, c: 2}; 
+%{a: a, b: b} <~ map
+a == 1 and b == nil # true
+%{:a => b} <~ map
+b == 1 #true
+
+%{a: a, b: %{b: b}} <~ %{a: 1, b: %{}, c: 3}
+a == 1 and b == nil #true
+````
+
+当模式中列表, 元组与 map 混合在一起的时候, 模式提取操作符也工作的很好:
+````elixir
+[a, {b}, %{e: e}] <~ [1, {2, :ok}, %{e: 3, g: "hello"}]
+a == 1 and b == 2 and e == 3 #true
+````
+但是当 `pattern` 和 `value` 不匹配的时候, 会引发问题.
+````elixir
+[a,b] <~ {1,2} #raise badmatch errror
+````
+
+## 模式匹配操作符 `=`
 
 Elixir 中使用最频繁的操作符是匹配操作符 `=`. 它的工作逻辑如下:
 
 最常见的情形下, 按照 `=` 左侧的模式, 从右边的数据中提取信息.
 但是当左边变量前中出现  pin 操作符 `^` 的时候, `=` 只完成模式确认的工作:
-默认匹配成功了, 返回模式匹配操作符 `=` 右侧表达式的值; 而如果模式匹配失败了抛出异常.
+模式匹配成功了, 返回模式匹配操作符 `=` 右侧表达式的值; 而如果模式匹配失败了抛出异常.
 
 在 Erlang OTP 25 中引入了一个新特性 maybe, 其中可以使用新的短路操作符 `?=`[^maybe],
 叫做条件匹配操作符. 也许不久 Elixir 也会引入.
@@ -505,7 +605,7 @@ Elixir 中使用最频繁的操作符是匹配操作符 `=`. 它的工作逻辑�
 
 ## 逻辑短路与控制结构的分类
 
-在执行逻辑操作的时候，有是否有支持短路操作的问题,
+在执行逻辑操作的时候，有是否支持短路操作的问题,
 比如逻辑操作 `and` 和 `or` 在 Eixir 和绝大多数的编程语言中,
 都是短路操作: 逻辑操作符号 `and` 只有当左侧表达式的结果为 `ture` 的时候,
 右边的表达式才会求值; 而操作符 `or` 只有当左边的表达式结果为 `false` 时,
@@ -514,15 +614,14 @@ Elixir 中使用最频繁的操作符是匹配操作符 `=`. 它的工作逻辑�
 但不是并不是所有的编程语言都是这样的, Erlang 中就提供了全路的逻辑操作,
 当然也有对应的短路操作符号.
 Erlang 中的 `and` 和 `or` 对逻辑操作符执行全路操作, 也就是说,
-在 Erlang 中 `and` 和 `or` 的两个操作的值, 都会被计算一次;
+在 Erlang 中 `and` 和 `or` 的两个操作数的值, 都会被计算一次;
 而执行逻辑短路操作的是关键字 `and_also` `or_else`.
 也就是说 Elixir 中的 `and` 和 `or` 对应的是 Erlang 的 `and_also` 和 `or_else`.
 Elixir 中缺少全路的逻辑操作.
 
 短路和全路操作, 对于逻辑结果来说是没有影响的, 有影响的只是副作用.
 
-副作用的存在, 使得逻辑操作符可以用来充当控制结构.
-这就是为什么要讨论逻辑操作短路与否的问题。
+副作用的存在, 使得逻辑操作符可以用来充当控制结构. 这正是讨论逻辑操作短路与否的原因。
 为了进一步的利用逻辑的短路操作做控制结构, Elixir 还提供了接受 `boolean_as` 类型的
 操作符 `&&` 和 `||`.
 C 语言的三目条件表达式 `cond ? true_part : false_part`,
@@ -532,7 +631,7 @@ C 语言的三目条件表达式 `cond ? true_part : false_part`,
 如果存在多个匹配模式, 以什么样的逻辑来处理这些模式的确认结果呢?
 
 Elixir 的控制结构中, 使用的都是 `or` 的逻辑,
-也就是说按照顺序对每个模式做一一确认, 直到发现了确认的模式.
+也就是说按照顺序对每个模式一一做确认, 直到发现了确认的模式.
 但是当所有的模式全部失败后, 如何处理, 又可以有不同. 就像 `=` 和 `?=` 的差别那样.
 我把 `=` 的选择叫做悲观主义, 而 `?=` 的选择叫做乐观主义.
 那么控制结构, 可以分成三类:
@@ -543,7 +642,7 @@ Elixir 的控制结构中, 使用的都是 `or` 的逻辑,
 
 ## 悲观控制结构
 
-Elixir 的大部分的控制结构都是悲观的: 即所有的模式匹配确认, 都失败后,
+Elixir 的大部分的控制结构都是悲观的: 即所有的模式匹配确认都失败后,
 产生错误, 中断控制流. 悲观控制结构包括:
 
 * 函数分句
@@ -840,17 +939,18 @@ end
 来处理最后匹配失败的数据.
 
 关于 `with` 和 `maybe` 的更详细的讨论,
-见本书的第5章 &Lt;[定制新结构](ch5.new_constructor.livemd)&Gt;.
+见本书的第5章 &Lt;[定制新结构](ch5.new_constructor.md)&Gt;.
 
 ## 异常处理中的模式匹配
 
 异常处理中的模式匹配的处理是特殊的.
 
 1. `catch` 处理的是函数调用参数列表; 即使如此, 对 `:throw` 类型的错误, 还有语法糖加持.
-   参数列表这种语法形式, 只有在函数定义和 `catch` 的时候才是合法的, 其他地方都是不合法的语句,
-   所以这种模式匹配是非常独特的.
+   参数列表这种语法形式, 只有在函数定义和 `catch` 的时候才是合法的,
+   其他地方都是不合法的语句, 所以这种模式匹配是非常独特的.
 2. `rescue` 子句中, 模式匹配时只匹配异常名字. 而且对于运行时错误,
-   还可以使用 `ErlangError` 来统配的. 而如果要绑定错误对象就必须使用 guard 匹配; 当然了, 还是阉割过的 guard 匹配, 如果和 `case` 或函数定义是的 guard 子句比较的化.
+   还可以使用 `ErlangError` 来统配的. 而如果要绑定错误对象就必须使用 guard 匹配;
+   当然了, 还是阉割过的 guard 匹配, 如果和 `case` 或函数定义是的 guard 子句比较的化.
 
 像下面的代码展示的那样, 他们都不是常规的模式匹配.
 
@@ -906,4 +1006,4 @@ end
 ExUnit.run()
 ```
 
-更多的内容见后面的[错误处理章节](./ch8.error_handle.livemd).
+更多的内容见后面的[错误处理章节](./ch8.error_handle.md).
