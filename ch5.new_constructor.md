@@ -213,7 +213,7 @@ Demo.do_work()
 #in step3 v: 2
 ```
 
-在 `assign/2` 的帮助下, 我们写的 Elixir 代码, 几乎也可以做到 free-point 了.
+在 `assign/2` 的帮助下, 我们写的 Elixir 代码, 几乎也可以做到 point-free 了.
 
 如果赋值之后, 我们需要做非常多的计算, 那么使用 `do: (...)` 就不那么方便,
 对这种情况, 可以非常简单的提供一个 `assign(value, [to: pattern] ,do: block)`
