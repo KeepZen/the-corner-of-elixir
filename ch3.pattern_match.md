@@ -561,7 +561,7 @@ a == 1 and b == 2 and c == nil # true
 {a, {b, c}} <~ {1, {2, 3, 4}, 5}
 a == 1 and b == 2 and c == 3 #true
 ````
-当模式为 map 时, 可以这样来使用:
+当模式为 map 时, 可以像下面的代码那样, 来使用模式提取操作符 `<~`:
 ````elixir
 %{a: a, b: b} <~ %{a: 1, c: 3}
 a == 1 and b == nil # true
@@ -575,14 +575,15 @@ b == 1 #true
 a == 1 and b == nil #true
 ````
 
-当模式中列表, 元组与 map 混合在一起的时候, 模式提取操作符也工作的很好:
+当模式中列表, 元组与 map 混合在一起的时候, 模式提取操作符也可以使用:
 ````elixir
 [a, {b}, %{e: e}] <~ [1, {2, :ok}, %{e: 3, g: "hello"}]
 a == 1 and b == 2 and e == 3 #true
 ````
-但是当 `pattern` 和 `value` 不匹配的时候, 会引发问题.
+但是当 `pattern` 的数据类型与 `value` 的数据类型不匹配的时候, 会发生错误.
 ````elixir
-[a,b] <~ {1,2} #raise badmatch errror
+[a,b] <~ {1,2} # raise error
+[a, {b}] <~ [1,2,3] # raise error
 ````
 
 ## 模式匹配操作符 `=`
