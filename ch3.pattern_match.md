@@ -705,7 +705,8 @@ Elixir 对 Erlang 的语法改进是相当大的,
 开始自己的函数提取. 这样, 不自觉地又减低了代码的可维护性.
 
 对外的接口代码, 其上下文是抽象层级较高的概念; 而重构抽取的代码, 往往是底层细节的内容.
-如果代码的布局上高层和低层的概念交叉在一起, 对于代码的阅读者来说, 其理解的负担无疑是加重的.
+如果代码的布局上高层和低层的概念交叉在一起, 对于代码的阅读者来说,
+其理解的负担无疑是加重的.
 
 所以把函数分句放在一起, 这样的代码布局, 的确是应该提倡的.
 
@@ -722,8 +723,6 @@ Elixir 对 Erlang 的语法改进是相当大的,
 总是高层次的概念先于底层概念, 而相关的概念又都保持在相邻的区域内.
 
 例如 Phoenix LiveView 中, 事件的处理的代码, 就可以这样来写:
-
-<!-- livebook:{"force_markdown":true} -->
 
 ```elixir
 def handler_event('button1_click',_value, stack),do: ...
@@ -742,8 +741,6 @@ defp extrac(value) do
    ...
 end
 ```
-
-<!-- livebook:{"break_markdown":true} -->
 
 ### Case 与 Cond
 
@@ -771,9 +768,6 @@ function score_range(leave){
 ```
 
 对应的 Elixir 代码应该为:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def score_range(leave) do
   case leave do
@@ -806,8 +800,6 @@ function leave(score){
 
 对应的 Elixir 应该是:
 
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def leave(score) do
   cond do
@@ -824,7 +816,7 @@ end
 
 在 Elixir 中, `case` 和 `cond` 的互换,
 要比 C 家族的 `switch` 和 `if-else-if` 语句的互换方便和容易的多.
-这也是在 Elixir 中写多分支语句的时候, 我犹豫的一个原因之一.
+这也是在 Elixir 中写多分支语句的时候, 我犹豫的原因之一.
 
 心理分析学派发现, 找到心理创伤的根源, 往往就可以缓解创伤的症状, 甚至治愈.
 实际上一切困惑和神秘的都源于我们还没有很好的理解它们,
@@ -839,15 +831,11 @@ Elixir 的立即调用表达式 (IIFE) 的语法糖:
 就是一个合法的一元匿名函数的定义,
 然后立即使用 `case` 的第一个参数来调用这个新创建的匿名函数.
 这样就完成了 `case` 语句的工作.
-
-<!-- livebook:{"disable_formatting":true} -->
-
 ```elixir
-defmodule Case do
+defmodule Explore.Case do
   defmacro my_case(v, do: block) do
     iife(block, v)
   end
-
   defp iife(body, v) do
     {
       {:., [], #This is the `.` in `(fn...end).(v)`
@@ -860,10 +848,12 @@ defmodule Case do
   end
 end
 ```
+上面的代码中, 第 9 行创建了一元匿名函数, 整个 iife 函数, 在完成匿名函数的创建后,
+立即以 `v` 为参数调用了这个匿名函数.
+测试一下我们.
 
 ```elixir
-import Case
-
+import Explore.Case
 fun = fn v ->
   my_case v do
     "A+" -> [90, 100]
@@ -874,18 +864,43 @@ fun = fn v ->
     "F" -> [0, 60]
   end
 end
-
 [90, 100] = fun.("A+")
 [0, 60] = fun.("F")
-# (FunctionClauseError) no function clause matches
-fun.("FFF")
+fun.("FFF") # (FunctionClauseError) no function clause matches
 ```
 
 像上面我们分析的那样, `cond` 的语句可以转化为 `if-else-if` 语句链.
-现在我们就以这样的思路来实现我们的 `cond`:
+`cond` 的 `do-end` 块中, 应该是一个或多个 `a -> ...` 分句.
+所以, 我们首先检查我们的 `my_cond` 输入中是否不和这样的解构, 如果不是这样的解构,
+那么就不是合法的 `cond` 语句, 这时给出错误提示就好了.
+在上面的对 `case` 语句的模拟中, 为什么不做检查呢?
+因为当传递给 `my_case` 的 `do-end` 块不是合法的 `case` 的 `do-end` 块时,
+`fn` 特殊表达会给出合适的错误提示. 但是, 这里, 我们要把 `do-end` 块自己完成转化,
+所以必须提前检查是否语法正确.
+
+要把多个的 `left -> right` 语句, 转化:
+````elixir
+if left1 do 
+  right1
+else 
+  if left2 do 
+    right2
+  else 
+    #...
+  end
+end
+````
+我们从最内层开始构造, 当所有的 `case` 分支都失败后, 会抛出错误, 所以最后一个 `if` 的
+`else` 分句应该抛出一个错误. 这由 `make_last_else_part/0` 函数完成.
+然后我们需要把所有的 `condtione -> right` 都转化成 `if condtione do: right, else: ...`.
+这个工作由 `make_if_else/2` 完成.
+我们从最后一个 `condtione -> right` 开始转化, 它的结果作为上一个
+`condtione -> right` 的 `else` 部分. 所以在 `my_cond` 中我们首先对
+`condtione -> right` 列表做了反序排序.
+然后使用 `Enum.reduce/2` 完成最后的构造.
 
 ```elixir
-defmodule Cond do
+defmodule Explore.Cond do
   defmacro my_cond(do: block) do
     if Enum.all?(block, &check_syntax/1) do
       block
@@ -921,7 +936,7 @@ end
 测试一下:
 
 ```elixir
-import Cond
+import Explore.Cond
 a = 7
 
 my_cond do
@@ -929,6 +944,7 @@ my_cond do
   a == 7 -> "eq 7"
   a > 7 -> "greate than 7"
 end
+# eq 7
 ```
 
 ## 乐观控制结构
@@ -956,55 +972,33 @@ end
 像下面的代码展示的那样, 他们都不是常规的模式匹配.
 
 ```elixir
-ExUnit.start(auto_run: false)
-
-defmodule MatchTest do
-  use ExUnit.Case
-
-  test "ErlangEroor is not same as OtherError" do
-    refute ErlangError == FunctionClauseError
-  end
-
-  test "catch think throw match two diff pattern" do
-    catch_a_value =
-      try do
-        throw(1)
-      catch
-        v -> v
-      end
-
-    catch_a_tuple =
-      try do
-        throw(1)
-      catch
-        :throw, v -> v
-      end
-
-    assert catch_a_value == catch_a_tuple
-  end
-
-  test "rescue think EralngError match all RuntimeError" do
-    a =
-      try do
-        1 / 0
-      rescue
-        ArithmeticError -> :ok
-        _ -> :try_do_not_know1
-      end
-
-    b =
-      try do
-        1 / 0
-      rescue
-        ErlangError -> :ok
-        _ -> :try_do_not_know2
-      end
-
-    assert a == b
-  end
+EralngError == ArithmeticError #false
+try do
+ 1/0
+rescue
+ ErlangError -> "ErlangError can match ArithmeticError"
 end
+#ErlangError can match ArithmeticError
 
-ExUnit.run()
+try do
+  1/0
+rescue
+ ArithmeticError -> "ArithmeticError"
+end
+# ArithmeticError
+
+try do
+  throw 1
+catch
+  v -> v
+end
+# 1
+try do
+  throw 1
+catch
+  :thorw, v -> v
+end
+# 1
 ```
 
 更多的内容见后面的[错误处理章节](./ch8.error_handle.md).
