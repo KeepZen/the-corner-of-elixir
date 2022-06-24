@@ -16,17 +16,17 @@ Elixir 是一个特别灵活的语言, 这不但是说, Elixir 本身提供的�
 在其他编程语言中, 赋值是一个非常简单的操作, 因为赋值语句非常简短,
 基本上一眼就能看清楚赋值的结果是什么.
 
-其他语言中, 块语句不是表达式, 但是在 elixir 中语句块也是表达式.
+其他语言中, 块语句不是表达式, 但是在 Elixir 中语句块也是表达式.
 当赋值语句的右侧出现的是语句块的时候, 代码序列往往和思维序列不协调.
 
 首先让我来描述一下, 我阅读这样代码时的思维过程.
 因为是一个块语句, 也就是说 `=` 的右边需要多个步骤, 多个操作才能完成最后的结果.
 阅读代码的时候, 思维自然要跟随代码, 以理解代码的意图.
-当多个步骤执行完成后, 在我的思维中, 往往忘记了 `=` 的左边的表达式
-是什么了, 因为最后结果和变量之间的距离太远了, 这个距离既是物理上的,
+当多个步骤执行完成后, 在我的思维中, 往往忘记了 `=` 
+的左边的表达式是什么了, 因为最后结果和变量之间的距离太远了, 这个距离既是物理上的,
 也是心理上的.
 
-而写一个块语句的时候, 在完成整个功能之前, 实际上我也不知道最后的结果会是什么,
+而写一个块语句的时候, 在完成整个功能之前, 实际上我不知道最后的结果会是什么,
 甚至不知道, 这个块语句就是函数最后的结果, 还是只是计算的中间过程.
 所以基本上, 我也是先完成块语句然后再决定是否需要把结果赋值给一个变量的.
 
@@ -43,9 +43,6 @@ Elixir 支持宏编程, 这就给我们提供了设计自己的赋值语句提�
 提供的功能, 来重新设计新的语法糖.
 
 首先让我来描述清楚, 我想要的语法是什么样的.
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 if exprestion do
   :zero
@@ -62,13 +59,12 @@ end
 代码序列和思维流之间的阻抗就更加的明显了. 这个时候,
 使用 `assign/2` 能让代码易写易读.
 
-假设我们要控制一个机器人, 机器人使用一个 GenServer 表示, 它的状态是 `%{x: x, y: y, diriction: direction}` 表示机器人所在的位置 `x, y` 和面对的方向
+假设我们要控制一个机器人, 机器人使用一个 GenServer 表示,
+它的状态是 `%{x: x, y: y, diriction: direction}`,
+表示机器人所在的位置 `x, y` 和面对的方向
 (`:E`, 东方; `:W`, 西方;`:N`, 北方; `:S`, 南方).
 当机器人接受到转弯的指令后, 就会按照指令转弯, 从而改变自己的状态.
 那么处理右转的代码就是这样:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def handler_cast({:turn, :right}, %{direct: direct}=state) do
    direct = case direct do
@@ -83,9 +79,6 @@ end
 ```
 
 那么在 `assign/2` 的帮助下, 可以把上面的代码重构为:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def handler_cast({:turn, :right}, %{direct: direct}=state) do
    case direct do
@@ -107,26 +100,24 @@ end
 我们需要把 `assgin/2` 定义为一个宏, 这个宏的功能非常的简单, 只是 `=` 的语法糖嘛, 所以可以这样来实现.
 
 ```elixir
-defmodule Demo do
-  defmodule Helpers do
-    defmacro assign(value, to: var) do
-      quote do
-        unquote(var) = unquote(value)
-      end
+defmodule Corner.Assign do
+  defmacro assign(value, to: pattern) do
+    quote do
+      unquote(pattern) = unquote(value)
     end
   end
+  #...other
 end
 ```
 
 这个实现, 完成了我们期望的工作.
 
 这里 `assign/2` 并不改变直接使用 `=` 的语义代码的语义.
-调用 `assign(value, to: var)`,
-当 var 和 value 不匹配的时候, 依旧会抛出匹配错误,
+调用 `assign(value, to: pattern)`,
+当 `pattern` 和 `value` 不匹配的时候, 依旧会抛出匹配错误,
 
-因为 `assign(value, to: var)` 本质上就是 `var = value`,
-所以任何可以作为 `=` 左值的语法, 都可以作为 `assign/2` 的 `:to` 的值,
-虽然, 我们把这个参数命名为 `var`, 单并不限于变量.
+因为 `assign(value, to: pattern)` 本质上就是 `pattern = value`,
+所以任何可以作为匹配操作符 `=` 左值的语法, 都可以作为 `assign/2` 的 `:to` 的值,
 毕竟 `assign/2` 仅仅是语法糖.
 
 这样的语法糖, 让代码更简洁, 美观, 如此而已.
@@ -139,9 +130,6 @@ end
 如果 `assign/2` 能帮助我们把思维流也接续起来, 那么写 elixir 代码就更加愉悦了.
 
 能让思维流保持连续的代码, 我认为是这样的:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def handler_cast({:trun, :right}, %{direct: direct}=state) do
    case direct do
@@ -166,11 +154,7 @@ end
 
 step3(v)
 ```
-
 还是:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 step1()
 |> step2()
@@ -182,8 +166,6 @@ step3(v)
 阅读的时候, 思维流都是被打断的.
 但如果 `assign` 允许我们写下面的代码, 就能让思维流保持连续.
 
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 step1()
 |> step2()
@@ -193,24 +175,28 @@ step1()
 
 也就是说, 为`assign/2` 在添加一个可省略的 `:do` 选项, 就能让思维流接续起来.
 
-这个实现也非常的容易, 当我们完成 `var = value` 的赋值后, 再计算 `do: expression` 的值可以了.
-
+这个实现也非常的容易, 当我们完成 `pattern = value` 的赋值后, 再计算 `do: expression`
+的值可以了.
 ```elixir
-defmodule Demo do
-  defmodule Helpers do
-    defmacro assign(value, to: var, do: expression) do
-      quote do
-        unquote(var) = unquote(value)
-        unquote(expression)
-      end
+defmodule Corner.Assign do
+  #assing(value, to: pattern)
+  defmacro assign(value, to: pattern, do: expression) do
+    quote do
+      unquote(pattern) = unquote(value)
+      unquote(expression)
     end
   end
-
+end
+```
+有了 `assgin(value,to: pattern, do: block)` 的帮助,
+上面的多步骤组合的代码就可以这样来写.
+```elixir
+defmodule Demo do
+  import Corner.Assgin, only: [assign: 2]
   defp step1(), do: 1
   defp step2(v), do: {:ok, v + 1}
   defp step3(v), do: IO.inspect(v, label: "in step3 v")
-  import Helpers
-
+  
   def do_work() do
     step1()
     |> step2()
@@ -222,9 +208,57 @@ defmodule Demo do
 end
 
 Demo.do_work()
+#after setp2 : {:ok, 2}
+#after assign/2 : 2
+#in step3 v: 2
 ```
 
 在 `assign/2` 的帮助下, 我们写的 Elixir 代码, 几乎也可以做到 free-point 了.
+
+如果赋值之后, 我们需要做非常多的计算, 那么使用 `do: (...)` 就不那么方便,
+对这种情况, 可以非常简单的提供一个 `assign(value, [to: pattern] ,do: block)`
+宏来解决.
+````elixir
+defmacro assign(value, [to: pattern], do: expression) do
+  quote generated: true do
+    unquote(pattern) = unquote(value)
+    unquote(expression)
+  end
+end
+````
+在导入我们的宏之后, 就可以如此来使用赋值语句了:
+````elixir
+import Corner.Assign
+function()
+|> assing(to: {:ok, v}) do
+  do_lot_of_work_with(v)
+end
+````
+可以看出, 在管道操作符右侧, 使用 `do-end` 块会使得代码编码的不那么整齐.
+所以最终的库中, 我没有提供 `assign/3` 这个宏.
+
+正常的情况下, 使用 `:do` 选项中应该只有一个表达式.
+如果发现 `:do` 选项中, 需要两个或更多的表达式才能完成最终的工作,
+那么第一种选择是把 `:do` 选项中的语句提取为一个新的函数.
+第二种选择是在 `:do` 使用变量,绑定中间结果.
+然后在后续的代码中, 使用变量绑定的值, 完成剩余的工作.
+```elixir
+step0()
+|> step1()
+|> assgin(to: {:ok, v}, do: v)
+|> extract_function_from_do()
+|> step2()
+|> ...
+```
+或者
+```elixir
+step0()
+|> assign(to: {:ok, v}, do: tem = do_sample_with(v) )
+
+the_code_use_tems
+|> step2()
+|> ...
+```
 
 ## with
 
@@ -234,11 +268,9 @@ Demo.do_work()
 其中的代码序列和逻辑思维流之间存在阻抗. 其次, `with` 结构的代码布局非常的不美观.
 
 例如代码:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
-with {:ok, a} <- fun1(), # with 头部开始
+with                     # with 头部开始
+     {:ok, a} <- fun1(), # 产生子代码
      #...                # 更多产生子代码
      {:ok, b} <- fun2(a) # with 头部结束
 do                       # with 体开始
@@ -248,18 +280,15 @@ else                     # 尾部开始
    patter2 -> hanlder_error2 # 尾部结束
 end
 ```
-
 这个 `with` 结构, 像代码中注释的那样, 可以分成 3 部分, 分别是**头**, **体**和**尾**.
 通常情况下, `with` 代码就像上面的片段展示的这样, `with` 头往往有多个语句,
-而 `with` 体却只有一行或很少的几行代码. 像这样的头部或者参数部分, 多于体或者正文的语法结构,
-除了 `with` 语句外, 我没有见过别的语法有这样的布局. 这样的布局, 给我的感觉是头重脚轻, 极度不协调.
+而 `with` 体却只有一行或很少的几行代码. 像这样的头部或者参数部分, 
+多于体或者正文的语法结构, 除了 `with` 语句外, 我没有见过别的语法有这样的布局.
+这样的布局, 给我的感觉是头重脚轻, 极度不协调.
 看到这样的代码, 不由自主地, 我的脑海中总是浮现出有染色体缺陷的畸形儿的形象.
 所以我非常的不喜欢这个语法结构.
 
 如果不使用 `with` 语句, 等价的代码应该如何写呢? 我认为可以写成这样:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 try do
   {:ok, a} = fun1()
@@ -276,8 +305,6 @@ end
 
 对于没有 `else` 部分的 `with` 语句, 就更加简单:
 
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 try do
   {:ok, a} = fun1()
@@ -289,9 +316,6 @@ end
 ```
 
 而如果语句已经在一个块结构中了, 代码还可以进一步的精简:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 def fun do
   {:ok, a} = fun1()
@@ -353,21 +377,21 @@ A.with(1, 2)
 从上面的代码的输出中, 我们可以看出, 实际上 Elixir 对 `with` 几乎没有做限制.
 
 我不满意 `with` 结构, 现在知道, 我们可以使用 `with` 来定义宏.
-但是这不是一个决定.
+但是这不是一个好决定.
 
 首先, 使用 `with` 作为宏的名字, 使得定义的宏不能直接导入到客户端的上下文中,
 而只能用 `require` 加载宏, 然后带着模块名来使用我们定义的宏,
 像上面的代码第 15 行展示的那样, 使用模块前缀来调用模块中的, 以 `with` 命名的宏.
 因为特殊表单 (这里是 `with`) 不允许被覆盖, 我们不能通过
 `import Kernel.SpecialForms, expect: [with: 1]` 来排除它.
-只要向环境导入特殊表达, 比如 `with`, 就会引发了编译器的报错.
-
 ```elixir
 defmodule CanNotExceptSpecailForm do
   import Kernel.SpecialForms, except: [with: 1]
   # ... other code not use Kernel.with
 end
 ```
+所以, 只要向环境导入特殊表单同名且参数个数一样的函数或宏, 比如 `A.with/1`,
+就会引发了编译器的报错.
 
 最后, 即使不是特殊表达, 而是一般的宏, 如果我们自定义的和 `Kernel` 模块中的不兼容的话,
 还是不建议使用同名覆盖的策略. 让我们看以下, 假如我们要覆盖 `if/2` 这个宏会发生什么吧.
@@ -388,7 +412,7 @@ defmodule IF do
   end
 end
 
-defmodule ExceptWithButStillUseIt do
+defmodule ExceptIfButStillUseIt do
   use IF
   a = 1
   if(a, IO.puts("hello"))
@@ -419,17 +443,14 @@ Erlang 的新版本 OTP 25 中引入了新的特性 `maybe`[^erlang-maybe].
 
 [^erlang-maybe]: 详细内容见, https://www.erlang.org/doc/reference_manual/expressions.html#maybe
 
-<!-- livebook:{"break_markdown":true} -->
-
 ### maybe 的用法
 
 首先, 让我们确定如何使用 `maybe`.
 对于使用 `with` 的代码:
 
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
-with {:ok, a} <- fun1(), # with 头部开始
+with                     # with 头部开始
+     {:ok, a} <- fun1(), 
      {:ok, b} <- fun2(a) # with 头部结束
 do # with 体开始
      action_with_a_and_b #with 体结束
@@ -438,38 +459,28 @@ else #尾部开始
    patter2 -> hanlder_error2 # 尾部结束
 end
 ```
-
 和
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
-with {:ok, a} <- fun1(), # with 头部开始
+with                   # with 头部开始
+     {:ok, a} <- fun1(), 
      {:ok, b} <- fun2(a) # with 头部结束
 do # with 体开始
      action_with_a_and_b #with 体结束
 end
 ```
 
-使用 `maybe` 应该改写成:
-
-<!-- livebook:{"force_markdown":true} -->
-
+使用 `maybe` 应该重构为:
 ```elixir
-maybe do
+maybe do                     #maybe body begin
   {:ok, a} = fun1()
   {:ok, b} = fun2(a)
-  action_with_a_and_b
-else
+  action_with_a_and_b        #maybe body end
+else                         #maybe tail start
    patter1 -> hanlder_error1
-   patter2 -> hanlder_error2 # 尾部结束
+   patter2 -> hanlder_error2 #maybe tail end
 end
 ```
-
 和
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 maybe do
   {:ok, a} = fun1()
@@ -520,52 +531,11 @@ defmodule Corner.Maybe do
   end
 end
 ```
-
-### 测试maybe
-
-现在让我们测试一下.
-
-```elixir
-import Corner.Maybe
-# test case 1
-with_result =
-  with {:ok, a} <- {:ok, 1},
-       {:ok, b} <- {:error, a + 1} do
-    b
-  end
-
-maybe do
-  {:ok, a} = {:ok, 1}
-  {:ok, b} = {:error, a + 1}
-  b
-end
-|> then(&(with_result == &1))
-|> IO.inspect(label: "same as with_result")
-
-# case 2
-
-with_result =
-  with {:ok, a} <- {:ok, 1},
-       {:ok, b} <- {:error, a + 1} do
-    b
-  else
-    {:error, b} -> b
-  end
-
-maybe do
-  {:ok, a} = {:ok, 1}
-  {:ok, b} = {:error, a + 1}
-  b
-else
-  {:error, b} -> b
-end
-|> then(&(with_result == &1))
-|> IO.inspect(label: "have :else, same as with_result")
-```
+要使用 `maybe` 只要导入我们的宏就可以了.
 
 ## 可递归的匿名函数
 
-匿名函数, 因为没有名字, 所以不能直接的在内部调用自己.
+匿名函数, 因为没有名字, 所以不能直接的在其内部调用自己.
 计算机科学中, 这个问题, 可以通过不动点组合子来完成[^fixed_point_combinators].
 但是老实说, 对于 Y 组合子, 如果不查看文档的话, 我不能写出正确的表达.
 对我来说, Y 组合子太绕了.
@@ -573,9 +543,6 @@ end
 [^fixed_point_combinators]: 见 Wikipedia[&Lt;不动点组合子&Gt;](https://en.wikipedia.org/wiki/Fixed-point_combinator)词条.
 
 不使用 Y 组合子, 当然也可以完成匿名函数的递归:
-
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 tem_fun = fn(fun, n,acc) ->
   if n == 0 do
@@ -592,8 +559,6 @@ end
 这样的代码框架几乎是固定的, 所以可以定义一个宏 `fn!` 来为自动生产这样的框架.
 例如, 我想这样来写代码:
 
-<!-- livebook:{"force_markdown":true} -->
-
 ```elixir
 fn! fun do
   (n, acc) ->
@@ -605,128 +570,149 @@ fn! fun do
 end
 ```
 
-`fn!` 和 `fn` 很像, 也是定义匿名函数, 但是在 `fn!` 的上下文中,
+`fn!` 和 `fn` 很像, 通用用来定义匿名函数, 但是在 `fn!` 的上下文中,
 可以用函数名来完成递归调用. 从这一点上来说, `fn!` 可以看作是 `fn` 的加强版.
 
-<!-- livebook:{"break_markdown":true} -->
-
 ### `fn!` 的定义
+现在让我们仔细分析 `fn!` 到底应该帮助我们做些什么.
+首先, 我们分析 `fn!` 的输入. 第一个参数是表示递归匿名函数名字的变量.
+第二个参数是一个 `do-block`, 其中的内容应该一个或多个 `args -> bodys` 表达式.
 
-```elixir
+我们需要把 `do-block` 中的内容转化为一个真正的递归调用函数,
+而所作的就是为每个分句都添加一个表示递归函数自身的参数.
+当分句中没有对 `name` 函数的调用时, 新添加的第一个参数, 没有用处,
+所以应该添加 `_` 前缀, 以避免恼人的编译警告.
+虽然这个新添加的变量, 只要不予 `args` 中的变量重复, 叫什么都无所谓,
+但是为了逻辑的清晰, 我们还是用 `name` 来命名这个表示递归函数自己的参数.
+在这个整整的递归调用函数内容, 如果有对 `name` 函数的调用,
+例如 `name.(a,b)` 这样的表达式, 需要转化为 `name.(name, a,b)`.
+
+这是我们的 `fn!` 宏的最困难的工作, 这个工作由 `make_fn/2` 完成.
+而 `make_fn/2` 要做的就是处理没有命名函数的的分句.
+处理所有分句后, 把这些分句组合成为一个匿名函数. 所以 `make_fn/2` 的代码也非常简单.
+
+````elixir
 defmodule Corner.Fn do
-  defmacro fn!(name, do: block) do
-    case syntax_check(block) do
-      {:ok, arity} ->
-        var = {:TEM_fun, [], nil}
-        tem_fun = make_fn(name, block)
-        params = Macro.generate_arguments(arity, nil)
-
-        quote do
-          unquote(var) = unquote(tem_fun)
-
-          unquote(name) = fn unquote_splicing(params) ->
-            unquote(var).(unquote(var), unquote_splicing(params))
-          end
-
-          unquote(var) = nil
-        end
-
-      # |> tap(&(Macro.to_string(&1) |> IO.puts()))
-
-      :error ->
-        raise SyntaxError, "the clauses must have the same arity."
-    end
-  end
-
+  # 其他代码
   defp make_fn(name, body) do
-    new_body = Enum.map(body, &transe_recurrrent_call(name, &1))
+    new_body = Enum.map(body, &clause_handler(name, &1))
     {:fn, [], new_body}
   end
-
-  defp syntax_check([{:->, _, [args | _]} | others]) do
-    args =
-      case args do
-        [{:when, _, args}] ->
-          {_, args} = List.pop_at(args, -1)
-          args
-
-        args ->
-          args
-      end
-
-    case others do
-      [] ->
-        {:ok, length(args)}
-
-      [{:->, _, [args2 | _]} | _] when length(args) == length(args2) ->
-        syntax_check(others)
-
-      true ->
-        :error
-    end
-  end
-
-  defp transe_recurrrent_call(
-         name = {atom, _, _},
-         {:->, meta, [args | body]}
-       ) do
-    new_body = Macro.postwalk(body, &fixed_current_call(atom, &1))
-
-    new_args =
-      if new_body != body do
-        make_args(args, name)
-      else
-        name = "_#{atom}" |> String.to_atom()
-        make_args(args, {name, [], nil})
-      end
-
-    {:->, meta, [new_args | new_body]}
-  end
-
-  defp make_args([{:when, meta, args}], fun) do
-    [{:when, meta, [fun | args]}]
-  end
-
-  defp make_args(args, fun) do
-    [fun | args]
-  end
-
-  defp fixed_current_call(name, {{:., m1, [{name, _, _} = fun]}, m2, args}) do
-    {{:., m1, [fun]}, m2, [fun | args]}
-  end
-
-  defp fixed_current_call(_, ast), do: ast
+  # 其他代码
 end
 ```
+`clause_handler/2`函数完成对每个分句的处理.
+它做的工作也非常简单, 检查整个函数分句的函数体的语法树, 并修正其中的递归调用的部分.
+如果分句的函数体中有修正, 那么修正后的抽象语法树, 也修正前的不一样,
+这样, 我们就能知道, 为这个分句新添加的表示递归函数自己的参数, 用不用添加 `_` 前缀.
 
-最后, 让我们看看 `fn!` 是否按照我们的预期工作:
+向参数列表中添加新参数的工作由 `make_args/2` 完成.
+这个工作相对来说比较简单, 只是向列表头部添加一个元素而已.
+唯一需要注意地方就是, 需要考虑参数中的哨兵语句.
+
+当新的参数和新的函数体都完成后, 最后只需要把它们重新组合为匿名函数,
+就完成了对可递归调用匿名函数的定义.
+
+```elixir
+defp clause_handler(name_ast = {atom, _, _}, {:->, meta, [args | body]}) do
+  new_body = Macro.postwalk(body, &correct_recursive_call(atom, &1))
+  new_args =
+    if new_body != body do
+      make_args(args, name_ast)
+    else
+      name_ast = "_#{atom}" |> String.to_atom()
+      make_args(args, {name_ast, [], nil})
+    end
+  {:->, meta, [new_args | new_body]}
+end
+
+defp make_args([{:when, meta, args}], fun) do
+  [{:when, meta, [fun | args]}]
+end
+defp make_args(args, fun) do
+  [fun | args]
+end
+````
+
+对递归调用的修正工作由函数 `correct_recursive_call/2` 完成.
+假设我们的匿名的递归函数叫做 `fun`, 那么 `correct_recursive_call/2` 做的工作就是,
+找到 `fun.(a,b)` 对应的抽象语法树, 修改为 `fun.(fun,a,b)` 对应的抽象语法树.
+而其他的语法树, 保持原样.
+````elixir
+# call is ast of `atom.(...args)`.
+# The return is ast of `atom.(atom,...args)`.
+defp correct_recursive_call(
+       atom,
+       call = {{:., _, [{atom, _, _} = fun]}, _, args}
+     ) do
+  call
+  |> Tuple.delete_at(2)
+  |> Tuple.append([fun | args])
+end
+defp correct_recursive_call(_, ast), do: ast
+````
+最后, `fn!` 函数完成的的工作就非常简单了. 首先检查递归匿名函数的所有的分句,
+都有相同个数的参数. 然后创建与递归匿名函数参数个数相同的匿名函数,
+在其内部代理已经定义好的可递归的匿名函数.
+
+这里有一点点风险, 最后定义的代理匿名函数的变量是自动生成的.
+作为中间变量存储可递归匿名函数的变量, 必须和它们不一样.
+为了保证这一点, 我们当然可以自己定义参数生产函数.
+这里并没有这样做, 而是使用了一点小技巧, 可以确保用来保存可递归匿名函数的变量绝对不会和
+`Macro.generate_arguments/2` 产生的参数重复.
+`Macro.generate_arguments/2` 产生的参数, 都是小写字母开头的,
+所以只要定义的变量, 以大写字母开头就可以了.
+在常规的 Elixir 中, 是不能定义大写字母开头的变量的,
+但是在宏定义中, 可以这样做.
+```elixir
+defmacro fn!(name, do: block) do
+  case syntax_check(block) do
+    {:ok, arity} ->
+      var = {:TEM_fun, [], nil}
+      tem_fun = make_fn(name, block)
+      params = Macro.generate_arguments(arity, nil)
+      quote do
+        unquote(name) = fn unquote_splicing(params) ->
+          unquote(var) = unquote(tem_fun)
+          unquote(var).(unquote(var), unquote_splicing(params))
+        end
+      end
+    :error ->
+      raise SyntaxError, "the clauses must have the same arity."
+  end
+end
+```
+对递归函数子句参数个数做检查的工作有 `syntax_chexk/1` 完成.
+它的工作非常的简单, 如果只有一个子句, 那么无论这个子句有多少参数, 都是合法的.
+返回 `{:ok,arity}` 就可以了, 子句多于一个, 那么后续子句的参数个数,
+必须和第一个子句的参数个数一样. 这是非常典型对列表的递归检查.
+```elixir
+defp syntax_check([{:->, _, [args | _]} | others]) do
+  args = Ast.get_args(args)
+  check_args_length(others, length(args))
+end
+defp check_args_length([], len) do
+  {:ok, len}
+end
+defp check_args_length([{:->, _, [args | _]} | others], len) do
+  args = Ast.get_args(args)
+  if len == length(args) do
+    check_args_length(others, len)
+  else
+    :error
+  end
+end
+```
+最后, 让我们来检验一下我们劳动成果.
 
 ```elixir
 import Corner.Fn
 
-fn! sum do
-  n, acc when n == 0 -> acc
-  n, acc -> sum.(n - 1, acc + n)
+fn! sum_from_one_to do
+  0 -> 0
+  n -> n + sum_from_one_to.(n - 1)
 end
 
-sum.(100, 0) |> IO.inspect(label: "100 + 99 + ... + 1")
-
-fn! singal do
-  n when n > 0 -> :+
-  n when n < 0 -> :-
-  0 -> :zero
-end
-
-singal.(1) |> IO.inspect()
-# singal.(-1) |> IO.inspect()
-# singal.(0) |> IO.inspect()
+sum.(100) # 5050 
 ```
-
-```
-100 + 99 + ... + 1: 5050
-:+
-:-
-:zero
-```
-
 看起来, 我们成功了.
