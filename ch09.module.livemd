@@ -85,7 +85,7 @@ Elixir 中, 源文件和字节码文件之间不在是一一对应, 而且模块
 | `-record(Record, Fields).`                       | 定义记录                                                                                                          | Record 模块中的 `defrecord`                |
 | `-include("SomeFile.hrl").`                      | 包含预处理                                                                                                       | `require`                                      |
 | `-define(Macro, Replacement).`                   | 定义宏                                                                                                             | `defmacro`, `defmacrop`                        |
-| `-file(File,Line)`                               | 修改了预定义的宏 `?File` 和 `?Line` 的值.                                                                  | `@file`                                        |
+| `-file(File,Line)`                               | 修改了预定义的宏 `?File` 和 `?Line` 的值.                                                                  | `@file`, `__ENV__.file` `__ENV__.line`         |
 | `-type my_type() :: other_have_defined_type()`   | 类型定义                                                                                                          | `@type my_type() :: other_have_define_type()`  |
 | `-spec function(type()) -> return_type()`        | 为 `function` 指定规范                                                                                           | `@spec spec function(type()) -> return_type()` |
 
@@ -578,6 +578,11 @@ key 相同.
 
 ```elixir
 defmodule Module.Explorer do
+  @doc """
+  Get all functions in this module.
+
+
+  """
   def funs(m) do
     m.module_info(:functions)
     |> Enum.reject(&macro?/1)
@@ -623,4 +628,219 @@ defmodule Module.Explorer do
     end
   end
 end
+```
+
+## 函数的导入
+
+为实现代码复用, Elixir 提供了几个特殊表达: `import`, `require` 和 `use`.
+从代码的清晰的角度来说, 应该首先使用 `require`, 其次 `import` 最后 `use`.
+
+我们依次来看它们的用法.
+
+### require
+
+`require` 的语法为:
+
+<!-- livebook:{"force_markdown":true} -->
+
+`````elixir
+require <Module_name> [,as: <Alias_Name>]
+```` 
+上面的代码, 不 Elixir 代码, 而是说明语法的 BNF 范式, 方括号中的内容是可省略的部分.
+
+从语法的形式上来说, `require` 和 `alias` 非常的相似.
+`alias` 也有可选的 `:as` 选项. 但是, `require` 和 `alias` 对 `:as`
+选线的默认处理并不一致. 对 `X.Y` 的模块, `require X.Y` 语句后,
+并不能使用 `Y.fun(...)`, 来调用 `X.Y` 模块中定义的函数 `fun`.
+而必须使用 `require X.Y, as: Y` 才可以.
+
+我们可以为这个定义一个新的宏来改变 `require` 对 `:as` 选项的默认处理,
+使得它可以像 `aliase` 那样来处理 `:as` 选项.
+`````
+
+```elixir
+defmodule Corner.Require do
+  defmacro require!(module) do
+    quote do
+      require unquote(module)
+      alias unquote(module)
+    end
+  end
+
+  defmacro require!(module, as: as) do
+    quote do
+      require unquote(module), as: unquote(as)
+    end
+  end
+end
+```
+
+如果模块中没有宏定义, 那么 `require` 唯一作用就是确保要求的模块在系统中是可用的.
+如果系统中不存在要求的模块, 那么编译时, 编译器会提前报错, 而不用等到调用函数或宏的时候,
+才报错.
+
+```elixir
+require NoExist.Module
+```
+
+上面的代码, 会给类似于下面的编译错误:
+
+> ** (CompileError) ch09.module.livemd#cell:1: module NoExist.Module is not loaded and could not be found
+
+<!-- livebook:{"break_markdown":true} -->
+
+如果要求的模块中存在宏, 要想调用模块内定义的宏, 就必须使用 `require` 语句.
+
+**总结**: `require` 语句的作用就是确保要求的模块存在,
+且使得模块中定义的宏在当前上下文中可见.
+
+<!-- livebook:{"break_markdown":true} -->
+
+### import
+
+`import` 语句不但可以用来导入模块中的宏,
+而且还可以在当前上下文中使用是本地函数调用的语法来调用导入的函数或宏.
+
+`import` 有三个用法:
+
+* 导入模块中多有的公开的宏和函数: `import ModuleName`
+* 导入模块中指定的宏或函数: `import ModuleName, only: [fun_or_macro_name: arity]`.
+* 排除指定的函数外, 导入其他所有函数或宏: `import ModuleName, except: [fun_or_macro_name: arity]`.
+
+不推荐使用第 1 中格式, 因为这样的代码, 在代码中, 难以从模块中到底导入了什么函数.
+而应该优先使用第 2 中格式.
+
+第 3 中格式一般用来覆盖核心模块提供的函数或宏的时候使用.
+
+<!-- livebook:{"break_markdown":true} -->
+
+### use
+
+`use` 需要被使用地模块中的 `__using__` 宏函数配合才能完成功能.
+
+原则上 `__using__` 宏可能在上下中注入任意的内容, 所以不到万不得已不推荐使用 `use` 语句.
+如果我们要自定义 `Kernel` 模块中提供的操作符; 在重定义的模块中, 需要使用
+`import Kernel, except: [fun_or_macro_name: arity]`.
+在使用重定义操作符的模块中, 为了避免和核心模块中的操作符冲突, 必须也排除它们.
+用代码来说大概是这样的:
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+defmodule OverWriteAdd do
+  import Kernel, execpt: [+: 1]
+  def +(number) when is_numebr(n), do: abs(n)
+end
+
+# in OverWriteAdd user module
+import Kernel, except: [+: 1]
+import OverWriteAdd, only: [+: 1]
++ 2
+#...
+```
+
+在每次使用 `OverWriteAdd` 的时候, 都需要写 `Kernel, except: ...` 语法上有些啰嗦,
+这种情况下, 为了简化客户端的 API, 可以在 `OverWriteAdd` 模块中添加宏 `__using__`.
+
+<!-- livebook:{"force_markdown":true} -->
+
+```elixir
+defmacro __using__(_opt) do
+  quote do
+    import Kernel, except: [+: 1]
+    import OverWriteAdd, only: [+: 1]
+  end
+end
+```
+
+然后客户端使用一行代码: `use OverWriteAdd` 就可以了, 而不用写两行代码了.
+
+<!-- livebook:{"break_markdown":true} -->
+
+### 缺失的部分
+
+在 Javascript 中, `import` 语句, 除了按照定义模块中定义的函数名导入函数,
+还可以为导入的函数重命名.
+
+在 Elxiir 中, 缺少这样的语法. `Kernel.defdelegate/2` 宏, 
+完成的功能和这里的描述的功能非常类似, 但是做的多了一点点,
+`defdelegate/2` 不但可以为函数改名字, 而且还导出了这个函数.
+
+`defdelegate/2` 做的多了一点点. 因为这里的需求只是希望在模块内以自己提供名字,
+来调用导入的函数, 而不是把这个函数作作为模块导出函数的一部分.
+
+也就是说, 需要提供一个对导入函数在模块内, 重命名的机制.
+我们可以定义 `rename` 宏来实现.
+
+```elixir
+defmodule Corner.Rename do
+  defmacro rename(fun, to: new_name) do
+    do_rename(fun, new_name)
+    # |> tap(&(Macro.to_string(&1) |> IO.puts()))
+  end
+
+  defp do_rename({{:., _, m_f}, _, []}, {new_name, _, _}) do
+    [module, fun_name] = m_f
+    aritys = get_aritys(module, fun_name)
+
+    ast =
+      for arity <- aritys do
+        make_private(module, fun_name, arity, new_name)
+      end
+      |> List.flatten()
+
+    quote do
+      (unquote_splicing(ast))
+    end
+  end
+
+  defp do_rename({:/, _, [m_f, arity]}, {new_name, _, _}) do
+    {{:., _, [module, fun]}, _, _} = m_f
+    ast = make_private(module, fun, arity, new_name)
+
+    quote do
+      (unquote_splicing(ast))
+    end
+  end
+
+  defp get_aritys(module, fun) do
+    {aritys, _} =
+      quote do
+        unquote(module).module_info(:exports)
+        |> Enum.filter(fn {key, _v} -> key == unquote(fun) end)
+        |> Enum.map(fn {_key, value} -> value end)
+      end
+      |> Code.eval_quoted()
+
+    aritys
+  end
+
+  defp make_private(module, fun, arity, new_name) do
+    args = Macro.generate_arguments(arity, nil)
+
+    {_, _, asts} =
+      quote do
+        @compile online: true
+        defp unquote(new_name)(unquote_splicing(args)) do
+          unquote(module).unquote(fun)(unquote_splicing(args))
+        end
+      end
+
+    asts
+  end
+end
+```
+
+```elixir
+defmodule RenameTest do
+  import Corner.Rename
+  rename(String.length(), to: str_len)
+
+  def test() do
+    a = "hello"
+    String.length(a) == str_len(a)
+  end
+end
+
+RenameTest.test()
 ```
