@@ -1,0 +1,139 @@
+# 进程
+
+## 进程与执行流
+
+在其他编程语言中, 执行流由轻量级进程的线程来执行, 如果执行流都是并行的运行,
+那当然非常的简单, 但是当进程之间需要交互的时候, 必须有同步机制来完成, 比如锁.
+
+在 Erlang 和 Elixir 中, 不一样. Erlang OTP 平台, 进程(Process) 和操作符系统进程不一样,
+OTP 平台的进程就是执行的流的抽象, OTP 平台没有复杂的同步机制, 而只有基于消息传递的处理.
+这种并发模型被成为 Active 模型, 其本质就是, 进程对接受消息和进程同步使用的是相同的机制.
+
+具体来说, 一个进程运行一个函数, 如果函数运行结束了, 或者出错了, 那么个进程也就结束了.
+进程可以通过 `send(pid,message,timeout)`,
+来向 pid 代表的进程发送消息. 每个进程有自己的邮箱, 用来接受消息.
+邮箱是一个队列结构, 可以完成先进先出的操作. 当进程接受到消息后, 如果程序中没有 `receive/1`
+语句, 或者 `receive/1` 语句中没有对应的消息匹配模板,
+
+通过平台提供的基本的通信元语, `receive/1` 接受消息, `send/2-3` 发送信息来完成同步的操作.
+
+## GenServer
+
+当前 Elixir 可以通过 `spawn/1` 或 `spawn/3` 来创建进程.
+
+一个进程就是一个执行的独立单元.
+
+进程可以通过接受消息和向其他进程发送消息, 来实现与外部世界的沟通.
+
+可以通过 `spawm/1,3` 来创建新进程. 如果要实现一个服务进程,
+那么需要在传递给 `spawm` 的程序中完成递归调用, 这样才能在处理完一个请求后,
+继续处理其他的请求. 
+`GenServer` 模块, 为我们定义服务提供了便捷的处理.
+
+最通常的情况是这样的:
+
+1. `GenServer.start(module,arg,option)` 或
+   `GenServer.start_link(module,arg,option)` 启动进程.
+   这两个函数会调用 `module` 模块的 `init(arg)` 函数.
+2. `init(arg)` 如果返回 `{:ok, state}`, 进程进入 loop 状态
+3. `init(arg)` 返回 `{:ok, state, {:continue, continue}}`
+   会触发 `hanlde_continue(continue,state)` 执行
+4. `GenServer.call(server,request)` 会触发 `handle_call(request,from,state)`
+5. `GenServer.cast(server,request)` 会触发 `hanlde_cast(request,state)`
+6. `hanlde_call` 或 `handle_call` 如果返回
+   `{:noreply, state, {:continue, continue}}` 会触发 `handle_continue(continue,state)` 执行
+7. `Process.send`, `Process.exit`, `Process.send_after` 以及 `send`
+   会触发 `hanlde_info(request,state)`
+8. `GenServer.stop` 会触发 `terminate(reason,state)`
+9. `GenServer.handle_continue` 可以通过 `send` 或 `send_after`
+
+<!-- livebook:{"break_markdown":true} -->
+
+```mermaid
+stateDiagram
+start --> init(args)
+start_link --> init(args)
+init(args) --> stop: {_stop, reason,state}
+init(args) --> handle_continue(continue,state): {_ok,state,{_continue,continue}}
+handle_continue(continue,state) --> stop: {_stop,reason,state}
+
+GenServer.stop --> stop 
+send(pid,message) --> handle_info(msg,state)
+Process.send --> handle_info(msg,state)
+Process.send_after --> handle_info(msg,state)
+Process.exit --> handle_info(msg,state)
+handle_info(msg,state) --> stop: {_stop,reason,state}
+handle_info(msg,state) --> handle_continue(continue,state): {_noreply,state, {_continue,continue_args}}
+GenServer.muti_call --> handle_call(msg,from,state)
+
+GenServer.call(pid,message,timeout\\5000) --> handle_call(msg,from,state)
+handle_call(msg,from,state) --> handle_continue(continue,state): {_reply, reply, state,{_continue,continue}}
+handle_call(msg,from,state) --> stop: {_stop,reason, reply, state}
+handle_call(msg,from,state) --> stop: {_stop,reason,state}
+
+GenServer.abcast --> handle_cast(msg,state)
+GenServer.cast(pid,message) --> handle_cast(msg,state)
+handle_cast(msg,state) --> stop: {_stop, reason, state}
+handle_cast(msg,state) --> handle_continue(continue,state): {_noreply,state, {_continue,continue}}
+
+stop --> terminate/2
+```
+
+<!-- livebook:{"break_markdown":true} -->
+
+`GenServer` 模块是一个行为, 它定义了 8 个回调函数, 9 个辅助函数.
+在上面的状态图中, 最常见的 6 个已经出现了, 剩下的 2 个回调函数为:
+
+* `code_change/3`, 当代码热更新的时候, 如果状态也有破坏性的变化,
+  那么可以定义这个函数来完成状态的转化.
+* `format_status/2`, 这个函数只是定义状态如何显示的代码,  `:sys.get_status/1`
+  或 `:sys.get_status/2` 输出结果受这个函数的影响.
+
+9 个辅助函数分成三组.
+启动与终结服务:
+
+* `start(module,init_arg,options)` 启动服务, 但是不链接
+* `start_link(module,init_arg,options)`, 启动并链接
+* `stop(server,reason\\:normal,timeout\\:infinity)` 结束进程
+
+向服务发送异步请求:
+
+* `abcast(node\\[],name,request)` 向注册为 `name` 的所有进程中发送异步请求
+* `cast(server,request)` 向服务发送异步请求
+  向服务发送同步请求:
+* `muti_call(server,request)` 向多个服务器发送同步求
+* `call(server,request)` 向服务发送同步求
+  `handle_continue` 或 `handle_info` 把 `client` 信息传递给对应函数, 处理结果后,
+  通过 `GenServer.reply(client,reply)` 来向 client 发送信息.
+
+回应和查询函数.
+
+* `reply(client,reply)` 当 `handle_call` 不能返回信息的时候, 可以通过
+* `whereis(server)` 查询 `server`
+
+除了 `GenServer` 模块提供的这 9 个函数外, 还可以使用以下的函数来与服务器交互.
+对应于向服务器发送请求的 `GenServer` API:
+
+* `Kernel.send/2`,
+
+* `Process.send/3`
+
+* `Process.send_after/3-4`
+
+* `Process.exit/2`, 和 `GenServer.stop/2` API 对应
+
+* 以及 `Kernel.self/0`, 于 `GenServer.whereis/1` API 对应.
+
+<!-- livebook:{"break_markdown":true} -->
+
+为什么需要 `hanlde_continue/2` 回调函数呢? 当服务收到了同步服务,
+但是当前的服务需要更多的资料才能完成回应的时候, 服务应该暂时搁置对请求的回应,
+而等待条件合适的时候再回应客户端的请求.
+
+为了回应客户, 就必须知道客户是谁, 这就是为什么 `handle_call(req,from,state)`
+需要第二个参数的原因. 为了在合适的时候回应客户端, 可以把 `from` 更新到 `state` 中.
+在可以回应客服的时候, 就可以通过 `GenServer.reply(client,respone)` 来回应客户.
+
+`GenServer.handle_info` `GenServer.handle_call`, 和 `GenServer.handle_cast`
+每次调用都会消费邮箱中的一条信息. 但是在处理请求的时候, 有时候消息只是改变服务器的状态,
+而不需要现在消费这个消息, 这时, 就需要用 `Process.send_after` 结合 `GenServer.handle_info`, 来完成处理.

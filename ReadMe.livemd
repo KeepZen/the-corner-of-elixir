@@ -15,4 +15,5 @@
 * [第九章 模块](ch09.module.livemd)
 * [第十章 协议与行为](ch10.protocol_and_behaviour.livemd)
 * [第十一章 如何理解宏](ch11.macro.livemd)
-* [第十二章 冷知识](ch12.cold_knowledge.livemd)
+* [第十二章 进程](ch12.process.livemd)
+* [附录 冷知识](appendix.livemd)
