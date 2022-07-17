@@ -1,0 +1,10 @@
+[book]
+authors = ["Keep Zen"]
+language = "zh-cn"
+multilingual = true
+src = "./"
+title = "角落里的长生不老药"
+build-dir="../KeepZen.github.io/"
+
+[output.html]
+mathjax-support = true

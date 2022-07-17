@@ -15,4 +15,4 @@
 * [第九章 模块](ch09.module.md)
 * [第十章 协议与行为](ch10.protocol_and_behaviour.md)
 * [第十一章 如何理解宏](ch11.macro.md)
-* [第十二章 冷知识](ch12.cold_knowledge.md)
+* [附录 冷知识](chx.cold_knowledge.md)
