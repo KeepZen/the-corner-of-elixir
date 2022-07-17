@@ -1,0 +1,640 @@
+<!DOCTYPE HTML>
+<html lang="zh-cn" class="sidebar-visible no-js light">
+
+<head>
+    <!-- Book generated using mdBook -->
+    <meta charset="UTF-8">
+    <title>附录 冷知识 - 角落里的长生不老药</title>
+    <!-- Custom HTML head -->
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff" />
+
+    <link rel="icon" href="favicon.svg">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/general.css">
+    <link rel="stylesheet" href="css/chrome.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+    <!-- Fonts -->
+    <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+    <link rel="stylesheet" href="fonts/fonts.css">
+    <!-- Highlight.js Stylesheets -->
+    <link rel="stylesheet" href="highlight.css">
+    <link rel="stylesheet" href="tomorrow-night.css">
+    <link rel="stylesheet" href="ayu-highlight.css">
+
+    <!-- Custom theme stylesheets -->
+    <!-- MathJax -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+    </script>
+</head>
+
+<body>
+    <!-- Provide site root to javascript -->
+    <script type="text/javascript">
+        var path_to_root = "";
+        var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+    </script>
+
+    <!-- Work around some values being stored in localStorage wrapped in quotes -->
+    <script type="text/javascript">
+        try {
+            var theme = localStorage.getItem('mdbook-theme');
+            var sidebar = localStorage.getItem('mdbook-sidebar');
+
+            if (theme.startsWith('"') && theme.endsWith('"')) {
+                localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+            }
+
+            if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+            }
+        } catch (e) { }
+    </script>
+
+    <!-- Set the theme before any content is loaded, prevents flash -->
+    <script type="text/javascript">
+        var theme;
+        try { theme = localStorage.getItem('mdbook-theme'); } catch (e) { }
+        if (theme === null || theme === undefined) { theme = default_theme; }
+        var html = document.querySelector('html');
+        html.classList.remove('no-js')
+        html.classList.remove('light')
+        html.classList.add(theme);
+        html.classList.add('js');
+    </script>
+
+    <!-- Hide / unhide sidebar before it is displayed -->
+    <script type="text/javascript">
+        var html = document.querySelector('html');
+        var sidebar = 'hidden';
+        if (document.body.clientWidth >= 1080) {
+            try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch (e) { }
+            sidebar = sidebar || 'visible';
+        }
+        html.classList.remove('sidebar-visible');
+        html.classList.add("sidebar-" + sidebar);
+    </script>
+
+    <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <div class="sidebar-scrollbox">
+            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html" class="active"><strong aria-hidden="true">12.</strong> 附录 冷知识</a></li></ol>
+        </div>
+        <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+    </nav>
+
+    <div id="page-wrapper" class="page-wrapper">
+
+        <div class="page">
+            <div id="menu-bar-hover-placeholder"></div>
+            <div id="menu-bar" class="menu-bar sticky bordered">
+                <div class="left-buttons">
+                    <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents"
+                        aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <button id="theme-toggle" class="icon-button" type="button" title="Change theme"
+                        aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                        <i class="fa fa-paint-brush"></i>
+                    </button>
+                    <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                        <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
+                        </li>
+                    </ul>
+                    <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
+                        aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
+                        aria-controls="searchbar">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+
+                <h1 class="menu-title">角落里的长生不老药</h1>
+
+                <div class="right-buttons">
+                    <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <i id="print-button" class="fa fa-print"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div id="search-wrapper" class="hidden">
+                <form id="searchbar-outer" class="searchbar-outer">
+                    <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..."
+                        aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                </form>
+                <div id="searchresults-outer" class="searchresults-outer hidden">
+                    <div id="searchresults-header" class="searchresults-header"></div>
+                    <ul id="searchresults">
+                    </ul>
+                </div>
+            </div>
+            <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+            <script type="text/javascript">
+                document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+                    link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                });
+            </script>
+
+            <div id="content" class="content">
+                <main>
+                    <h1 id="第十二章-冷知识"><a class="header" href="#第十二章-冷知识">第十二章 冷知识</a></h1>
+<h2 id="函数参数个数"><a class="header" href="#函数参数个数">函数参数个数</a></h2>
+<p>在阅读 Elixir 文档的
+≪<a href="https://hexdocs.pm/elixir/typespecs.html#built-in-types">类型规范•内建的类型</a>≫
+小节中, 我发现了一个以前没有注意到的知识: Elixir 中函数参数个数的限制.</p>
+<blockquote>
+<p>arity() 定义为 <code>0..255</code>.</p>
+</blockquote>
+<p>这是说, 我们的函数参数个数最多 255个吗? 要写一个有 255 个变量的函数,
+这还真的是个体力活. 但是作为程序员, 对于这种重复性体力劳动,
+当然要用编程的方式来完成了.
+Elixir 提供了 <code>Code.compile_string/1</code> 和 <code>Code.eval_string/1</code> 函数,
+可以把他们看作是 Elixir 语言为我们提供的编译器和解释器的 API.
+我们可以使用这两个函数编译或解释执行对应 Elixir 代码.</p>
+<p>通过调整生成的函数参数的个数, 可以找到函数参数个数的上限的设定.</p>
+<pre><code class="language-elixir">defmodule Explore.Arity do
+  defp generate_code(arity, name_fun?) do
+    params_list =
+      1..arity
+      |&gt; Enum.map(&amp;&quot;p#{&amp;1}&quot;)
+
+    params_src = Enum.join(params_list, &quot;,&quot;)
+    body_src = Enum.join(params_list, &quot; + &quot;)
+
+    if name_fun? do
+      &quot;&quot;&quot;
+      defmodule A do
+        def test(#{params_src}) do
+          #{body_src}
+        end
+      end
+      &quot;&quot;&quot;
+    else
+      &quot;fn #{params_src} -&gt; #{body_src} end&quot;
+    end
+  end
+
+  @default_opt [fun_named?: false, compiled?: true]
+  def check(arity, opt \\ []) do
+    opt = Keyword.merge(@default_opt, opt)
+
+    src = generate_code(arity, opt[:fun_named?])
+
+    if opt[:compiled?] do
+      Code.compile_string(src)
+    else
+      Code.eval_string(src)
+    end
+  rescue
+    v -&gt;
+      error_tip = if opt[:compiled?], do: &quot;compile error&quot;, else: &quot;praser error&quot;
+      IO.inspect(v, label: error_tip)
+      :bad
+  else
+    v -&gt;
+      IO.inspect(v, label: &quot;check done&quot;)
+      :ok
+  end
+end
+</code></pre>
+<p>让我们用单元测试功能来完成我们探索. 用代码, 能更清楚地表达我的意图.</p>
+<pre><code class="language-elixir">ExUnit.start(auto_run: false)
+
+defmodule ArityTest do
+  use ExUnit.Case, async: true
+  alias Explore.Arity
+
+  test &quot;the uplimit of arity for anonymous function in complier &quot; do
+    assert Arity.check(255) == :ok
+    assert Arity.check(256) == :bad
+    IO.puts(&quot;&quot;)
+  end
+
+  test &quot;the uplimit of arity for named function in complier &quot; do
+    assert Arity.check(255, fun_named?: true) == :ok
+    assert 1..255 |&gt; Enum.sum() == apply(A, :test, Enum.to_list(1..255))
+
+    assert Arity.check(256, fun_named?: true) == :ok
+    assert_raise UndefinedFunctionError, fn -&gt; apply(A, :test, Enum.to_list(1..256)) end
+    IO.puts(&quot;&quot;)
+  end
+
+  test &quot;the uplimit of arity for anonymous function in parser&quot; do
+    assert Arity.check(20, compiled?: false) == :ok
+    assert Arity.check(21, compiled?: false) == :bad
+    IO.puts(&quot;&quot;)
+  end
+
+  test &quot;the uplimit of arity for named function in parser&quot; do
+    assert Arity.check(20, fun_named?: true, compiled?: false) == :ok
+    assert apply(A, :test, 1..20 |&gt; Enum.to_list()) == 1..20 |&gt; Enum.sum()
+
+    assert Arity.check(21, fun_named?: true, compiled?: false) == :ok
+    assert_raise UndefinedFunctionError, fn -&gt; A.test(Enum.to_list(1..21)) end
+    IO.puts(&quot;&quot;)
+  end
+end
+
+ExUnit.run()
+</code></pre>
+<p>通过上面的实验, 可以得出以下结论:</p>
+<ul>
+<li>在编译器中
+<ol>
+<li>对于匿名函数, 参数个数多于 255 个, 编译器报 UndefineFuntionError</li>
+<li>对于命名函数, 参数个数多于 255 个, 编译器并不报错, 但是调用这个函数,
+运行时会产生 UndefineFuntionError</li>
+</ol>
+</li>
+<li>在解析器中
+<ol>
+<li>对于匿名函数, 参数个数多于 20 个, 解释器就会报 UndefinedFunctionError</li>
+<li>对于命名函数, 参数个数多于 20 个, 解释器不会报错, 但是调用这个函数,
+运行时会产生 UndefineFunctionError</li>
+</ol>
+</li>
+</ul>
+<h2 id="原子"><a class="header" href="#原子">原子</a></h2>
+<ol>
+<li>BEAM 中原子个数上限默认为: 1048577.</li>
+<li>原子的内存长度是固定的. 原子占用系统一个字 (word) 长度的内存.</li>
+<li>原子内容最长可以有 255 个字符.</li>
+</ol>
+<p>现在有提议对原子也做垃圾收集, 也许以后的 BEAM 实现, 原子个数上限就会被解除,
+那么对于嵌入式的系统, 用原子来代替比较长的字符串可以达到节省内存的目的.</p>
+<pre><code class="language-elixir">ExUnit.start(auto_run: false)
+
+defmodule AtomLimitTest do
+  use ExUnit.Case, async: true
+
+  test &quot;255 byte long atom is ok&quot; do
+    assert 1..255
+           |&gt; Enum.map(fn _ -&gt; &quot;1&quot; end)
+           |&gt; Enum.join(&quot;&quot;)
+           |&gt; String.to_atom()
+  end
+
+  test &quot;256 byte long auto is up the atom limit&quot; do
+    assert_raise SystemLimitError, fn -&gt;
+      1..256
+      |&gt; Enum.map(fn _ -&gt; &quot;2&quot; end)
+      |&gt; Enum.join(&quot;&quot;)
+      |&gt; String.to_atom()
+    end
+  end
+end
+
+ExUnit.run()
+</code></pre>
+<p>调用 <code>:eralng.memory(:atom_used)</code> 可以看出当前我们的系统中, 原子使用的内存.</p>
+<h2 id="变量名的限制"><a class="header" href="#变量名的限制">变量名的限制</a></h2>
+<p>变量名实际上也是原子, 所以变量名接受原子的限制, 也就是说变量名不能长于 255 个字符,
+但是实际上, 系统对变量还有一些限制, 在 Elixir 中表示变量的原子有统一的格式:
+<code>_{var_name}@1</code>. 所以, 变量名只能由 255-3 = 252 个字节长度.</p>
+<p>我们可以通过下面的代码来得出这个结论.</p>
+<pre><code class="language-elixir">create_var = fn l -&gt;
+  1..l
+  |&gt; Enum.map(fn _a -&gt; &quot;l&quot; end)
+  |&gt; Enum.join(&quot;&quot;)
+end
+
+var = create_var.(252)
+assign = &quot;#{var} = 1&quot;
+{1, _} = Code.eval_string(assign)
+IO.puts(&quot;variable length equal 252 is ok&quot;)
+var = create_var.(253)
+assign = &quot;#{var} = 1&quot;
+Code.eval_string(assign)
+</code></pre>
+<h2 id="函数中定义模块"><a class="header" href="#函数中定义模块">函数中定义模块</a></h2>
+<p>可以在<code>def/2</code> 上下文中定义模块:</p>
+<pre><code class="language-elixir">defmodule EmbedModuleToFun do
+  def createFun() do
+    defmodule :_ do
+      def hello(), do: IO.puts(&quot;I am in #{__MODULE__}, hello!&quot;)
+    end
+    |&gt; elem(1)
+  end
+end
+
+m = EmbedModuleToFun.createFun()
+m.hello()
+</code></pre>
+<p>这让我想起来 Java 的匿名类. Java 的早期版本中, 不支持匿名函数类型,
+所以在当初要在 Java 中模拟函数式编程, 定义高阶函数的时候就不得不使用接口.
+使用这些高级函数的时候, 往往用一个匿名类来实现相应的接口.</p>
+<p>我们这里使用的方法, 和当年 Java 中使用的方法是一样的.</p>
+<p>但是使用这个方法的时候, 还有需要注意的地方.
+首先本质上, 这个方法是在运行时动态编译了新模块.
+所以每次调用 <code>createFun()</code> 都会产生新的模块,
+这就意味着: 1) 效率下降, 2) 如果需要在多个函数中返回模块,
+必须留意为函数返回的模块取不同的名字, 以防止名称冲突.</p>
+<p>我们可以写一个宏来解决这两个问题.</p>
+<pre><code class="language-elixir">defmodule Nest do
+  import Kernel, except: [def: 2]
+
+  defmacro def(call, exp) do
+    if __CALLER__.function == nil do
+      raise &quot;Nest.def must cal in def/2&quot;
+    end
+
+    {name, args} = name_and_args(call)
+    str = &quot;#{__CALLER__.module}.nest_#{name}_#{length(args)}&quot;
+    module_name = String.to_atom(str)
+    make_module(module_name, call, exp)
+  end
+
+  defp name_and_args({:when, _, [{name, _, args}, _]}), do: {name, args}
+  defp name_and_args({name, _, args}), do: {name, args}
+
+  defp make_module(module_name, call, exp) do
+    quote do
+      if :code.is_loaded(unquote(module_name)) do
+        unquote(module_name)
+      else
+        defmodule unquote(module_name) do
+          IO.puts(&quot;Compile #{unquote(module_name)}&quot;)
+          def unquote(call), unquote(exp)
+        end
+        |&gt; elem(1)
+      end
+    end
+  end
+end
+</code></pre>
+<p>当我们在 LiveBook 中运行下面的测试代码的时候, 如果是第一次运行,
+那么第 10 行的的输出之前, 控制台中应该先输出, 编译内部模块的提示:
+&quot;Compile Elixir.TestNest.nest_hello_2&quot;,
+但是第 11 行再次调用 <code>TestNest.hello()</code> 的时候, 不再输出模块编译的提示了,
+这说明的确不是每次调用 <code>TestNest.hello()</code> 都创建新的模块.</p>
+<pre><code class="language-elixir">defmodule TestNest do
+  require Nest
+
+  def hello() do
+    Nest.def(hello(a, b), do: a + b)
+  end
+end
+
+3 = TestNest.hello().hello(1, 2)
+IO.puts(&quot;-----------&quot;)
+3 = TestNest.hello().hello(1, 2)
+</code></pre>
+<p>在 LiveBook 中, 一旦上面的代码计算过一次此后, 再次运行的话,
+因为内部模块已经被加载到系统中了, 所以控制台中, 只会有第 10 行的输出,
+而不能再看到内部模块的编译提示.</p>
+<p>这让我意识到, Erlang 中不是只有进程可以保存状态,
+系统内模块的状态结合动态编译, 也可以用来表示状态.
+当然了这样做有非常大的效率成本. 但作为理论探索, 不失为一个有趣的话题.</p>
+<h2 id="进程之外的状态保持"><a class="header" href="#进程之外的状态保持">进程之外的状态保持</a></h2>
+<p>在 Erlang 和 Elixir 中, 最常用的保持状态的方法是启用一个服务进程.
+但是 Erlang 的运行时系统, 自身是有状态的.
+Erlang 允许在运行时, 动态生成代码.
+运行时动态生成的代码改变了 Erlang 运行时的模块的状态.</p>
+<p>如果我们把状态信息, 直接保存到模块的元数据中, 在需要改变状态的时候,
+重新产生模块, 且以新的状态来设置新产生的模块, 那么外部看来,
+这个模块就像一个保有状态的对象一样.</p>
+<pre><code class="language-elixir">defmodule Corner.State do
+  def create(kv \\ []) do
+    if Keyword.keyword?(kv) do
+      now = NaiveDateTime.utc_now() |&gt; to_string() |&gt; String.to_atom()
+      module = Module.concat(__MODULE__, now)
+      make_nest_module(kv, module)
+    else
+      raise &quot;Expect a keyword, but get :#{inspect(kv)}&quot;
+    end
+  end
+
+  defmacro delete(module) do
+    if :code.delete(module) do
+      quote do
+        var!(unquote(module), __CALLER__) = nil
+        true
+      end
+    else
+      false
+    end
+  end
+
+  def set(module, k, v) do
+    kv =
+      module.module_info(:attributes)
+      |&gt; Enum.filter(&amp;(elem(&amp;1, 0) != :vsn))
+      |&gt; Enum.map(fn {k, [v]} -&gt; {k, v} end)
+      |&gt; Keyword.merge([{k, v}])
+
+    make_nest_module(kv, module)
+  end
+
+  defp make_nest_module(kv, module) do
+    blocks = make_geter_and_seters(module, kv, [])
+
+    quote do
+      defmodule unquote(module) do
+        unquote_splicing(blocks)
+        def delete(), do: :code.delete(unquote(module))
+      end
+    end
+    |&gt; Code.eval_quoted()
+    |&gt; elem(0)
+    |&gt; elem(1)
+  end
+
+  defp make_geter_and_seters(_module, [], acc), do: acc
+
+  defp make_geter_and_seters(module, [{k, v} | rest], acc) do
+    attr = make_attr(k, v)
+    geter = quote do: def(unquote(k)(), do: unquote(v))
+
+    seter =
+      quote do
+        def unquote(k)(v),
+          do: Corner.State.set(unquote(module), unquote(k), v)
+      end
+
+    make_geter_and_seters(module, rest, [attr, geter, seter | acc])
+  end
+
+  defp make_attr(k, v) do
+    [
+      quote do
+        Module.register_attribute(__MODULE__, unquote(k), persist: true)
+      end,
+      {:@, [context: Elixir, import: Kernel], [{k, [context: Elixir], [v]}]}
+    ]
+  end
+end
+</code></pre>
+<p>我们可以使用 <code>h = Corner.State.create([x: 1])</code> 来创建一个状态.
+并使用 <code>s.x</code> 读取 <code>x</code> 的值, <code>s.x(new_value)</code>
+更新 <code>x</code> 的值.</p>
+<pre><code class="language-elixir">import Corner.State
+s = create(x: 2, y: 0)
+s.x |&gt; IO.inspect(label: :x)
+s.y |&gt; IO.inspect(label: :y)
+s.x(0)
+s.x |&gt; IO.inspect(label: :x)
+delete(s)
+s |&gt; IO.inspect()
+</code></pre>
+<h2 id="超时"><a class="header" href="#超时">超时</a></h2>
+<p>Elixir 的 <code>receive</code> 结构中支持 <code>after</code> 子句来处理超时问题. <code>after_sent</code>
+也可以在指定的时间后向进程发送消息.</p>
+<p>这些功能背后使用的都是相同的机制, Elixir 中整数是可以无限大的,
+但是表示超时的参数却不能这样, 而是有限制的.
+在 Elixir 中, 如果是一个正整数, 那么这个正整数,
+必须小于等于 32 位可表示的最大无符号整数,
+也就是 $2^{33}-1$ (或十六进制表示: 0xFFFF_FFFF).
+让我们实验一下:</p>
+<pre><code class="language-elixir">receive do
+  a -&gt; IO.inspect(a, label: &quot;a&quot;)
+after
+  0xFFFF_FFFF + 1 -&gt; IO.put(&quot;timeout&quot;)
+end
+</code></pre>
+<h2 id="远程调用和本地调用"><a class="header" href="#远程调用和本地调用">远程调用和本地调用</a></h2>
+<p>在模块外, 调用一个模块的函数, 实际上使用的都是远程调用.
+但是在 <code>defmodule/2</code> 的上下文中, 私有函数和公开函数都可以使用本地调用的语法来调用.</p>
+<p>原来我一直以为, 在 <code>defmodule/2</code> 上下文中, 对模块内的函数, 使用远程调用的语法没有意义.
+但是这是错误的. 当代码发生热加载的时候, 在 <code>defmodule/2</code> 上下文中,
+远程调用和本地调用之间的差别就显示出来了.</p>
+<p>Erlang 中热加载是这样实现的:</p>
+<p>系统会为每个模块保持两个最新的版本. 假设有两个进程P1, P2; P1 运行的是第一个版本的代码,
+P2 运行的是第二个版本的代码. 当模块的第 3 个版本被加载到系统后, 第一个版本的代码,
+就会从系统中被删除掉, 这是, 如果有进程还在运行第一个版本的代码,
+就会因为找不到对应的模块, 而被杀死.</p>
+<p>如果被杀死的 P1 运行在监管树下, 那么监控进程会创建新的进程 P3 代替死亡的 P1,
+这时 P3 中运行的是第三个版本的代码. 至此, 和远程函数调用还没有关系.</p>
+<p>这样的热更新, 导致了进程 P1 退出, 所以还是有风险的.</p>
+<p>如果代码更新后, 还在运行的进程可以自动的切换到最新的版本的代码中,
+那么热更新的风险就更小了.</p>
+<p>要达到这种效果, 在服务器进程的循环函数中, 最后对自己的递归调用, 就必须使用远程调用的语法.
+远程调用语法, 调用的都是模块的最新版本的代码.</p>
+<p>下面让我们用代码来实验一下.</p>
+<p>首先, 定义第一个版本. 在<code>loop/0</code> 递归调用自己的时候,
+使用的是本地函数调用的语法:<code>loop()</code>.
+模块编译完成后, 立刻启东进程 p1 运行这个版本.</p>
+<pre><code class="language-elixir">defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok -&gt;
+        IO.puts(&quot;#{inspect(self())} version1&quot;)
+        Process.send_after(self(), :ok, 100)
+        loop()
+
+      :stop -&gt;
+        IO.puts(&quot;stop version1&quot;)
+    end
+  end
+end
+
+p1 =
+  spawn(&amp;RemoteAndLocalCall.loop/0)
+  |&gt; IO.inspect(label: &quot;p1&quot;)
+</code></pre>
+<p>然后我们定义第二个版本, 这里, <code>loop/0</code> 对自己递归调用的时候,
+使用的是远程函数调用的语法: <code>__MODULE__.loop()</code>.
+模块编译后, 我们启动进程 p2 来运行我们的代码. 这时 p1 和 p2 都在等待消息进来.
+所以, 通过向他们分别发送一个 <code>:ok</code> 消息来启动这两个进程的循环.</p>
+<p>这时控制台中会交替的输出 &quot;PID{} version1&quot;, &quot;PID{} version2&quot;.</p>
+<pre><code class="language-elixir">defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok -&gt;
+        IO.puts(&quot;#{inspect(self())} version2&quot;)
+        Process.send_after(self(), :ok, 100)
+        __MODULE__.loop()
+
+      :stop -&gt;
+        IO.puts(&quot;stop version2&quot;)
+    end
+  end
+end
+
+p2 =
+  spawn(&amp;RemoteAndLocalCall.loop/0)
+  |&gt; IO.inspect(label: &quot;p2&quot;)
+
+Process.alive?(p1) |&gt; IO.inspect(label: &quot;Is v1 alive?&quot;)
+
+for p &lt;- [p1, p2] do
+  send(p, :ok)
+end
+</code></pre>
+<p>最后, 定义第三个版本, 模块编译通过后会发现:</p>
+<ol>
+<li>进程 p1 死亡了.</li>
+<li>进程 p2 还活着, 但是其中运行的代码更新了.
+控制台输出变成了 <code>PID{} version3</code>.</li>
+</ol>
+<pre><code class="language-elixir">defmodule RemoteAndLocalCall do
+  def loop() do
+    receive do
+      :ok -&gt;
+        IO.puts(&quot;#{inspect(self)} version3&quot;)
+        Process.send_after(self, :ok, 100)
+        __MODULE__.loop()
+
+      :stop -&gt;
+        IO.puts(&quot;stop version3&quot;)
+    end
+  end
+end
+
+Process.alive?(p1) |&gt; IO.inspect(label: &quot;Is v1 live?&quot;)
+Process.alive?(p2) |&gt; IO.inspect(label: &quot;Is v2 live?&quot;)
+IO.inspect(p2, label: &quot;P2&quot;)
+</code></pre>
+<p>最后运行下面的代码, 退出进程 p2.</p>
+<pre><code class="language-elixir">send(p2, :stop)
+</code></pre>
+
+                </main>
+
+                <nav class="nav-wrapper" aria-label="Page navigation">
+                    <!-- Mobile navigation buttons -->
+                    <a rel="prev" href="ch11.macro.html" class="mobile-nav-chapters previous"
+                        title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <div style="clear: both"></div>
+                </nav>
+            </div>
+        </div>
+
+        <nav class="nav-wide-wrapper" aria-label="Page navigation">
+            <a rel="prev" href="ch11.macro.html" class="nav-chapters previous" title="Previous chapter"
+                aria-label="Previous chapter" aria-keyshortcuts="Left">
+                <i class="fa fa-angle-left"></i>
+            </a>
+        </nav>
+
+    </div>
+
+    <script type="text/javascript">
+        window.playground_copyable = true;
+    </script>
+    <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+    <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+    <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+    <!-- Custom JS scripts -->
+</body>
+
+</html>

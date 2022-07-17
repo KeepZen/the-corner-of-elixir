@@ -1,0 +1,585 @@
+<!DOCTYPE HTML>
+<html lang="zh-cn" class="sidebar-visible no-js light">
+
+<head>
+    <!-- Book generated using mdBook -->
+    <meta charset="UTF-8">
+    <title>管道操作符 - 角落里的长生不老药</title>
+    <!-- Custom HTML head -->
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff" />
+
+    <link rel="icon" href="favicon.svg">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/general.css">
+    <link rel="stylesheet" href="css/chrome.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+    <!-- Fonts -->
+    <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+    <link rel="stylesheet" href="fonts/fonts.css">
+    <!-- Highlight.js Stylesheets -->
+    <link rel="stylesheet" href="highlight.css">
+    <link rel="stylesheet" href="tomorrow-night.css">
+    <link rel="stylesheet" href="ayu-highlight.css">
+
+    <!-- Custom theme stylesheets -->
+    <!-- MathJax -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+    </script>
+</head>
+
+<body>
+    <!-- Provide site root to javascript -->
+    <script type="text/javascript">
+        var path_to_root = "";
+        var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+    </script>
+
+    <!-- Work around some values being stored in localStorage wrapped in quotes -->
+    <script type="text/javascript">
+        try {
+            var theme = localStorage.getItem('mdbook-theme');
+            var sidebar = localStorage.getItem('mdbook-sidebar');
+
+            if (theme.startsWith('"') && theme.endsWith('"')) {
+                localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+            }
+
+            if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+            }
+        } catch (e) { }
+    </script>
+
+    <!-- Set the theme before any content is loaded, prevents flash -->
+    <script type="text/javascript">
+        var theme;
+        try { theme = localStorage.getItem('mdbook-theme'); } catch (e) { }
+        if (theme === null || theme === undefined) { theme = default_theme; }
+        var html = document.querySelector('html');
+        html.classList.remove('no-js')
+        html.classList.remove('light')
+        html.classList.add(theme);
+        html.classList.add('js');
+    </script>
+
+    <!-- Hide / unhide sidebar before it is displayed -->
+    <script type="text/javascript">
+        var html = document.querySelector('html');
+        var sidebar = 'hidden';
+        if (document.body.clientWidth >= 1080) {
+            try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch (e) { }
+            sidebar = sidebar || 'visible';
+        }
+        html.classList.remove('sidebar-visible');
+        html.classList.add("sidebar-" + sidebar);
+    </script>
+
+    <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <div class="sidebar-scrollbox">
+            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html" class="active"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">12.</strong> 附录 冷知识</a></li></ol>
+        </div>
+        <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+    </nav>
+
+    <div id="page-wrapper" class="page-wrapper">
+
+        <div class="page">
+            <div id="menu-bar-hover-placeholder"></div>
+            <div id="menu-bar" class="menu-bar sticky bordered">
+                <div class="left-buttons">
+                    <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents"
+                        aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <button id="theme-toggle" class="icon-button" type="button" title="Change theme"
+                        aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                        <i class="fa fa-paint-brush"></i>
+                    </button>
+                    <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                        <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
+                        </li>
+                    </ul>
+                    <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
+                        aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
+                        aria-controls="searchbar">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+
+                <h1 class="menu-title">角落里的长生不老药</h1>
+
+                <div class="right-buttons">
+                    <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <i id="print-button" class="fa fa-print"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div id="search-wrapper" class="hidden">
+                <form id="searchbar-outer" class="searchbar-outer">
+                    <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..."
+                        aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                </form>
+                <div id="searchresults-outer" class="searchresults-outer hidden">
+                    <div id="searchresults-header" class="searchresults-header"></div>
+                    <ul id="searchresults">
+                    </ul>
+                </div>
+            </div>
+            <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+            <script type="text/javascript">
+                document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+                    link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                });
+            </script>
+
+            <div id="content" class="content">
+                <main>
+                    <h1 id="第七章-管道操作符"><a class="header" href="#第七章-管道操作符">第七章 管道操作符</a></h1>
+<h2 id="管道操作符不是组合函数"><a class="header" href="#管道操作符不是组合函数">管道操作符不是组合函数</a></h2>
+<p>在函数式编程的社区中, 函数组合非常的重要. 组合函数是一个高阶函数, 它接受多个函数,
+返回一个新的函数, 例如 <code>fun=compose(f,g,k)</code>, 那么 <code>fun(x,y,z)</code> 就等价于
+<code>f(g(k(x,y,z)))</code>. 为了与思维的习惯一致, 人们还定义了反序的组合函数, 叫做 <code>pipe</code> 函数.</p>
+<p>在 Elixir 中没有内置的 <code>compose</code> 或 <code>pipe</code> 函数, 但是内置了管道操作符 <code>|&gt;</code>.
+我一度认为管道操作符 <code>|&gt;</code> 就是 Elixir 的 <code>pipe</code> 函数. 但是这是一个幻觉.
+管道操作符 <code>|&gt;</code> 更像 shell 的管道而不是函数式编程中的 <code>pipe</code> 函数.</p>
+<p>至少 Elixir 编译器不会为我们做函数组合的优化.</p>
+<p>函数式编程中, 很多语言, 会对函子的 map 操作做优化. 比如:
+<code>[1,2,3].map(f).map(f2)</code> 编译器会优化为 <code>[1,2,3].map(compse(f,f2))</code>,
+以提高程序的执行效率.</p>
+<p>在 Elixir 中, 相应的代码是这样的: <code>[1,2,3] |&gt; Enum.map(f)|&gt; Enum.map(f2)</code>.
+这样的代码, 如果有优化的, 最后应该等价于 <code>[1,2,3]|&gt; Enum.map(&amp;f2.(f.(&amp;1)))</code>.
+但是实际的情况并不是这样的.</p>
+<p>例如下面的代码:</p>
+<pre><code class="language-elixir">fun1 = fn v -&gt; v |&gt; IO.inspect(label: &quot;+1&quot;) |&gt; then(&amp;(&amp;1 + 1)) end
+fun2 = fn v -&gt; v |&gt; IO.inspect(label: &quot;-1&quot;) |&gt; then(&amp;(&amp;1 - 1)) end
+range = 1..5
+
+range
+|&gt; Enum.map(fun1)
+|&gt; Enum.map(fun2)
+|&gt; IO.inspect(label: &quot;result of map chain&quot;)
+</code></pre>
+<p>控制台的输出为:</p>
+<pre><code>+1: 1
++1: 2
++1: 3
++1: 4
++1: 5
+-1: 2
+-1: 3
+-1: 4
+-1: 5
+-1: 6
+result of map chain: [1, 2, 3, 4, 5]
+</code></pre>
+<p>从控制台的输出中, 可以观察到, 所有的 <code>+1</code> 输出结束后, 才开始 <code>-1</code> 的输出.
+管道操作符 <code>|&gt;</code> 连接起来的多个 <code>Enum.map</code> 并没有被合并为一个.
+只有对 <code>fun1</code> 的迭代全部完成后, 对 <code>fun2</code> 调用才开始执行.
+但如果把 <code>fun2</code> 和 <code>fun1</code> 组合成一个新的函数, 像下面的代码这样:</p>
+<pre><code class="language-elixir">range
+|&gt; Enum.map(&amp;fun2.(fun1.(&amp;1)))
+|&gt; IO.inspect(label: &quot;result of compose&quot;)
+</code></pre>
+<p>那么控制台的输出应该是 <code>+1</code> <code>-1</code> 交替出现.</p>
+<p>因此可见, Elixir 内置的管道操作符 <code>|&gt;</code> 不是函数式编程的 <code>pipe</code> 函数.</p>
+<p>可是手动的组合函数总是比较的麻烦, 写一个函数来帮助我们完成函数的组合也不是难事,
+但是 Elixir 社区中, 因为命名函数不是一等公民, 所以函数组合的语法并不常用.
+大家最习惯的其实还是使用管道操作符 <code>|&gt;</code>, 所以如果管道操作符 <code>|&gt;</code> 能对 <code>Enum.map</code>
+做优化, 那么应该能提升代码的运行效率.</p>
+<p>非常幸运, 管道操作符 <code>|&gt;</code> 在 Elixir 中并不是特殊表单, 因此可以定义自己的管道操作符
+<code>|&gt;</code>.</p>
+<p>Elixir 源码中定义的管道操作符 <code>|&gt;</code> 可以作为我们工作的起点.
+我们可以在
+<a href="https://github.com/elixir-lang/elixir/blob/9a4d10e702f33d2fa47718cde05375b506b4a3d6/lib/elixir/lib/kernel.ex#L4073"><code>kernel.ex</code></a>
+中发现其定义:</p>
+<pre><code class="language-elixir">defmacro left |&gt; right do
+  [{h, _} | t] = Macro.unpipe({:|&gt;, [], [left, right]})
+
+  fun = fn {x, pos}, acc -&gt;
+    Macro.pipe(acc, x, pos)
+  end
+
+  :lists.foldl(fun, h, t)
+end
+</code></pre>
+<p>不用特别的熟悉 Elixir 的宏, 只需要理解最后的 <code>:lists.foldl/3</code>,
+我们就能大概理解管道操作符 <code>|&gt;</code> 的原理了, 其实与在 Javascript 中定义
+<code>pipe</code> 函数的算法一样.</p>
+<p>上面的代码中, <code>t</code> 就是管道操作符 <code>|&gt;</code> 的所有的右操作数 (函数) 组成的列表,
+也就是所有待组合的 <strong>函数调用</strong> 的列表.</p>
+<p>我们自己定义的管道操作符 <code>|&gt;</code> 所作的优化, 本质就是对函数调用列表 <code>t</code> 合并同类项.
+具体来说就是, 识别连续相邻的 <code>Enum.map(f1)</code>, <code>Enum.map(f2)</code> ...,<code>Enum.map(fn)</code>,
+并把他们合并成为一个 <code>Enum.map(composed_fun)</code>.</p>
+<p>首先我们定义一个 <code>Optimizer</code> 行为, 这个这个行为只有一个函数, 就是优化函数:
+<code>optimize(t,list)</code>.</p>
+<p>所以如此, 是因为, 虽然现在我们只是完成 <code>Enum.map/2</code> 相关的实现,
+但是对于管道操作符 <code>|&gt;</code> 的右操作数, 如果将来发现, 除 <code>Enum.map/2</code> 组成的链条外,
+还有其他的情形可以优化, 那么我们只需要对新情形实现 <code>Optimizer</code> 行为就好了.</p>
+<p>定义 <code>Optimizer</code> 行为, 让我们的代码更容易组织.</p>
+<h2 id="优化器协议"><a class="header" href="#优化器协议">优化器协议</a></h2>
+<pre><code class="language-elixir">defmodule Optimizer do
+  @callback optimize(t :: any, ast_list :: List.t()) :: List.t()
+
+  defmacro __using__(_opts) do
+    quote do
+      import Kernel, except: [|&gt;: 2]
+      import Optimizer.Pipe, only: [|&gt;: 2]
+    end
+  end
+end
+</code></pre>
+<p>第 2 行我们定义了优化器的接口.
+而 <code>__using__/1</code> 的定义可以看作是优化器对外提供的 API.
+优化器的使用者, 只需要 <code>use Optimizer</code> 就可以了使用优化器了,
+不用关心优化器内部的实现.</p>
+<h2 id="对-enummap-优化"><a class="header" href="#对-enummap-优化">对 Enum.map 优化</a></h2>
+<p>现在让我们来定义针对 <code>Enum.map/2</code> 的优化.
+我把有关优化的代码都放在 <code>optimizer</code> 目录下,
+为 <code>Enum.map/2</code> 做优化的模块, 命名为 <code>Optimizer.EnumMap</code>.</p>
+<p>像我们上面分析的那样, <code>Optimizer.EnumMap</code> 要做的事情, 就是把由管道操作符 <code>|&gt;</code>,
+链接起来的连续的多个 <code>Enum.map(fun)</code> 表达式合并为一个 <code>Enum.map(funs)</code>.
+这里由 <code>reduce_map/1</code> 函数完成具体的工作. <code>reduce_map</code> 函数分两步完成工作:</p>
+<ol>
+<li>对所有函数调用表达式进行分组, 连续的 <code>Enum.map(fun)</code> 表达式分为一组,
+其他的表达式, 单独为一组. 由 <code>group_function_calls/1</code> 完成.</li>
+<li>把分组后的 <code>Enum.map(fun)</code> 表达式抽象语法树, 
+合并为一个 <code>Enum.map(composed_fun)</code>. 由 <code>tranceform_group/1</code>.</li>
+</ol>
+<pre><code class="language-elixir">defmodule Corner.Optimizer.EnumMap do
+  alias Corner.Optimizer
+  @behaviour Optimizer
+
+  @impl Optimizer
+  def optimize(__MODULE__, list) do
+    reduce_map(list)
+  end
+
+  defp reduce_map(ast_list) do
+    ast_list
+    |&gt; group_function_calls()
+    |&gt; Enum.map(&amp;tranceform_group/1)
+  end
+  #...
+end
+</code></pre>
+<p><code>group_function_calls</code> 就是对函数调用表达式的抽象语法树列表做迭代.
+对于函数调用 <code>fun_call</code>, 如果它是 <code>Enum.map(fun)</code> 的抽象语法树,
+那么它应该就是被分组的内容, 首先把它使用列表包裹, 以表示这是一个分组,
+然后把列表添加到汇聚结果 <code>acc</code> 的头部.
+如果它不是 <code>Enum.map(fun)</code>, 那么直接加入到 <code>acc</code> 头部就好了.</p>
+<p>当汇聚结果 <code>acc</code> 其中由内容了, 待检查的 <code>fun</code> 符合要求, 
+而且汇聚结果的最后一个元素是一个列表话, 那么我们需要继续向列表中添加新的元素.
+如果汇聚结果的最后一个元素不是一个列表. 那么需要向汇聚结果中添加新的分组列表.</p>
+<p>当 <code>fun</code> 不是 <code>Enum.map(fun)</code> 的时候, 只要把 <code>fun</code> 添加到汇聚结果中, 就可以了.</p>
+<p>这样操作后, 函数调用的顺序全部颠倒了, 所以使用 <code>Enum.reverse/1</code>
+对函数调用列表完成重排. </p>
+<pre><code class="language-elixir">defp group_function_calls(fun_call_list) do
+  for fun_call &lt;- fun_call_list, reduce: [] do
+    [] = acc -&gt;
+      if is_map_call(fun_call) do
+        [[fun_call] | acc]
+      else
+        [fun_call | acc]
+      end
+    [ele | rest] = acc -&gt;
+      fun_is_map? = is_map_call(fun_call)
+      cond do
+        fun_is_map? and is_list(ele) -&gt;
+          [[fun_call | ele] | rest]
+        fun_is_map? -&gt;
+          [[fun_call] | acc]
+        true -&gt;
+          [fun_call | acc]
+      end
+  end
+  |&gt; Enum.reverse()
+end
+</code></pre>
+<p><code>is_map_call/1</code> 用来检查抽象语法树是否对应表达式 <code>Enum.map(fun)</code>.</p>
+<pre><code class="language-elixir">defp is_map_call({{{:., _, [{:__aliases__, _, [:Enum]}, :map]}, _, _}, 0}),
+  do: true
+defp is_map_call(_), do: false
+</code></pre>
+<p><code>tranceform_group/1</code> 把分组的 <code>Enum.map(fun)</code> 合并为一个
+<code>Enum.map(composed_fun)</code>.
+这也是分三步完成, 第一步提取 <code>Enum.map(fun)</code> 表达式中的 <code>fun</code>.
+这由 <code>get_fun/1</code> 函数完成.
+第二个步组合提取函数. 最后一步把组合函数 <code>composed_fun</code> 转为为
+<code>Enum.map(composed_fun)</code>. </p>
+<p>其他非 <code>Enum.map(fun)</code> 的函数调用, 不做处理直接返回.</p>
+<pre><code class="language-elixir">defp tranceform_group(map_calls) when is_list(map_calls) do
+  composed_fun =
+    map_calls
+    |&gt; Enum.map(&amp;get_fun/1)
+    |&gt; compose()
+
+  {{{:., [], [{:__aliases__, [], [:Enum]}, :map]}, [], 
+   [composed_fun]}, 
+   0}
+end
+defp tranceform_group(other_ast), do: other_ast
+</code></pre>
+<p><code>get_fun/1</code> 函数非常简单, 我们只是通过模式匹配来提取我们需要的就可以了.</p>
+<pre><code class="language-elixir">defp get_fun(
+       {{
+          {:., _, [{:__aliases__, [], [:Enum]}, :map]},
+          _,
+          [fun]
+        }, 0}
+     ) do
+  fun
+end
+</code></pre>
+<p>最后是组合函数. <code>compose/1-2</code>.</p>
+<pre><code class="language-elixir">defp compose(list, acc \\ nil)
+
+defp compose([fun | funs], nil) do
+  acc =
+    quote do
+      unquote(fun).()
+    end
+  compose(funs, acc)
+end
+
+defp compose([fun | funs], acc) do
+  acc =
+    quote do
+      unquote(fun).() |&gt; unquote(acc)
+    end
+  compose(funs, acc)
+end
+
+defp compose([], acc) do
+  quote do
+    fn v -&gt; v |&gt; unquote(acc) end
+  end
+end
+</code></pre>
+<p>分组后函数的列表的顺序与它们在管道操作符中出现的顺序已经完成了反转.
+对与列表 <code>[fun_n, ... fun_2, fun_1]</code>. 这里每一个函数都是一元函数.
+最终要转化为 <code>fn v -&gt; v |&gt; fun_1.() |&gt; fun_2.() |&gt; ... |&gt; fun_n.() end</code>.
+第一个分句完成, 最后 <code>fun_n.()</code>, 第二个分句完成
+<code>fun_1.() |&gt; fun_2.() ..|&gt; fun_n.()</code>.
+而最后一个数据完成 <code>fn -&gt; v |&gt; ... end</code> 的操作.</p>
+<p>前面说过, 要自定义管道操作符 <code>|&gt;</code>, 现在是兑现的时候了.</p>
+<h2 id="管道操作符"><a class="header" href="#管道操作符">管道操作符</a></h2>
+<pre><code class="language-elixir">defmodule Corner.Optimizer.Pipe do
+  import Kernel, except: [|&gt;: 2]
+  alias Corner.Optimizer.{EnumMap}
+  @optimizer [EnumMap]
+  defmacro left |&gt; right do
+    [{h, _} | t] = Macro.unpipe({:|&gt;, [], [left, right]})
+
+    fun = fn {x, pos}, acc -&gt;
+      Macro.pipe(acc, x, pos)
+    end
+
+    t = Enum.reduce(@optimizer, t, &amp;apply(&amp;1, :optimize, [&amp;1, &amp;2]))
+    :lists.foldl(fun, h, t)
+  end
+end
+</code></pre>
+<p>当定义了更多的优化器的时候, 只需要修改上面代码的第 3, 4 两行代码, 就可以了.</p>
+<p>上面的代码, 大部分都是照搬 Elixir 的 Kernel 模块中管道操作符 <code>|&gt;</code> 的定义,
+只是增加了第 12 行的内容, 而它做的工作, 依次的调用我们定义的优化器.</p>
+<p>现在来看看, 代码是不能按照我们的预期工作:</p>
+<pre><code class="language-elixir">use Corner.Optimizer
+add_one = fn v -&gt;
+  IO.puts(&quot;+1&quot;)
+  v + 1
+end
+
+sub_one = fn v -&gt;
+  IO.puts(&quot;-1&quot;)
+  v - 1
+end
+
+1..5
+|&gt; Enum.map(add_one)
+|&gt; Enum.map(sub_one)
+|&gt; IO.inspect(label: &quot;after optimizer&quot;)
+</code></pre>
+<p>控制台中输出为:</p>
+<pre><code>+1
+-1
++1
+-1
++1
+-1
++1
+-1
++1
+-1
+after optimizer: [1, 2, 3, 4, 5]
+</code></pre>
+<h2 id="基准测试"><a class="header" href="#基准测试">基准测试</a></h2>
+<p>看起来, 功能测试通过了, 但是我们毕竟是做优化的, 我们的代码真的能提升代码的执行效率吗?
+这还需要实际测试的.</p>
+<pre><code class="language-elixir">defmodule OptimizeBenchmarkTest do
+  use ExUnit.Case, async: true
+  @range 1..1000
+
+  def fun1(up \\ 10) do
+    for _ &lt;- 1..up do
+      @range
+      |&gt; Enum.map(&amp;(&amp;1 + 1))
+      |&gt; Enum.map(&amp;(&amp;1 - 1))
+    end
+  end
+
+  def fun2(up \\ 10) do
+    use Corner.Optimizer
+
+    for _ &lt;- 1..up do
+      @range
+      |&gt; Enum.map(&amp;(&amp;1 + 1))
+      |&gt; Enum.map(&amp;(&amp;1 - 1))
+    end
+  end
+
+  test &quot;Optimizer of |&gt; for Enum.map&quot; do
+    arg = [10000]
+    task1 = Task.async(fn -&gt; :timer.tc(&amp;fun1/1, arg) end)
+    task2 = Task.async(fn -&gt; :timer.tc(&amp;fun2/1, arg) end)
+
+    [{t, v}, {t1, v1}] = Task.await_many([task1, task2], 60_000)
+    IO.puts(&quot;speed up #{(t - t1) / t1 * 100}%.&quot;)
+    assert v == v1
+  end
+end
+</code></pre>
+<p>最初, 我是使用 LiveBoook 来探索 Elixir 的.
+在 LiveBook 中, 运行这个测试的后, 其中有一次, 代码的输出是这样的:</p>
+<blockquote>
+<p>speed up -1.5641347109939043%.</p>
+</blockquote>
+<p>这就尴尬了😒. 优化后的代码不是提速了, 反而变慢了 1.5 个百分点. 可是为什么会这样啊?</p>
+<p>这是因为 LiveBook 代码 Cell 本质上是解释执行的, 就像不能以代码在 IEx
+中的运行时间来衡量代码的效率一样, 我们也不能用 LiveBook 的 Cell 
+中代码的执行时间来衡量代码的效率.</p>
+<p>这个优化的实现, 其实并不是那么的复杂, 为什么 Elixir 编译器不这样做呢?
+这里有两个原因. 第一原因, 就是 Elixir 标准库中有 <code>Stream</code> 模块,
+文档中, 明确提到 <code>Stream.map</code> 会组合函数的. 
+也就是说, Elixir 是以 <code>Stream.map</code> 来完成函数组合的工作的.</p>
+<p>对于上面的组合代码, 使用 <code>Stream</code> 替换了 <code>Enum</code>, 就获得了相同的结果.</p>
+<pre><code class="language-elixir">1..5
+|&gt; Stream.map(add_one)
+|&gt; Stream.map(sub_one)
+|&gt; Enum.to_list()
+|&gt; IO.inspect(label: &quot;result of map chain&quot;)
+</code></pre>
+<p>所以, 当我看到测试在 LiveBook 效率没有提升, 甚至还下降的时候,
+我一度怀疑, 自己是不是解决了一个错误的问题?</p>
+<p>答案是: 不是的. 这个工作依旧是有意义的.</p>
+<p>就像上面展示的那样, 理论上绝对不有应该效率下降的优化后的代码, 测试的时候, 
+有时居然会下降 1.5%. 那么 Stream 版本呢? 会比我们的的代码效率更高吗?
+总是优与多个 <code>Enum.map</code> 串联吗?</p>
+<pre><code class="language-elixir">defmodule BenchmarkStreamTest do
+  use ExUnit.Case, async: true
+  @range 1..1000
+
+  def fun1(up \\ 10) do
+    for _ &lt;- 1..up do
+      @range
+      |&gt; Enum.map(&amp;(&amp;1 + 1))
+      |&gt; Enum.map(&amp;(&amp;1 - 1))
+    end
+  end
+
+  def fun2(up \\ 10) do
+    for _ &lt;- 1..up do
+      @range
+      |&gt; Stream.map(&amp;(&amp;1 + 1))
+      |&gt; Stream.map(&amp;(&amp;1 - 1))
+      |&gt; Enum.to_list()
+    end
+  end
+
+  test &quot;Enum.map vs Stream.map&quot; do
+    arg = [10000]
+    task1 = Task.async(fn -&gt; :timer.tc(&amp;fun1/1, arg) end)
+    task2 = Task.async(fn -&gt; :timer.tc(&amp;fun2/1, arg) end)
+
+    [{t, v}, {t1, v1}] = Task.await_many([task1, task2], 60_000)
+    IO.puts(&quot;speed up #{(t - t1) / t * 100}%.&quot;)
+    assert v == v1
+  end
+end
+</code></pre>
+<p>这次在 LiveBook 中运行的结果更加糟糕, 和 <code>Enum.map</code> 相比,
+<code>Stream.map</code> 版本的代码效率下降了 100% 还多.</p>
+<p>1%~2% 的效率差异我们还能解释为代码执行过程中偶然因素带来的,
+但 <code>Stream.map</code> 和 <code>Enum.map</code> 的巨大差异绝对不能归结为偶然.
+<code>Stream.map</code> 虽然完成了的函数的组合, 但是却并没有提升效率.</p>
+<p>Elixir 的 <code>Enum.map</code> 不组合函数的第二个原因是, Elixir 不是一个纯的函数编程语言.
+传递给 <code>Enum.map</code> 的函数不保证没有副作用的. 而理论上来说,
+只有当传递给 <code>Enum.map</code> 的函数是纯函数的时候, 才可以组合函数.
+但是要在编译时判断一个函数中是否有副作用, 这基本上做不到,
+所以 Elixir 标准库中的管道操作符 <code>|&gt;</code> 并不对 <code>Enum.map</code> 做函数的组合.</p>
+<p>我们的优化器, 忽略了函数中的副作用而强行对函数做了组合.
+把优化器做测试的代码, 保存到文件中, 使用 <code>mix test</code> 命令来重新测试, 
+这次发现, 使用优化器的代码, 效率有了 30%~40% 的效率提升.</p>
+<p>手动组合功能一样的函数, 其效率和使用这里定义的优化器的一样.
+在不增加工作量的情况下, 效率提升 30%~40%, 从这个角度来看, 这个工作还是算有意义吧?</p>
+
+                </main>
+
+                <nav class="nav-wrapper" aria-label="Page navigation">
+                    <!-- Mobile navigation buttons -->
+                    <a rel="prev" href="ch06.async_programe.html" class="mobile-nav-chapters previous"
+                        title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="ch08.error_handle.html" class="mobile-nav-chapters next"
+                        title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                    <div style="clear: both"></div>
+                </nav>
+            </div>
+        </div>
+
+        <nav class="nav-wide-wrapper" aria-label="Page navigation">
+            <a rel="prev" href="ch06.async_programe.html" class="nav-chapters previous" title="Previous chapter"
+                aria-label="Previous chapter" aria-keyshortcuts="Left">
+                <i class="fa fa-angle-left"></i>
+            </a>
+            <a rel="next" href="ch08.error_handle.html" class="nav-chapters next" title="Next chapter"
+                aria-label="Next chapter" aria-keyshortcuts="Right">
+                <i class="fa fa-angle-right"></i>
+            </a>
+        </nav>
+
+    </div>
+
+    <script type="text/javascript">
+        window.playground_copyable = true;
+    </script>
+    <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+    <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+    <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+    <!-- Custom JS scripts -->
+</body>
+
+</html>

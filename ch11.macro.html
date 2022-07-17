@@ -1,0 +1,471 @@
+<!DOCTYPE HTML>
+<html lang="zh-cn" class="sidebar-visible no-js light">
+
+<head>
+    <!-- Book generated using mdBook -->
+    <meta charset="UTF-8">
+    <title>如何理解宏 - 角落里的长生不老药</title>
+    <!-- Custom HTML head -->
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#ffffff" />
+
+    <link rel="icon" href="favicon.svg">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/general.css">
+    <link rel="stylesheet" href="css/chrome.css">
+    <link rel="stylesheet" href="css/print.css" media="print">
+    <!-- Fonts -->
+    <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+    <link rel="stylesheet" href="fonts/fonts.css">
+    <!-- Highlight.js Stylesheets -->
+    <link rel="stylesheet" href="highlight.css">
+    <link rel="stylesheet" href="tomorrow-night.css">
+    <link rel="stylesheet" href="ayu-highlight.css">
+
+    <!-- Custom theme stylesheets -->
+    <!-- MathJax -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']]
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+    </script>
+</head>
+
+<body>
+    <!-- Provide site root to javascript -->
+    <script type="text/javascript">
+        var path_to_root = "";
+        var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+    </script>
+
+    <!-- Work around some values being stored in localStorage wrapped in quotes -->
+    <script type="text/javascript">
+        try {
+            var theme = localStorage.getItem('mdbook-theme');
+            var sidebar = localStorage.getItem('mdbook-sidebar');
+
+            if (theme.startsWith('"') && theme.endsWith('"')) {
+                localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+            }
+
+            if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+            }
+        } catch (e) { }
+    </script>
+
+    <!-- Set the theme before any content is loaded, prevents flash -->
+    <script type="text/javascript">
+        var theme;
+        try { theme = localStorage.getItem('mdbook-theme'); } catch (e) { }
+        if (theme === null || theme === undefined) { theme = default_theme; }
+        var html = document.querySelector('html');
+        html.classList.remove('no-js')
+        html.classList.remove('light')
+        html.classList.add(theme);
+        html.classList.add('js');
+    </script>
+
+    <!-- Hide / unhide sidebar before it is displayed -->
+    <script type="text/javascript">
+        var html = document.querySelector('html');
+        var sidebar = 'hidden';
+        if (document.body.clientWidth >= 1080) {
+            try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch (e) { }
+            sidebar = sidebar || 'visible';
+        }
+        html.classList.remove('sidebar-visible');
+        html.classList.add("sidebar-" + sidebar);
+    </script>
+
+    <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+        <div class="sidebar-scrollbox">
+            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html" class="active"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">12.</strong> 附录 冷知识</a></li></ol>
+        </div>
+        <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+    </nav>
+
+    <div id="page-wrapper" class="page-wrapper">
+
+        <div class="page">
+            <div id="menu-bar-hover-placeholder"></div>
+            <div id="menu-bar" class="menu-bar sticky bordered">
+                <div class="left-buttons">
+                    <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents"
+                        aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                        <i class="fa fa-bars"></i>
+                    </button>
+                    <button id="theme-toggle" class="icon-button" type="button" title="Change theme"
+                        aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                        <i class="fa fa-paint-brush"></i>
+                    </button>
+                    <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                        <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                        <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button>
+                        </li>
+                    </ul>
+                    <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)"
+                        aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S"
+                        aria-controls="searchbar">
+                        <i class="fa fa-search"></i>
+                    </button>
+                </div>
+
+                <h1 class="menu-title">角落里的长生不老药</h1>
+
+                <div class="right-buttons">
+                    <a href="print.html" title="Print this book" aria-label="Print this book">
+                        <i id="print-button" class="fa fa-print"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div id="search-wrapper" class="hidden">
+                <form id="searchbar-outer" class="searchbar-outer">
+                    <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..."
+                        aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                </form>
+                <div id="searchresults-outer" class="searchresults-outer hidden">
+                    <div id="searchresults-header" class="searchresults-header"></div>
+                    <ul id="searchresults">
+                    </ul>
+                </div>
+            </div>
+            <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+            <script type="text/javascript">
+                document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                Array.from(document.querySelectorAll('#sidebar a')).forEach(function (link) {
+                    link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                });
+            </script>
+
+            <div id="content" class="content">
+                <main>
+                    <h1 id="第十一章-如何理解宏"><a class="header" href="#第十一章-如何理解宏">第十一章 如何理解宏</a></h1>
+<h2 id="宏与语言分类"><a class="header" href="#宏与语言分类">宏与语言分类</a></h2>
+<p>宏是什么? 这似乎是一个非常容易掌握的概念. 我的理解是这样的:
+宏是写给编译器的指令. 这个定义非常宽泛, 从 C 这样的最简单的文本替换宏,
+到 Lisp 这样的对抽象语法树做处理的宏, 都可以涵盖.</p>
+<p>这样的理解不能说错误, 但是取没有抓住宏的本质.
+我发现, 这就是为什么, 我现在学习 Elixir 的时候,
+时常遇到困惑的一个根本原因.</p>
+<p>所以如此, 和我的知识储备有关系.
+我学习和熟练掌握的编程语言中, 宏在其中要么基本上没有地位(Python, Javascript),
+要么只有非常非常小的作用(C, C++). 所以对宏的理解,
+才会一直停留在概念的阶段.</p>
+<p>按照我们的定义, 宏只能是编译型语言中才会出现的概念.
+因为解释性的语言, 没有编译器的存在.
+当然了, 我知道也理解, 现在大部分的解释器,
+实际上也是要做编译器要做的工作的. 所以理论上, 也应该有宏的.
+但是对于解释性的语言来说, 要区分宏和普通的代码是困难的.
+因为代码的执行和宏的执行, 概念上有先后的两个动作,
+对于解释性的语言, 从外部观察时, 这两个动作是难以区分的.
+但是对于编译型的语言, 因为编译代码和运行程序可以做到时间上间断,
+所以可以清楚区分它们.</p>
+<p>例如, 同样的关于外部代码的导入的语法,
+C/C++ 中以 <code>#include</code> 的形式出现, 通过预处理,
+我们可以清楚的体会到宏的存在.</p>
+<p>反观 Javascript 中, 以 <code>import</code> 语句的形式出现的相同功能,
+不难想象, Javascript 解释器与 C 编译器做了大量的相同的工作.
+但是 Javascript 解释器为 <code>import</code> 语句做的工作, 从系统外部难以观察出来,
+如果不考虑程序的执行的副作用的话.</p>
+<p>不那么严格的解释, 可以认为解释性语言, 解释器对源码是解释执行的.
+而编译型的语言, 编译器是要编译源码的. 通常情况下,
+<strong>编译</strong> 我理解就是做翻译, 把源码中的文本翻译成中央处理器(CPU)
+或者虚拟机(VM) 可以理解的内容.</p>
+<p>这样的理解对于普通的代码是没有问题的, 但是当考虑宏的时候,
+编译器对宏做的事情就不能这样理解了.
+普通的代码, 对编译器来说, 是要处理的数据; 但宏不是编译器要处理的数据,
+而是其待执行的指令. 编译器对宏, 正像解释器对源码做的一样: 解释并执行它们.</p>
+<p>拿一个社会生活的场景来对比一下, 也许就更清楚了.</p>
+<p>一个对翻译品质有担当的翻译者, 在翻译的时候往往会和作者沟通;
+如果两人关系更密切的话, 译者甚至拿到的翻译底本, 直接就有原作者的批注.
+这些批注是写给译者的, 用来提醒译者原文的正确意图的.
+这些内容(批注或者作者的答复), 虽然不是原书的内容,
+但是它们对译文来说, 是必要的, 因为它们确确实实的影响译文的呈现,
+进而影响读者对原文的理解. 在这里, 译者就是编译器; 原始的书稿内容是常规的代码;
+作者的批注和答复, 就是宏; 译文就是编译后的目标码; 读者就是 CPU 或 VM.</p>
+<p>在 C/C++ 以及 Erlang 这些语言中, 宏能完成的工作是非常少的,
+大部分的工作还是要编译器完成的.
+这正像是, 虽然作者可以答复译者的咨询, 或在书稿中做注释, 但主要的工作还是要由译者完成.
+但是这样的意象在处理 Elixir 这样的宏的时候, 就不适用了.</p>
+<p>例如, 对于 BEAM 虚拟机的最基本的编译单元--- ---<strong>模块</strong>来说.
+在 Elixir 中, 我们必须使用宏 <code>defmodule/2</code>.
+它和 Erlang 中的 <code>-module(MODULE_NAME).</code> 做的工作完全不是一个数量级的.
+<code>-module(MODULE_NAME).</code> 只是标记了模块的名字, 并没有涉及到模块的正文.
+<code>defmodule/2</code> 不一样, 它不但包含了模块的名字, 而且包含了模块正文.
+所以脚注的意象在这里就不合适了. Elixir 宏的合适意象应该汉语屋的故事<sup class="footnote-reference"><a href="#chinese-room">1</a></sup>.
+译者对原文的翻译是智慧型的劳动; 汉语屋中的人做的却是机械的工作.</p>
+<p>从语言学的角度来看, C/C++, Erlang 的宏不能构成一个图灵完备的语言,
+或者至少设计的初衷不是把它们当作一个图灵完备的语言来设计的<sup class="footnote-reference"><a href="#c-macro">2</a></sup>.
+但是 Elixir 中的宏是图灵完备的, 从这个角度来看
+Elixir 的编译器实际上就是宏的解释器.
+写常规的 Elixir 代码, 大量的是对内建宏的调用, 这就像是我们在其他语言中调用标准库一样;
+而定义自己的宏, 也就是说元编程, 才像是用编程语言来完成编程任务,
+只是元编程的任务是对编译器的功能进行扩增或修改.</p>
+<div class="footnote-definition" id="chinese-room"><sup class="footnote-definition-label">1</sup>
+<p>百度百科词条<a href="https://baike.baidu.com/item/%E4%B8%AD%E6%96%87%E6%88%BF%E9%97%B4/3581768">≪中文房间≫</a>
+<sup class="footnote-reference"><a href="#c-macro">2</a></sup>: 有关 C 语言宏的图灵完备性的讨论见 https://stackoverflow.com/questions/3136686/is-the-c99-preprocessor-turing-complete</p>
+</div>
+<h2 id="宏与编译器"><a class="header" href="#宏与编译器">宏与编译器</a></h2>
+<p>Elixir 的编译器是 <code>elixirc</code>. 我们现在来探索一下编译器.</p>
+<pre><code class="language-elixir">IO.puts(&quot;Hello World!&quot;)
+</code></pre>
+<p>把上面的代码保存到名为 hello-word.ex 文件中, 然后我们在命令行中输入
+<code>elixirc hello-world.ex</code>, 然后我们就看到了 &quot;Hello, World!&quot;, 但是在当前的目录下面,
+并没有产生 <code>hello_world.beam</code> 文件.</p>
+<p>上面的代码片段, 以及它的运行的结果, 告诉我们, 在模块外的作用域中,
+代码直接在编译时运行(输出 &quot;Hello World&quot;),
+而不是把编译的结果保存到字节码文件中(所以没有 <code>.beam</code> 文件).</p>
+<p>模块的外的代码, 编译器直接解释执行; 模块内的代码, 编译器是如何处理的呢?</p>
+<pre><code class="language-elixir">IO.puts(&quot;Say hello outside Module!&quot;)
+
+defmodule MyModule do
+  IO.puts(&quot;Say Hello in MyModule But not in function&quot;)
+
+  def hello do
+    IO.puts(&quot;Say Hello in MyModule.hello()&quot;)
+  end
+end
+</code></pre>
+<p>把上面的代码保存到 <code>my_module.ex</code> 文件中, 然后使用 <code>elixirc my_module.ex</code>
+命令来编译我们的文件. 在编译的过程中, 我们可以看到第 1 行和第 4 行的输出.
+在当前目录下, 还看到了编译器产生的 <code>Elixir.MyMoule.beam</code> 文件.</p>
+<p>这说明, <code>defmodule/2</code> 的第二个参数, <code>do</code>...<code>end</code> 块,
+在 <code>defmodule/2</code> 被调用的时候, 得到了执行.
+其中的 IO 输出语句(第 4 行) 在编译时执行了,
+所以我们在编译器的标准输出中, 看到了它的输出内容.
+最后产生的 <code>Elixir.MyModule.beam</code> 文件,
+则说明编译器还把其他的内容编译成了字节码.</p>
+<p>现在我们启动 <code>iex</code>. 输入 <code>MyModule.hello()</code>,
+按下回车后, 第 7 行的输出语句就显示出来了.
+这说明, 我们的 <code>hello/0</code> 函数的确被编译到了字节码文件中.</p>
+<p>在模块中, 不但可以调用 <code>def*</code> 这些宏, 还可以执行其他语句, 这还是让我十分的惊讶的.
+因为 C++ 和 Java 的背景知识, 不由自主的总是把 Elixir 的模块和类的概念联系到一起.
+但是在类的定义的作用域中, 基本上只可以使用赋值语句, 而且 <code>=</code> 的右值还必须是编译时常量,
+其他控制结构, 或者函数调用都是不允许的. C 语言的全局作用域中, 基本上也是这样的要求.
+即使在亲缘关系最近的 Erlang 中, 基本上也是一样.
+控制结构, 函数调用, 都只能在函数的定义中使用.</p>
+<p>如果一定要在其他语言中寻找对应物的话, 那么可能就是 Java 的静态块了.
+Elixir 在 <code>defmodule/2</code> 上下文中, <code>def*</code> 外的其他语句的执行情况,
+和 Java 中, 对静态块处理还是有不同的: Java 中的静态块是编译到字节码中的,
+且每次字节码被加载的时候, 都要被执行的.</p>
+<p>而 <em>Elixir <code>defmodule/2</code> 上下文中, <code>def*</code> 之外的代码, 都是在编译时被解释执行了,
+并<strong>没有</strong>被保存到字节码中</em>.</p>
+<p>这一点我们可以通过启动 <code>iex</code> 的时候, 并没有看到代码片段中第 4 行的输出而得到确认.
+或者, 我们可以可以使用 Elang 提供的库函数 <code>:beam.chunks/2</code>,
+来查看编译后的代码的抽象码(字节码对应的汇编语言), 以此来更直观的证实我们的结论.</p>
+<p>在 iex 中输入 <code>:beam_lib.chunks('Elixir.MyModule',[:abstract_code])</code>,
+我们就看到了 <code>Elixir.MyModule.beam</code> 中保存的字节码对应的抽象码.</p>
+<p>观察输出的抽象码, 不难发现, 其中的确有我们这里定义的 <code>hello/0</code> 函数;
+而且真的找不到第 1 行和第 3 行相关的代码.
+这全面的证实了我们上面对编译器的分析.</p>
+<h2 id="宏与函数"><a class="header" href="#宏与函数">宏与函数</a></h2>
+<p>开始学习 Elixir 的时候, 最不习惯的是控制结构中的逗号和冒号.
+比如 <code>defimpl ProtocolName, for: Integer do...</code>,
+协议名后面的 <code>,</code> 为什么是必须的呢? 还有 Elixir 中, <code>for</code> 明明是一个保留字,
+为什么这里还必须用关键字的语法糖呢?</p>
+<p>所以会有这些疑问在于, 初学 Elixir, 把 Elixir 中, 用作控制结构的宏,
+当作是其他语言的保留字了. 只有认识到宏不是保留字, 而是特殊的函数,
+才能更好的理解上面的问题.</p>
+<p>宏是被编译到字节码中的, 我们还知道,
+Erlang 中只有模块属性和函数可以被编译到字节码中.
+所以 Elixir 宏一定是特殊函数. 不然它不能被编码到字节码中.</p>
+<p>认识到宏是特殊函数, 那么对宏的调用自然必须遵守对一般函数调用的规则.
+这其中最重要的规则就是: 调用函数时, 当参数个数多于一个的时候,
+参数之间是用 <code>,</code> 做分隔符的.
+这实际上就解释了为什么宏调用的时候, 当宏的参数个数多余一个的时候,
+会有 <code>,</code> 了.</p>
+<p>在我最初的理解中, 我认为关键字列表语法糖 <code>do:</code> 是对保留字 <code>do</code> 的模仿.
+但是认识到宏调用本质上也是函数调用, 那么这个理解就应该反转过来了,
+关键字列表 <code>[do: ...]</code> 是合法的数据, 但是 <code>do</code> 保留字不是数据,
+函数 (以及宏) 接受的应该是合法的数据,
+所以 <code>do</code> 实际上的工作就是要创建 <code>[do: ...]</code>
+这样的关键字列表.</p>
+<p>如果宏也是函数, 为什么它那么特殊, 必须导入(<code>import</code>) 或请求 (<code>require</code>) 后,
+才能调用宏呢? 或者换个角度来说: 宏是如何特殊于普通函数的?
+请求(<code>require</code>) 又是如何帮助我们突破这种特殊性的?</p>
+<p>让我们用实验来探索.</p>
+<pre><code class="language-elixir">defmodule Explore.MacroDef do
+  defmacro assign_one(a) do
+    IO.puts(&quot;assign_one running, a: #{inspect(a)}&quot;)
+
+    ast =
+      quote do
+        IO.puts(&quot;after the assign_one&quot;)
+        unquote(a) = 1
+      end
+
+    IO.puts(&quot;assign_one ending&quot;)
+    ast
+  end
+
+  def bar, do: nil
+end
+
+Explore.MacroDef.module_info(:functions)
+</code></pre>
+<p>上面的代码中, 在模块中, 定义了 <code>assign_one/1</code> 宏 和 <code>bar/0</code> 函数.
+调用 <code>module_info(:funstions)</code> 可以看到模块的导出的所有函数.</p>
+<ol>
+<li><code>module_info/0-1</code> 是所有的 Elixir/Erlang 模块都有的函数.</li>
+<li><code>__info__/1</code> 是 Elixir 的 Module 行为提供的, 所有的 Elixir 模块都实现了这个行为.</li>
+<li><code>bar/0</code> 是模块中定义的公开方法</li>
+<li><code>Macro-assign_one/2</code> 看起来是和我们的宏定义中 <code>assign_one</code> 相关.</li>
+</ol>
+<p>这首先证实了, Elixir 宏是特殊的 Erlang 函数. 接下来,
+我们来看看 <code>require</code> 帮我们做了哪些工作.</p>
+<p>首先我们看看 require 之后, 代码的效果.
+然后我们设法不用 require , 达到同样的效果.
+如果我们能做到, 而且确切的知道, 做到同样的效果的确切步骤,
+那么大概 <code>require</code> 就是帮助我们做这些事情的.
+当我们对 <code>require</code> 的运行机制有了大约的了解后,
+也许可以帮助我们更轻松的阅读 Elixir 的源码, 从而真正的理解 <code>require</code>.</p>
+<pre><code class="language-elixir">IO.inspect(&quot;Beign&quot;)
+alias Explore.MacroDef, as: M
+b_reqs = __ENV__.requires
+
+try do
+  M.assign_one(nil)
+rescue
+  e -&gt; IO.inspect(e)
+end
+
+require(M) |&gt; IO.inspect(label: &quot;require return&quot;)
+M.assign_one(a)
+binding() |&gt; IO.inspect(label: &quot;binding&quot;)
+
+(__ENV__.requires -- b_reqs)
+|&gt; IO.inspect(label: &quot;The diff of __ENV__.requires&quot;)
+</code></pre>
+<p>上面的代码运行后, 控制台的输出结果不难预测.
+但是去掉第 12 的注释后, 控制台的输出是这样的:</p>
+<pre><code>assign_one running, a: {:a, [line: 12], nil}
+assign_one ending
+&quot;Beign&quot;
+%UndefinedFunctionError{
+  arity: 1,
+  function: :assign_one,
+  message: nil,
+  module: Export.MacroDef,
+  reason: nil
+}
+require return: Export.MacroDef
+after the assign_one
+binding: [a: 1, b_reqs: [Application, Kernel, Kernel.Typespec]]
+The diff of __ENV__.requires: [Export.MacroDef]
+</code></pre>
+<p>为什么宏调用的输出会先于第 1 行的输出呢?</p>
+<p>这时因为宏的调用是在 Elixir 的编译器中运行的,
+Elixir 编译器<strong>把普通的函数调用编译为字节码</strong>;
+而<strong>对宏调用, 则在编译时执行宏调用, 然后把宏调用返回的 ast 编译为字节码</strong>.
+编译结束后, 这些字节码, 交给 Erlang 运行时系统 (Erlang Runtime System, ERTS)
+来执行的这些字节码.</p>
+<p>因此, 输出中的 1, 2 行是 Elixir 编译器的输出结果,
+其他的则是 ERTS 执行字节码的结果.</p>
+<p>如果我们把上面代码中第 5 行中的 <code>nil</code> 改为其他的变量, 像第 12 行中那样,
+那么编译器会报错, 提示变量不存在.
+而调用 <code>require</code> 后, 第 12 行代码中, <code>a</code> 被转化为了 ast: <code>{:a, [line: 12], nil}</code>.
+这是 <code>require</code> 在编译时做的工作.</p>
+<p>观察输出, 可以知道 <code>require</code> 返回请求的模块名 (输出的 11 行),
+而且修改了运行时的环境(输出的倒数第二行). 这是 <code>require</code> 对运行时的影响.</p>
+<p>现在只剩下最后一点了. 我们定义的 <code>assign_one</code> 是一个一元的宏, 但是
+<code>MACRO-assing_one</code> 是一个二元的函数. 所以, <code>require</code> 除了帮助我们把 <code>a</code>
+转化为 ast 外, 还自动为我们提供了第一个参数.</p>
+<p>这个参数就是当前的执行环境, 也就是 <code>__ENV__</code> 的值. 下面, 让我们看看,
+不借助 <code>require</code>, 如何来调用宏.</p>
+<pre><code class="language-elixir">fun = fn -&gt;
+  ast = M.&quot;MACRO-assign_one&quot;(__ENV__, {:b, [], nil})
+  IO.puts(&quot;MARCO-assign_one have run.&quot;)
+  IO.puts(&quot;Now run the ast in ERTS.&quot;)
+
+  Code.eval_quoted(ast)
+  |&gt; elem(1)
+  |&gt; IO.inspect()
+end
+
+IO.puts(&quot;before call fun.()&quot;)
+IO.puts(&quot;=========================&quot;)
+fun.()
+</code></pre>
+<p>上面的代码的输出为:</p>
+<pre><code>before call fun.()
+=========================
+assign_one running, a: {:b, [], nil}
+assign_one ending
+MARCO-assign_one have run.
+Now run the ast in ERTS.
+after the assign_one
+[b: 1]
+</code></pre>
+<p>注意这里的输出顺序.
+可以看出, 这完全是 ERTS 对字节码执行的结果.</p>
+<p>在匿名函数 <code>fun</code> 的定义中:</p>
+<ol>
+<li>我们执行了 <code>MACRO-sign_one/2</code> 函数, 它返回了 <code>ast</code>, 这模拟的是 Elixir
+编译器对宏的调用.</li>
+<li>把 <code>ast</code> 交给 <code>Code.eval_quote</code> 执行.
+这是模拟 REST 对字节码的执行. REST 执行字节码后, 会影响 REST 的环境.
+<code>Code.eval_quote</code> 返回一个二元元组, <code>{value, binding}</code>,
+<code>value</code> 是 ast 代码运行的最终结果, <code>bingding</code> 表示代码运行后, 环境的状态.</li>
+</ol>
+<p>上面的步骤缺少了对 ast 的编译. <code>Code.compile_quote</code> 可以用来编译 ast,
+但是如果 ast 对应的代码不是一个模块, 那么 <code>Code.compile_quote</code> 就只是执行这些 ast,
+而不是把他们编译为字节码. 并且 <code>Code.compile_quote</code>
+还抛弃了执行 ast 对环境造成的影响.</p>
+<p>所以, 在 Erlang 的环境中, 没有办法使用 Elixir 宏提供的便利.</p>
+
+                </main>
+
+                <nav class="nav-wrapper" aria-label="Page navigation">
+                    <!-- Mobile navigation buttons -->
+                    <a rel="prev" href="ch10.protocol_and_behaviour.html" class="mobile-nav-chapters previous"
+                        title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="chx.cold_knowledge.html" class="mobile-nav-chapters next"
+                        title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                    <div style="clear: both"></div>
+                </nav>
+            </div>
+        </div>
+
+        <nav class="nav-wide-wrapper" aria-label="Page navigation">
+            <a rel="prev" href="ch10.protocol_and_behaviour.html" class="nav-chapters previous" title="Previous chapter"
+                aria-label="Previous chapter" aria-keyshortcuts="Left">
+                <i class="fa fa-angle-left"></i>
+            </a>
+            <a rel="next" href="chx.cold_knowledge.html" class="nav-chapters next" title="Next chapter"
+                aria-label="Next chapter" aria-keyshortcuts="Right">
+                <i class="fa fa-angle-right"></i>
+            </a>
+        </nav>
+
+    </div>
+
+    <script type="text/javascript">
+        window.playground_copyable = true;
+    </script>
+    <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+    <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+    <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+    <!-- Custom JS scripts -->
+</body>
+
+</html>
