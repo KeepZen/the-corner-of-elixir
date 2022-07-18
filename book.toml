@@ -5,5 +5,12 @@ multilingual = true
 src = "./"
 title = "角落里的长生不老药"
 
+[build]
+#build-dir = "../KeepZen.github.io/"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [output.html]
+additional-js = ["theme/mermaid.min.js", "theme/mermaid-init.js"]
 mathjax-support = true

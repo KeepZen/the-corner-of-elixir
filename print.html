@@ -87,7 +87,7 @@
 
     <nav id="sidebar" class="sidebar" aria-label="Table of contents">
         <div class="sidebar-scrollbox">
-            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">12.</strong> 附录 冷知识</a></li></ol>
+            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="ch12.process.html"><strong aria-hidden="true">12.</strong> 进程</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">13.</strong> 附录 冷知识</a></li></ol>
         </div>
         <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
     </nav>
@@ -2657,7 +2657,7 @@ end
 <li>把 <code>next</code> 发送过来的数据作为 <code>yeild a</code> 的返回值传递后其他语句</li>
 <li>继续执行其他语句, 直到遇到新的 <code>yeild</code> 语句</li>
 </ol>
-<pre><code class="language-mermaid">sequenceDiagram
+<pre class="mermaid">sequenceDiagram
     participant  主进程
     participant  产生子进程
     主进程-&gt;&gt; 产生子进程: 启动产生子进程 g = generater.(...)
@@ -2668,7 +2668,7 @@ end
     产生子进程--&gt;&gt;主进程:  ...
     主进程 --&gt;&gt; 主进程: 子进程还活着吗?
     主进程 -&gt;&gt; 主进程: 没有
-</code></pre>
+</pre>
 <p><code>defgen name do...end</code> 产生一个匿名函数, 这个匿名函数绑定给了变量 <code>name</code>.
 调用匿名函数 <code>name</code> 会启动产生子进程, 并返回一个透明结构.
 这个透明结构, 对应于 Javascript 的产生子迭代器,
@@ -5369,6 +5369,252 @@ after the assign_one
 而不是把他们编译为字节码. 并且 <code>Code.compile_quote</code>
 还抛弃了执行 ast 对环境造成的影响.</p>
 <p>所以, 在 Erlang 的环境中, 没有办法使用 Elixir 宏提供的便利.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="进程"><a class="header" href="#进程">进程</a></h1>
+<h2 id="otp-平台的进程"><a class="header" href="#otp-平台的进程">OTP 平台的进程</a></h2>
+<p>OTP 平台中, 进程与操作系统的进程不是一个东西, 它们有许多相同的地方,
+比如都是资源的调度单位, 但是 OTP 平台的进程是轻量级的, 比常规编程语言中的线程还轻量.
+OTP 平台的天然的并发性与服务的自愈等特性, 都是建立在进程上的.</p>
+<p>学习 Elixir, 基本语法之外, 更重要的就是对 OTP 平台的学习. 而要理解 OTP,
+我们需要首先对 OTP 平台的进程模型有基本的认知.</p>
+<p>在 OTP 平台, 进程是执行流和资源的分配单位. 每个进程都有自己的执行流, 
+自己独立的调用栈和堆内存. 一个进程就是一个函数的执行环境. 当这个函数执行结束的时候,
+进程的寿命也就结束了. 为了让进程可以持续的提供服务, 就必须使用递归调用,
+在进程函数完成工作, 结束之前调用自己.</p>
+<p>递归调用使得进程可以完成服务的工作, 但是这只是第一步,
+一个无限循环如果不能从外部接受数据, 并给出回应的话, 除了消耗计算机的电力,
+不见得有什么作用. OTP 平台提供了 <code>send(pid,message)</code> 函数向 <code>pid</code> 发送信息;
+<code>receive/1</code> 函数,  在进程内部接受请求数据.</p>
+<p>这样在循环中, 通过 <code>receive/1</code> 接受外部的请求, 处理后通过 <code>send(pid,message)</code>
+回应请求, 一个进程就可以向外部提供服务支持.</p>
+<p>现在有一个问题, 如果进程启动了, 但是并没有理会其他程序发送的消息,
+该如何处理这些消息呢? OTP 平台为每个进程提供了消息队列, 接收到消息后,
+首先就是放到消息队列中, 程序执行的过程中, 遇到了 <code>receive/1</code> 语句,
+就会对消息队列中的消息迭代 <code>receive/1</code> 方法, 如果消息匹配 <code>receive/1</code> 中模式,
+那么这个消息就被消费掉了, 如果消息不匹配, 那么这个消息依旧保留在队列中.</p>
+<p>当进程执行结束了, 如果进程中还有消息没有被处理,
+这些消息会随着进程的结束而一起被系统归为垃圾.</p>
+<p>启动一个进程的是核心模块的 <code>Kernel.spawn(fun)</code> 或 <code>Kernel.spawn(module,fun,args)</code>.</p>
+<p>进程每次都只处理邮箱中的一个消息.</p>
+<pre><code class="language-elixir">server_receive = fn this -&gt;
+  {:messages, messages} = Process.info(self(), :messages)
+
+  IO.inspect(messages, label: &quot;server message box have fellow messages&quot;)
+
+  receive do
+    {:add, a, b, client} -&gt; send(client, {:add, a + b})
+    {:sub, a, b, client} -&gt; send(client, {:sub, a - b})
+    {:times, a, b, client} -&gt; send(client, {:times, a * b})
+    {:divs, a, b, client} -&gt; send(client, {:div, a / b})
+  end
+
+  this.(this)
+end
+
+server_fun = fn -&gt;
+  Process.sleep(100)
+  server_receive.(server_receive)
+end
+
+server = spawn(server_fun)
+client = self()
+send(server, {:hello, client})
+send(server, {:add, 0, 1, client})
+send(server, {:sub, 3, 1, client})
+send(server, {:times, 1, 3, client})
+send(server, {:divs, 8, 2, client})
+</code></pre>
+<p>在上面的代码中, <code>server_fun</code> 在另外一个进程中运行, 进程一启动, 立刻休眠了 100 ms,
+这样可以显示出, 消息队列的变化. 控制台的输出中, 我们可以看到消息队列, 从 4 个慢慢减少为零个.
+匹配消息按照入队的顺序被依次的处理, 不匹配 <code>receive</code> 模式的消息则留在队列中.</p>
+<!-- livebook:{"break_markdown":true} -->
+<pre><code>server message box have fellow messages: [
+  {:hello, #PID&lt;0.417.0&gt;},
+  {:add, 0, 1, #PID&lt;0.417.0&gt;},
+  {:sub, 3, 1, #PID&lt;0.417.0&gt;},
+  {:times, 1, 3, #PID&lt;0.417.0&gt;},
+  {:divs, 8, 2, #PID&lt;0.417.0&gt;}
+]
+server message box have fellow messages: [
+  {:hello, #PID&lt;0.417.0&gt;},
+  {:sub, 3, 1, #PID&lt;0.417.0&gt;},
+  {:times, 1, 3, #PID&lt;0.417.0&gt;},
+  {:divs, 8, 2, #PID&lt;0.417.0&gt;}
+]
+server message box have fellow messages: [
+  {:hello, #PID&lt;0.417.0&gt;},
+  {:times, 1, 3, #PID&lt;0.417.0&gt;},
+  {:divs, 8, 2, #PID&lt;0.417.0&gt;}
+]
+server message box have fellow messages: [{:hello, #PID&lt;0.417.0&gt;}, {:divs, 8, 2, #PID&lt;0.417.0&gt;}]
+server message box have fellow messages: [hello: #PID&lt;0.417.0&gt;]
+
+</code></pre>
+<!-- livebook:{"break_markdown":true} -->
+<p>接下来, 让通过 <code>IEx.Helpers.flush/0</code> 来查看当前进程接收到的消息.
+<code>server_receive</code> 函数只能回应四则运算对应的请求, 所以, <code>{:hello, pid}</code> 一直都留在邮箱中.
+通过 <code>Process.alive?(pid)</code>, 可以检查一个进程是否还活着.</p>
+<pre><code class="language-elixir">IEx.Helpers.flush()
+
+Process.alive?(server)
+|&gt; IO.inspect(label: &quot;Is server live? Answere&quot;)
+</code></pre>
+<pre><code>{:add, 1}
+{:sub, 2}
+{:times, 3}
+{:div, 4.0}
+Is server live? Answere: true
+</code></pre>
+<p>上面的代码输出显示服务进程依旧活着, 那么我们可以继续的向其发送请求.
+现在向服务进程发送两个消息.</p>
+<pre><code class="language-elixir">send(server, {:add, 3, 4, client})
+send(server, {:sub, 5, 4, client})
+</code></pre>
+<p>控制台输出为:</p>
+<pre><code>server message box have fellow messages: [{:hello, #PID&lt;0.417.0&gt;}, {:sub, 5, 4, #PID&lt;0.417.0&gt;}]
+server message box have fellow messages: [hello: #PID&lt;0.417.0&gt;]
+</code></pre>
+<p>进程运行遇到 <code>receive</code> 语句后, 如果没有消息可以匹配 <code>receive</code> 语句中的模式,
+那么进程就会暂停. 等向服务器进程发送 <code>{:add,3,4, client}</code> 和 <code>{:sub,5,4,client}</code> 之后,
+服务进程立刻匹配了第一个消息; 处理结束后, 进入下一次循环, 输出了第一行.
+第二个循环处理 <code>:sub</code> 消息后, 开始下一个循环, 输出了第二行.</p>
+<pre><code class="language-elixir">IEx.Helpers.flush()
+</code></pre>
+<p>现在最后一个问题, 如何停止这个递归对用的服务进程呢?
+这里又集中方法, 最常规的就是明确的用函数命令进程退出: <code>Process.exit(pid,reason)</code>.
+如果服务程序运行的过程出错了, 自然也是要退出的.</p>
+<p>在我们上面的代码中, 执行的四则运算, 四则运算是可能引发错误的, 我们通过发送错误的消息,
+就可以可服务进程异常退出. 例如像下面这样:</p>
+<pre><code class="language-elixir">send(server, {:add, :atom, :atom2, client})
+
+Process.alive?(server)
+|&gt; IO.inspect(label: &quot;Is server alive? The answer is&quot;)
+</code></pre>
+<p>上面的代码说明, 直接把发送消息的接口暴露给客户端, 是非常危险的.
+永远不要信任客户的输入. Elixir 中通常的做法是, 客户端的接口, 通过代理函数来完成.
+在代理函数中完成对客户输入的检查.</p>
+<!-- livebook:{"break_markdown":true} -->
+<p>上面的例子, 我们自己定义了一个服务. 这里又很多可以利用的代码, 比如完成递归循环的代码.
+我们上面的代码中, 除了我们已经指出的, 把与服务器交互的接口直接暴露给客户端,
+容易引发服务进程的奔溃外, 还有一个问题, 服务进程直到死亡, 也没有把 <code>{:hello, pid}</code>
+的消息消费掉. 如果我们的进程没有退出, 这个消息将会一直存在于内存空间中, 而且不会被垃圾收集.
+如果程序中存在大量这样的垃圾, 最后系统会因为内存不足而不能启动新的进程, 从而影响系统.</p>
+<p>对于服务程序来说, 一方面, 都需要写 <code>server_fun</code> 这样重复性的框架代码, 另一方面,
+每个人写的框架代码多少都会有些不同, 对合作的大型项目来说, 阅读这样的代码需要心智负担较大.
+更加糟糕的是, 如果框架代码没有经过仔细的测试, 像我们上面的例子中那样,
+还可能会有这样那样现在的 bug 存在.</p>
+<p>OTP 平台在进程的基础上, 做了进一步的抽象, 使我们可以更统一, 更规范的写服务相关的代码.
+Elixir 在 OTP 的基础上, 通过 <code>GenServer</code> 模块, 提供了通用的服务模块的 API.</p>
+<p>接下来, 我们学习 <code>GenServer</code> 的用法.</p>
+<h2 id="genserver-api"><a class="header" href="#genserver-api">GenServer API</a></h2>
+<p><code>GenServer</code> 是一个行为. 它定义了, 8 个回调函数, 9 个和服务交互的辅助函数.</p>
+<h3 id="回调回调函数"><a class="header" href="#回调回调函数">回调回调函数</a></h3>
+<p>回调函数, 可以分成以下机组:</p>
+<ul>
+<li>
+<p>进程初始化:</p>
+<ol>
+<li><code>init(args)</code></li>
+</ol>
+</li>
+<li>
+<p>请求处理函数:</p>
+<ol>
+<li><code>handle_info(request,state)</code></li>
+<li><code>handle_call(request,from,state)</code></li>
+<li><code>handle_cast(request,state)</code></li>
+<li><code>handle_continue(continue,state)</code></li>
+</ol>
+</li>
+<li>
+<p>终结时, 资源清理函数:</p>
+<ol>
+<li><code>terminate(reason,state)</code></li>
+</ol>
+</li>
+<li>
+<p>代码热更新和状态展示定制函数:</p>
+<ol>
+<li><code>code_change(old_env,state,extra)</code></li>
+<li><code>format_status(reason, pdict_and_state)</code></li>
+</ol>
+</li>
+</ul>
+<h3 id="辅助函数"><a class="header" href="#辅助函数">辅助函数</a></h3>
+<ul>
+<li>
+<p>发送请求的辅助函数:</p>
+<ol>
+<li><code>GenServer.call</code></li>
+<li><code>GenServer.mutil_call</code></li>
+<li><code>GenServer.cast</code></li>
+<li><code>GenServer.abcast</code></li>
+</ol>
+<p>这四个是对 <code>Kernel.send/2-3</code> 的抽象, 以适应通用像服务发送请求的不同应用.</p>
+</li>
+<li>
+<p>启动和结束服务器的函数:</p>
+<ol>
+<li><code>GenServer.start</code></li>
+<li><code>GenServer.stat_link</code></li>
+<li><code>GenServer.stop</code></li>
+</ol>
+<p><code>GenServer.start</code> 是对 <code>spawn</code> 的进一步的封装; <code>GenServer.start_link</code>
+是对 <code>spawn_link</code> 的封装; 而 <code>GenServer.stop</code> 是对 <code>Process.exit</code> 的抽象.</p>
+</li>
+<li>
+<p>发送回应的辅助函数:</p>
+<ol>
+<li><code>GenServer.reply</code></li>
+</ol>
+<p><code>GenServer.reply</code> 是在 <code>send</code> 的基础上, 为发送回应消息而作的封装.</p>
+</li>
+<li>
+<p>查询服务的函数:</p>
+<ol>
+<li><code>GenServer.where_is</code></li>
+</ol>
+<p><code>GenServer.where_is/1</code> 对应的则是 <code>Process.where_is/1</code>.</p>
+</li>
+</ul>
+<h3 id="服务进程与状态机"><a class="header" href="#服务进程与状态机">服务进程与状态机</a></h3>
+<p>每个 Elixir 服务进程, 可以看作是一个状态机. 状态机是由外部的输入来改变状态的抽象机器.
+在计算机理论中有重要的应用, 把一个 Elixir 进程看作一个状态机, 可以简化思维的负担.
+把 <code>GenServer</code> 看作状态机, 用图示来来表示如下:</p>
+<!-- livebook:{"break_markdown":true} -->
+<!-- Learn more at https://mermaid-js.github.io/mermaid -->
+<pre class="mermaid">stateDiagram-v2
+[*] --&gt; start
+start --&gt; init
+note right of init
+   `init` return `{:ok, state, {:continue, continue}}`
+end note
+init --&gt; stop
+start --&gt; stop
+init --&gt; Loop
+Loop --&gt; Loop
+Loop --&gt; stop
+stop --&gt; [*]
+</pre>
+<p>Loop 节点的定义为:</p>
+<pre class="mermaid">stateDiagram-v2
+[*]: Loop
+[*] --&gt; info: send/send_after
+[*] --&gt; cast: GenServer.cast/abcast
+[*] --&gt; call: GenServer.call/muti_call
+[*] --&gt; continue: see note on right of init
+
+call --&gt; [*]
+call --&gt; continue: message
+info --&gt; [*]
+info --&gt; continue: message
+continue --&gt; continue: message
+continue --&gt; [*]
+cast --&gt; [*]
+cast --&gt; continue: message
+note right of continue
+   message: `{:noreply,state,{:continue,continue}}`.
+end note
+</pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第十二章-冷知识"><a class="header" href="#第十二章-冷知识">第十二章 冷知识</a></h1>
 <h2 id="函数参数个数"><a class="header" href="#函数参数个数">函数参数个数</a></h2>
 <p>在阅读 Elixir 文档的
@@ -5845,6 +6091,8 @@ IO.inspect(p2, label: &quot;P2&quot;)
     <script src="book.js" type="text/javascript" charset="utf-8"></script>
 
     <!-- Custom JS scripts -->
+    <script type="text/javascript" src="theme/mermaid.min.js"></script>
+    <script type="text/javascript" src="theme/mermaid-init.js"></script>
     <script type="text/javascript">
         window.addEventListener('load', function () {
             MathJax.Hub.Register.StartupHook('End', function () {

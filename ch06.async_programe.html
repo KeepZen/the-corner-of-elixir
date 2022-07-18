@@ -86,7 +86,7 @@
 
     <nav id="sidebar" class="sidebar" aria-label="Table of contents">
         <div class="sidebar-scrollbox">
-            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html" class="active"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">12.</strong> 附录 冷知识</a></li></ol>
+            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html" class="active"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="ch12.process.html"><strong aria-hidden="true">12.</strong> 进程</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">13.</strong> 附录 冷知识</a></li></ol>
         </div>
         <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
     </nav>
@@ -487,7 +487,7 @@ end
 <li>把 <code>next</code> 发送过来的数据作为 <code>yeild a</code> 的返回值传递后其他语句</li>
 <li>继续执行其他语句, 直到遇到新的 <code>yeild</code> 语句</li>
 </ol>
-<pre><code class="language-mermaid">sequenceDiagram
+<pre class="mermaid">sequenceDiagram
     participant  主进程
     participant  产生子进程
     主进程-&gt;&gt; 产生子进程: 启动产生子进程 g = generater.(...)
@@ -498,7 +498,7 @@ end
     产生子进程--&gt;&gt;主进程:  ...
     主进程 --&gt;&gt; 主进程: 子进程还活着吗?
     主进程 -&gt;&gt; 主进程: 没有
-</code></pre>
+</pre>
 <p><code>defgen name do...end</code> 产生一个匿名函数, 这个匿名函数绑定给了变量 <code>name</code>.
 调用匿名函数 <code>name</code> 会启动产生子进程, 并返回一个透明结构.
 这个透明结构, 对应于 Javascript 的产生子迭代器,
@@ -983,6 +983,8 @@ end #[3,2,1]
     <script src="book.js" type="text/javascript" charset="utf-8"></script>
 
     <!-- Custom JS scripts -->
+    <script type="text/javascript" src="theme/mermaid.min.js"></script>
+    <script type="text/javascript" src="theme/mermaid-init.js"></script>
 </body>
 
 </html>
