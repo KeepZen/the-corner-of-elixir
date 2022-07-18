@@ -1,139 +1,285 @@
 # 进程
 
-## 进程与执行流
+## OTP 平台的进程
 
-在其他编程语言中, 执行流由轻量级进程的线程来执行, 如果执行流都是并行的运行,
-那当然非常的简单, 但是当进程之间需要交互的时候, 必须有同步机制来完成, 比如锁.
+OTP 平台中, 进程与操作系统的进程不是一个东西, 它们有许多相同的地方,
+比如都是资源的调度单位, 但是 OTP 平台的进程是轻量级的, 比常规编程语言中的线程还轻量.
+OTP 平台的天然的并发性与服务的自愈等特性, 都是建立在进程上的.
 
-在 Erlang 和 Elixir 中, 不一样. Erlang OTP 平台, 进程(Process) 和操作符系统进程不一样,
-OTP 平台的进程就是执行的流的抽象, OTP 平台没有复杂的同步机制, 而只有基于消息传递的处理.
-这种并发模型被成为 Active 模型, 其本质就是, 进程对接受消息和进程同步使用的是相同的机制.
+学习 Elixir, 基本语法之外, 更重要的就是对 OTP 平台的学习. 而要理解 OTP,
+我们需要首先对 OTP 平台的进程模型有基本的认知.
 
-具体来说, 一个进程运行一个函数, 如果函数运行结束了, 或者出错了, 那么个进程也就结束了.
-进程可以通过 `send(pid,message,timeout)`,
-来向 pid 代表的进程发送消息. 每个进程有自己的邮箱, 用来接受消息.
-邮箱是一个队列结构, 可以完成先进先出的操作. 当进程接受到消息后, 如果程序中没有 `receive/1`
-语句, 或者 `receive/1` 语句中没有对应的消息匹配模板,
+在 OTP 平台, 进程是执行流和资源的分配单位. 每个进程都有自己的执行流, 
+自己独立的调用栈和堆内存. 一个进程就是一个函数的执行环境. 当这个函数执行结束的时候,
+进程的寿命也就结束了. 为了让进程可以持续的提供服务, 就必须使用递归调用,
+在进程函数完成工作, 结束之前调用自己.
 
-通过平台提供的基本的通信元语, `receive/1` 接受消息, `send/2-3` 发送信息来完成同步的操作.
+递归调用使得进程可以完成服务的工作, 但是这只是第一步,
+一个无限循环如果不能从外部接受数据, 并给出回应的话, 除了消耗计算机的电力,
+不见得有什么作用. OTP 平台提供了 `send(pid,message)` 函数向 `pid` 发送信息;
+`receive/1` 函数,  在进程内部接受请求数据.
 
-## GenServer
+这样在循环中, 通过 `receive/1` 接受外部的请求, 处理后通过 `send(pid,message)`
+回应请求, 一个进程就可以向外部提供服务支持.
 
-当前 Elixir 可以通过 `spawn/1` 或 `spawn/3` 来创建进程.
+现在有一个问题, 如果进程启动了, 但是并没有理会其他程序发送的消息,
+该如何处理这些消息呢? OTP 平台为每个进程提供了消息队列, 接收到消息后,
+首先就是放到消息队列中, 程序执行的过程中, 遇到了 `receive/1` 语句,
+就会对消息队列中的消息迭代 `receive/1` 方法, 如果消息匹配 `receive/1` 中模式,
+那么这个消息就被消费掉了, 如果消息不匹配, 那么这个消息依旧保留在队列中.
 
-一个进程就是一个执行的独立单元.
+当进程执行结束了, 如果进程中还有消息没有被处理,
+这些消息会随着进程的结束而一起被系统归为垃圾.
 
-进程可以通过接受消息和向其他进程发送消息, 来实现与外部世界的沟通.
+启动一个进程的是核心模块的 `Kernel.spawn(fun)` 或 `Kernel.spawn(module,fun,args)`.
 
-可以通过 `spawm/1,3` 来创建新进程. 如果要实现一个服务进程,
-那么需要在传递给 `spawm` 的程序中完成递归调用, 这样才能在处理完一个请求后,
-继续处理其他的请求. 
-`GenServer` 模块, 为我们定义服务提供了便捷的处理.
+进程每次都只处理邮箱中的一个消息.
 
-最通常的情况是这样的:
+```elixir
+server_receive = fn this ->
+  {:messages, messages} = Process.info(self(), :messages)
 
-1. `GenServer.start(module,arg,option)` 或
-   `GenServer.start_link(module,arg,option)` 启动进程.
-   这两个函数会调用 `module` 模块的 `init(arg)` 函数.
-2. `init(arg)` 如果返回 `{:ok, state}`, 进程进入 loop 状态
-3. `init(arg)` 返回 `{:ok, state, {:continue, continue}}`
-   会触发 `hanlde_continue(continue,state)` 执行
-4. `GenServer.call(server,request)` 会触发 `handle_call(request,from,state)`
-5. `GenServer.cast(server,request)` 会触发 `hanlde_cast(request,state)`
-6. `hanlde_call` 或 `handle_call` 如果返回
-   `{:noreply, state, {:continue, continue}}` 会触发 `handle_continue(continue,state)` 执行
-7. `Process.send`, `Process.exit`, `Process.send_after` 以及 `send`
-   会触发 `hanlde_info(request,state)`
-8. `GenServer.stop` 会触发 `terminate(reason,state)`
-9. `GenServer.handle_continue` 可以通过 `send` 或 `send_after`
+  IO.inspect(messages, label: "server message box have fellow messages")
+
+  receive do
+    {:add, a, b, client} -> send(client, {:add, a + b})
+    {:sub, a, b, client} -> send(client, {:sub, a - b})
+    {:times, a, b, client} -> send(client, {:times, a * b})
+    {:divs, a, b, client} -> send(client, {:div, a / b})
+  end
+
+  this.(this)
+end
+
+server_fun = fn ->
+  Process.sleep(100)
+  server_receive.(server_receive)
+end
+
+server = spawn(server_fun)
+client = self()
+send(server, {:hello, client})
+send(server, {:add, 0, 1, client})
+send(server, {:sub, 3, 1, client})
+send(server, {:times, 1, 3, client})
+send(server, {:divs, 8, 2, client})
+```
+
+在上面的代码中, `server_fun` 在另外一个进程中运行, 进程一启动, 立刻休眠了 100 ms,
+这样可以显示出, 消息队列的变化. 控制台的输出中, 我们可以看到消息队列, 从 4 个慢慢减少为零个.
+匹配消息按照入队的顺序被依次的处理, 不匹配 `receive` 模式的消息则留在队列中.
 
 <!-- livebook:{"break_markdown":true} -->
 
-```mermaid
-stateDiagram
-start --> init(args)
-start_link --> init(args)
-init(args) --> stop: {_stop, reason,state}
-init(args) --> handle_continue(continue,state): {_ok,state,{_continue,continue}}
-handle_continue(continue,state) --> stop: {_stop,reason,state}
+```
+server message box have fellow messages: [
+  {:hello, #PID<0.417.0>},
+  {:add, 0, 1, #PID<0.417.0>},
+  {:sub, 3, 1, #PID<0.417.0>},
+  {:times, 1, 3, #PID<0.417.0>},
+  {:divs, 8, 2, #PID<0.417.0>}
+]
+server message box have fellow messages: [
+  {:hello, #PID<0.417.0>},
+  {:sub, 3, 1, #PID<0.417.0>},
+  {:times, 1, 3, #PID<0.417.0>},
+  {:divs, 8, 2, #PID<0.417.0>}
+]
+server message box have fellow messages: [
+  {:hello, #PID<0.417.0>},
+  {:times, 1, 3, #PID<0.417.0>},
+  {:divs, 8, 2, #PID<0.417.0>}
+]
+server message box have fellow messages: [{:hello, #PID<0.417.0>}, {:divs, 8, 2, #PID<0.417.0>}]
+server message box have fellow messages: [hello: #PID<0.417.0>]
 
-GenServer.stop --> stop 
-send(pid,message) --> handle_info(msg,state)
-Process.send --> handle_info(msg,state)
-Process.send_after --> handle_info(msg,state)
-Process.exit --> handle_info(msg,state)
-handle_info(msg,state) --> stop: {_stop,reason,state}
-handle_info(msg,state) --> handle_continue(continue,state): {_noreply,state, {_continue,continue_args}}
-GenServer.muti_call --> handle_call(msg,from,state)
-
-GenServer.call(pid,message,timeout\\5000) --> handle_call(msg,from,state)
-handle_call(msg,from,state) --> handle_continue(continue,state): {_reply, reply, state,{_continue,continue}}
-handle_call(msg,from,state) --> stop: {_stop,reason, reply, state}
-handle_call(msg,from,state) --> stop: {_stop,reason,state}
-
-GenServer.abcast --> handle_cast(msg,state)
-GenServer.cast(pid,message) --> handle_cast(msg,state)
-handle_cast(msg,state) --> stop: {_stop, reason, state}
-handle_cast(msg,state) --> handle_continue(continue,state): {_noreply,state, {_continue,continue}}
-
-stop --> terminate/2
 ```
 
 <!-- livebook:{"break_markdown":true} -->
 
-`GenServer` 模块是一个行为, 它定义了 8 个回调函数, 9 个辅助函数.
-在上面的状态图中, 最常见的 6 个已经出现了, 剩下的 2 个回调函数为:
+接下来, 让通过 `IEx.Helpers.flush/0` 来查看当前进程接收到的消息.
+`server_receive` 函数只能回应四则运算对应的请求, 所以, `{:hello, pid}` 一直都留在邮箱中.
+通过 `Process.alive?(pid)`, 可以检查一个进程是否还活着.
 
-* `code_change/3`, 当代码热更新的时候, 如果状态也有破坏性的变化,
-  那么可以定义这个函数来完成状态的转化.
-* `format_status/2`, 这个函数只是定义状态如何显示的代码,  `:sys.get_status/1`
-  或 `:sys.get_status/2` 输出结果受这个函数的影响.
+```elixir
+IEx.Helpers.flush()
 
-9 个辅助函数分成三组.
-启动与终结服务:
+Process.alive?(server)
+|> IO.inspect(label: "Is server live? Answere")
+```
 
-* `start(module,init_arg,options)` 启动服务, 但是不链接
-* `start_link(module,init_arg,options)`, 启动并链接
-* `stop(server,reason\\:normal,timeout\\:infinity)` 结束进程
+```
+{:add, 1}
+{:sub, 2}
+{:times, 3}
+{:div, 4.0}
+Is server live? Answere: true
+```
 
-向服务发送异步请求:
+上面的代码输出显示服务进程依旧活着, 那么我们可以继续的向其发送请求.
+现在向服务进程发送两个消息.
 
-* `abcast(node\\[],name,request)` 向注册为 `name` 的所有进程中发送异步请求
-* `cast(server,request)` 向服务发送异步请求
-  向服务发送同步请求:
-* `muti_call(server,request)` 向多个服务器发送同步求
-* `call(server,request)` 向服务发送同步求
-  `handle_continue` 或 `handle_info` 把 `client` 信息传递给对应函数, 处理结果后,
-  通过 `GenServer.reply(client,reply)` 来向 client 发送信息.
+```elixir
+send(server, {:add, 3, 4, client})
+send(server, {:sub, 5, 4, client})
+```
 
-回应和查询函数.
+控制台输出为:
 
-* `reply(client,reply)` 当 `handle_call` 不能返回信息的时候, 可以通过
-* `whereis(server)` 查询 `server`
+```
+server message box have fellow messages: [{:hello, #PID<0.417.0>}, {:sub, 5, 4, #PID<0.417.0>}]
+server message box have fellow messages: [hello: #PID<0.417.0>]
+```
 
-除了 `GenServer` 模块提供的这 9 个函数外, 还可以使用以下的函数来与服务器交互.
-对应于向服务器发送请求的 `GenServer` API:
+进程运行遇到 `receive` 语句后, 如果没有消息可以匹配 `receive` 语句中的模式,
+那么进程就会暂停. 等向服务器进程发送 `{:add,3,4, client}` 和 `{:sub,5,4,client}` 之后,
+服务进程立刻匹配了第一个消息; 处理结束后, 进入下一次循环, 输出了第一行.
+第二个循环处理 `:sub` 消息后, 开始下一个循环, 输出了第二行.
 
-* `Kernel.send/2`,
+```elixir
+IEx.Helpers.flush()
+```
 
-* `Process.send/3`
+现在最后一个问题, 如何停止这个递归对用的服务进程呢?
+这里又集中方法, 最常规的就是明确的用函数命令进程退出: `Process.exit(pid,reason)`.
+如果服务程序运行的过程出错了, 自然也是要退出的.
 
-* `Process.send_after/3-4`
+在我们上面的代码中, 执行的四则运算, 四则运算是可能引发错误的, 我们通过发送错误的消息,
+就可以可服务进程异常退出. 例如像下面这样:
 
-* `Process.exit/2`, 和 `GenServer.stop/2` API 对应
+```elixir
+send(server, {:add, :atom, :atom2, client})
 
-* 以及 `Kernel.self/0`, 于 `GenServer.whereis/1` API 对应.
+Process.alive?(server)
+|> IO.inspect(label: "Is server alive? The answer is")
+```
+
+上面的代码说明, 直接把发送消息的接口暴露给客户端, 是非常危险的.
+永远不要信任客户的输入. Elixir 中通常的做法是, 客户端的接口, 通过代理函数来完成.
+在代理函数中完成对客户输入的检查.
 
 <!-- livebook:{"break_markdown":true} -->
 
-为什么需要 `hanlde_continue/2` 回调函数呢? 当服务收到了同步服务,
-但是当前的服务需要更多的资料才能完成回应的时候, 服务应该暂时搁置对请求的回应,
-而等待条件合适的时候再回应客户端的请求.
+上面的例子, 我们自己定义了一个服务. 这里又很多可以利用的代码, 比如完成递归循环的代码.
+我们上面的代码中, 除了我们已经指出的, 把与服务器交互的接口直接暴露给客户端,
+容易引发服务进程的奔溃外, 还有一个问题, 服务进程直到死亡, 也没有把 `{:hello, pid}`
+的消息消费掉. 如果我们的进程没有退出, 这个消息将会一直存在于内存空间中, 而且不会被垃圾收集.
+如果程序中存在大量这样的垃圾, 最后系统会因为内存不足而不能启动新的进程, 从而影响系统.
 
-为了回应客户, 就必须知道客户是谁, 这就是为什么 `handle_call(req,from,state)`
-需要第二个参数的原因. 为了在合适的时候回应客户端, 可以把 `from` 更新到 `state` 中.
-在可以回应客服的时候, 就可以通过 `GenServer.reply(client,respone)` 来回应客户.
+对于服务程序来说, 一方面, 都需要写 `server_fun` 这样重复性的框架代码, 另一方面,
+每个人写的框架代码多少都会有些不同, 对合作的大型项目来说, 阅读这样的代码需要心智负担较大.
+更加糟糕的是, 如果框架代码没有经过仔细的测试, 像我们上面的例子中那样,
+还可能会有这样那样现在的 bug 存在.
 
-`GenServer.handle_info` `GenServer.handle_call`, 和 `GenServer.handle_cast`
-每次调用都会消费邮箱中的一条信息. 但是在处理请求的时候, 有时候消息只是改变服务器的状态,
-而不需要现在消费这个消息, 这时, 就需要用 `Process.send_after` 结合 `GenServer.handle_info`, 来完成处理.
+OTP 平台在进程的基础上, 做了进一步的抽象, 使我们可以更统一, 更规范的写服务相关的代码.
+Elixir 在 OTP 的基础上, 通过 `GenServer` 模块, 提供了通用的服务模块的 API.
+
+接下来, 我们学习 `GenServer` 的用法.
+
+## GenServer API
+
+`GenServer` 是一个行为. 它定义了, 8 个回调函数, 9 个和服务交互的辅助函数.
+
+### 回调回调函数
+
+回调函数, 可以分成以下机组:
+
+* 进程初始化:
+
+  1. `init(args)`
+
+* 请求处理函数:
+
+  1. `handle_info(request,state)`
+  2. `handle_call(request,from,state)`
+  3. `handle_cast(request,state)`
+  4. `handle_continue(continue,state)`
+
+* 终结时, 资源清理函数:
+
+  1. `terminate(reason,state)`
+
+* 代码热更新和状态展示定制函数:
+
+  1. `code_change(old_env,state,extra)`
+  2. `format_status(reason, pdict_and_state)`
+
+### 辅助函数
+
+* 发送请求的辅助函数:
+
+  1. `GenServer.call`
+  2. `GenServer.mutil_call`
+  3. `GenServer.cast`
+  4. `GenServer.abcast`
+
+  这四个是对 `Kernel.send/2-3` 的抽象, 以适应向服务发送请求的通用功能.
+
+* 启动和结束服务器的函数:
+
+  1. `GenServer.start`
+  2. `GenServer.stat_link`
+  3. `GenServer.stop`
+
+  `GenServer.start` 是对 `spawn` 的进一步的封装; `GenServer.start_link`
+  是对 `spawn_link` 的封装; 而 `GenServer.stop` 是对 `Process.exit` 的抽象.
+
+* 发送回应的辅助函数:
+
+  1. `GenServer.reply`
+
+  `GenServer.reply` 是在 `send` 的基础上, 为发送回应消息而作的封装.
+
+* 查询服务的函数:
+
+  1. `GenServer.where_is`
+
+  `GenServer.where_is/1` 对应的则是 `Process.where_is/1`.
+
+### 服务进程与状态机
+
+每个 Elixir 服务进程, 可以看作是一个状态机. 状态机是由外部的输入来改变状态的抽象机器.
+在计算机理论中有重要的应用, 把一个 Elixir 进程看作一个状态机, 可以简化思维的负担.
+把 `GenServer` 看作状态机, 用图示来来表示如下:
+
+<!-- livebook:{"break_markdown":true} -->
+
+<!-- Learn more at https://mermaid-js.github.io/mermaid -->
+
+```mermaid
+stateDiagram-v2
+[*] --> start
+start --> init
+note right of init
+   `init` return `{:ok, state, {:continue, continue}}`
+end note
+init --> stop
+start --> stop
+init --> Loop
+Loop --> Loop
+Loop --> stop
+stop --> [*]
+```
+
+Loop 节点的定义为:
+
+```mermaid
+stateDiagram-v2
+[*]: Loop
+[*] --> info: send/send_after
+[*] --> cast: GenServer.cast/abcast
+[*] --> call: GenServer.call/muti_call
+[*] --> continue: see note on right of init
+
+call --> [*]
+call --> continue: message
+info --> [*]
+info --> continue: message
+continue --> continue: message
+continue --> [*]
+cast --> [*]
+cast --> continue: message
+note right of continue
+   message: `{:noreply,state,{:continue,continue}}`.
+end note
+```
