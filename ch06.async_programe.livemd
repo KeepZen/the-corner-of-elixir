@@ -13,15 +13,15 @@ Javascript 的 Promise API, 但是这里没有定义 `catch`.
 
 最后的 2 个函数: `of/1` 和 `map(promise,fun/1)` 是函子的通用函数.
 
-1. `Promise` 构造函数 `Promise.new((reslove,reject)->any)`
-2. `Promise` 特化的构造函数 `Promise.reslove(v)` 把 `v` 转化为已完成的
+1. `Promise` 构造函数 `Promise.new((resolve,reject)->any)`
+2. `Promise` 特化的构造函数 `Promise.resolve(v)` 把 `v` 转化为已完成的
     `Promise` 结构.
 3. `Promise` 特化的构造函数 `Promise.reject(v)` 把 `v` 转化为已拒绝的
     `Promise` 结构.
 4. `Promise` 的转化换函数 `Promise.then(promise,fun, error_hanlder\\nil)`
 5. `Promise` 错误处理函数`Promise.on_error(promise,fun)`
 6. `Promise` 解构函数 `await(promise)` 返回 `Promise` 中包含的类型
-7. 函子构造函数 `Promise.of({:resloved|:rejected,v})` 把任意类型的值 `v`
+7. 函子构造函数 `Promise.of({:resolved|:rejected,v})` 把任意类型的值 `v`
    转化为一个 `Promise` 结构.
 8. 函子通用转化换函数 `Promise.map(promise,fun)`
 
@@ -32,13 +32,13 @@ defmodule Corner.Promise do
   defstruct state: :pending, result: nil
 
   @spec of({state, any}) :: t
-  def of({tag, v}) when tag in [:fulfilled, :resloved, :rejected] do
+  def of({tag, v}) when tag in [:fulfilled, :resolved, :rejected] do
     tag = if tag != :rejected, do: :fulfilled, else: tag
     %__MODULE__{state: tag, result: v}
   end
 
   def reslove(v) do
-    of({:resloved, v})
+    of({:resolved, v})
   end
 
   def reject(v) do
@@ -260,9 +260,9 @@ ExUnit.run()
 
 ### 数据构造函数
 
-`Promise.of({tag,v})`, `Promise.reslove(v)` 和 `Promise.reject(v)`
-是三个数据构造函数, 把 `v` 置于 `Promise` 对象之中. `Promise.reslove(v)` 是
-`Promise.of({:reloved, v})` 代理; `Promise.rejcet(v)` 和
+`Promise.of({tag,v})`, `Promise.resolve(v)` 和 `Promise.reject(v)`
+是三个数据构造函数, 把 `v` 置于 `Promise` 对象之中. `Promise.resolve(v)` 是
+`Promise.of({:resolved, v})` 代理; `Promise.rejcet(v)` 和
 `Promise.of({:rejected, v})` 一样.
 
 这些构造函数和 `new/1` 的最大差别在于, `new/1` 可能会阻塞调用者进程, 这 3
@@ -602,7 +602,7 @@ defmodule Corner.Generater do
     return_value =
       if async do
         quote do
-          [Promise.reslove(unquote(exp))]
+          [Promise.resolve(unquote(exp))]
         end
       else
         quote do
@@ -801,7 +801,7 @@ defmodule Corner.Async do
           if is_struct(v, Promise) do
             v
           else
-            Promise.reject(v)
+            Promise.resolve(v)
           end
       end
     end
