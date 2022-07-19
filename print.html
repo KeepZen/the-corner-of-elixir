@@ -2334,24 +2334,38 @@ Javascript 语言的成功, 我认为和单进程编程模式是非常有关系�
 这样不但可以提供生产效率, 也能增强代码的可维护和可理解性.</p>
 <h2 id="承诺promise"><a class="header" href="#承诺promise">承诺(Promise)</a></h2>
 <p>Elixir 对异步编程的支持由 <code>Task</code> 模块提供. 但是我很少使用它,
-<code>Task</code> 不是一个代数结构类型, 因此无法完成链式操作.
-Javascipt 中的 Promise 不一样, 它是一个算术结构, 可以完成链式操作.
+<code>Task</code> 不是一个代数结构类型 (Algebraic Structure Type)<sup class="footnote-reference"><a href="#ast">1</a></sup>, 因此无法完成链式操作.
+Javascipt 中的 Promise 不一样, 它是一个代数结构类型, 可以完成链式操作.
 使用 Promise, Javascript 社区成功的解决了回调地狱问题.
 因此我希望首先能把这个类型引入到 Elixir 语言中.</p>
+<div class="footnote-definition" id="ast"><sup class="footnote-definition-label">1</sup>
+<p>代数结构类型是一个相对抽象的概念.
+要理解这个概念, 首先必须理解代数结构这个数学概念.
+按照我的理解, 代数结构是说, 当操作符 $f$ 作用到数据集 $S$ 上后,
+得到的结果还在 $S$ 中, 这样如果把数据集合 $S$ 看作一个空间,
+输出和输出在这个空间中就形成了一定的结构.
+代数结构最重要的概念是闭合性, 运算的闭合性, 使得编程可以使用链式操作.
+操作符在数据集上具有闭合性, 数学上讲, 操作符在数据集上形成了闭包.
+编程中也有闭包的概念, 这两个概念使用的是同一个英文单词, 但是意义不一样.
+举个例子, $+$ 与整数集合 $N$, 整数加上整数得到的结果还是整数,
+操作的输入和输出具有封闭性. 而 $\div$ 与整数集合 $N$ 不具有封闭性,
+因为整数除以整数不能保证得到的还是整数. 甚至 $\div$ 与实数集合 $R$ 也不能构成闭包,
+因为 0 是不能作为被除数的. 具有运算封闭性, 在数学上就构成了类群.</p>
+</div>
 <p>我们将要定义的 Promise 模块, 对外提供的接口有 8 个函数, 其中 6 个来源于
 Javascript 的 Promise API. 但是这里没有定义 <code>catch</code> 函数.
 <code>catch</code> 在 Elixir 中是保留字, 不允许用作函数名, 因此这里用 <code>on_error</code> 来代替.</p>
 <p>最后的 2 个函数: <code>of/1</code> 和 <code>map(promise,fun/1)</code> 是函子的通用函数.</p>
 <ol>
-<li><code>Promise</code> 构造函数 <code>Promise.new((reslove,reject)-&gt;any)</code></li>
-<li><code>Promise</code> 特化的构造函数 <code>Promise.reslove(v)</code> 把 <code>v</code>
+<li><code>Promise</code> 构造函数 <code>Promise.new((resolve,reject)-&gt;any)</code></li>
+<li><code>Promise</code> 特化的构造函数 <code>Promise.resolve(v)</code> 把 <code>v</code>
 转化为已完成的<code>Promise</code> 结构.</li>
 <li><code>Promise</code> 特化的构造函数 <code>Promise.reject(v)</code> 把 <code>v</code>
 转化为已拒绝的 <code>Promise</code> 结构.</li>
 <li><code>Promise</code> 的转化换函数 <code>Promise.then(promise,fun, error_hanlder\\nil)</code></li>
 <li><code>Promise</code> 错误处理函数<code>Promise.on_error(promise,fun)</code></li>
 <li><code>Promise</code> 解构函数 <code>await(promise)</code> 返回 <code>Promise</code> 中包含的类型</li>
-<li>函子构造函数 <code>Promise.of({:resloved|:rejected,v})</code> 把任意类型的值 <code>v</code>
+<li>函子构造函数 <code>Promise.of({:resolved|:rejected,v})</code> 把任意类型的值 <code>v</code>
 转化为一个 <code>Promise</code> 结构.</li>
 <li>函子通用转化换函数 <code>Promise.map(promise,fun)</code></li>
 </ol>
@@ -2464,15 +2478,15 @@ end
 </code></pre>
 <p>前两个分句捕获的是 <code>Promise</code> 服务进程内部抛出的消息.
 第三个分句捕获客户端提供的函数 <code>fun</code> 运行过程中产生的错误.
-如果 <code>fun</code> 函数中既没有调用 <code>reslover/1</code> 也没有调用 <code>rejecter/1</code>, 而且没有产生错误,
+如果 <code>fun</code> 函数中既没有调用 <code>resolver/1</code> 也没有调用 <code>rejecter/1</code>, 而且没有产生错误,
 那么 <code>Promise</code> 服务进程就是抛出 <code>{ref, :stop}</code>, 这样第一个分句就会执行.
 结果就是像客户端发送 <code>{:result, {:stop, :done}}</code> 信息后, 立刻终止运行了.</p>
 <p>而当 <code>fun</code> 函数中有调用 <code>reserver/1</code> 或 <code>rejecter/1</code> 的时候, 第二个分句会执行.
 重新开始了客户端接受计时, 并更新了 <code>Promise</code> 服务器进程的其他状态信息.</p>
 <h3 id="数据构造函数"><a class="header" href="#数据构造函数">数据构造函数</a></h3>
-<p><code>Promise.of(v,tag\\:resolved)</code>, <code>Promise.reslove(v)</code> 和 <code>Promise.reject(v)</code>
+<p><code>Promise.of(v,tag\\:resolved)</code>, <code>Promise.resolve(v)</code> 和 <code>Promise.reject(v)</code>
 是三个数据构造函数. 用来把 <code>v</code> 置于 <code>Promise</code> 结构内.
-<code>Promise.reslove(v)</code> 是 <code>Promise.of(v)</code> 的代理;
+<code>Promise.resolve(v)</code> 是 <code>Promise.of(v)</code> 的代理;
 <code>Promise.rejcet(v)</code> 与 <code>Promise.of(v, :rejected)</code> 效果一样.</p>
 <p>这些构造函数和 <code>new/1</code> 的最大差别在于, 这些函数构造的 <code>Promise</code> 服务绝对不会出现死锁,
 使用 <code>Promise.new(fun)</code> 构造 <code>Promise</code> 服务的时候, 如果在 <code>fun</code> 既没有调用
@@ -2498,16 +2512,16 @@ end
 <h3 id="数据转化函数"><a class="header" href="#数据转化函数">数据转化函数</a></h3>
 <p><code>map/1</code>, <code>then/1-2</code> 和 <code>on_error/1</code> 是三个函数转化函数.</p>
 <p>其中 <code>then/1-2</code> 和 <code>on_error/1</code> 与 Javascript 的 Promise API
-向对应的.<sup class="footnote-reference"><a href="#js_promise">1</a></sup>. <code>then/1</code> 只处理 <strong>:resloved</strong> 状态的 Promise,
-<code>then/2</code> 接受两个转化函数, 第一个处理 <strong>:resloved</strong> 状态的,
+向对应的.<sup class="footnote-reference"><a href="#js_promise">2</a></sup>. <code>then/1</code> 只处理 <strong>:resolved</strong> 状态的 Promise,
+<code>then/2</code> 接受两个转化函数, 第一个处理 <strong>:resolved</strong> 状态的,
 第二个处理 <strong>:rejected, :error</strong> 状态的.
 <code>on_error/1</code> 只处理 <strong>:rejected</strong> 和 <strong>:promise</strong> 状态的的 Promise.</p>
-<div class="footnote-definition" id="js_promise"><sup class="footnote-definition-label">1</sup>
+<div class="footnote-definition" id="js_promise"><sup class="footnote-definition-label">2</sup>
 <p>见 MDN <a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promise 参考页面</a></p>
 </div>
 <p><code>map</code> 是为了配合 Elixir 的函数子句而提供的 API. 也就是说,
 无论 <code>Promise</code> 的状态是什么, 都统一有一个函数来处理.</p>
-<p>对于 <code>:resloved</code> 和 <code>:rejected</code> 状态的 <code>Promise</code>, <code>map</code> 的处理函数 <code>fun</code>,
+<p>对于 <code>:resolved</code> 和 <code>:rejected</code> 状态的 <code>Promise</code>, <code>map</code> 的处理函数 <code>fun</code>,
 接受到的数据就是 Promise 中的数据. 当 <code>Promise</code> 的状态是 <code>:error</code> 的时候,
 <code>map</code> 的处理函数接受到的是 <code>{:error, {v,[stack]}}</code>.</p>
 <p><code>map/1</code>, <code>then/1-2</code> 和 <code>on_error/1</code> 做的工作是类似的, 分成三个函数,
@@ -2565,7 +2579,7 @@ def handle_cast({:run, _fun, fun}, %{state: tag} = state)
   run_and_handle_error(fun, state)
 end
 </code></pre>
-<p>第一个分句是 <code>:resloved</code> 状态时, <code>fun</code> 转化数据的情形.
+<p>第一个分句是 <code>:resolved</code> 状态时, <code>fun</code> 转化数据的情形.
 第二个分句是 <code>:rejected</code> 状态, 但是并没有提供错误处理函数的情形.
 第三个分句是 <code>:res;pved</code> 状态, 但是没有提供数据转化函数的情形.
 第四个分句是错误状态的, 使用 <code>fun</code> 处理错误处理状态的情形.</p>
@@ -2594,11 +2608,11 @@ end
 <p>Generater 是 ES6 中引入的新的语法, 让我们可以通过 <code>function*</code> 来创建产生子.
 有了这个语法, 在 Javascript 中, 我们就可以产生无限数量的序列了.</p>
 <p>Elixir 标准库中, 提供了 <code>Stream</code> 模块.
-任意的在枚举过程中, 一个接一个产生的可枚举数据类型, 都可以叫做 <code>Stream</code><sup class="footnote-reference"><a href="#stream">2</a></sup>.
+任意的在枚举过程中, 一个接一个产生的可枚举数据类型, 都可以叫做 <code>Stream</code><sup class="footnote-reference"><a href="#stream">3</a></sup>.
 虽说 Stream 模块提供<strong>组合</strong>和<strong>创建</strong> <code>Stream</code> 的函数.
 但是从函数的数量上来说, 这个库中提供的, 创建 <code>Stream</code> 的函数只有 3 个,
 堪堪占据全部函数的十分之一左右.</p>
-<div class="footnote-definition" id="stream"><sup class="footnote-definition-label">2</sup>
+<div class="footnote-definition" id="stream"><sup class="footnote-definition-label">3</sup>
 <p>见 <a href="elixir/1.13.0/Stream.html">Stream 模块文档</a></p>
 </div>
 <p>对于无限序列, <code>Stream</code> 模块提供的 API 非常方便.
@@ -2803,7 +2817,7 @@ defp yield_to_send(async, {:yield, _meta, exp}) do
   return_value =
     if async do
       quote do
-        [Promise.reslove(unquote(exp))]
+        [Promise.resolve(unquote(exp))]
       end
     else
       quote do
@@ -3101,7 +3115,7 @@ end
 
 async defgen(fun) do
   a, b -&gt;
-    yield(Promise.reslove(3))
+    yield(Promise.resolve(3))
     yield(a)
     yield(b)
 end
@@ -6080,6 +6094,22 @@ IO.inspect(p2, label: &quot;P2&quot;)
 
     </div>
 
+    <!-- Livereload script (if served using the cli tool) -->
+    <script type="text/javascript">
+        const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
+        const socket = new WebSocket(wsAddress);
+        socket.onmessage = function (event) {
+            if (event.data === "reload") {
+                socket.close();
+                location.reload();
+            }
+        };
+
+        window.onbeforeunload = function () {
+            socket.close();
+        }
+    </script>
     <script type="text/javascript">
         window.playground_copyable = true;
     </script>
