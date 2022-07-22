@@ -5385,30 +5385,33 @@ after the assign_one
 <p>所以, 在 Erlang 的环境中, 没有办法使用 Elixir 宏提供的便利.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="进程"><a class="header" href="#进程">进程</a></h1>
 <h2 id="otp-平台的进程"><a class="header" href="#otp-平台的进程">OTP 平台的进程</a></h2>
-<p>OTP 平台中, 进程与操作系统的进程不是一个东西, 它们有许多相同的地方,
+<p>OTP 平台中, 进程与操作系统的进程不是同一个东西, 它们有许多相同的地方,
 比如都是资源的调度单位, 但是 OTP 平台的进程是轻量级的, 比常规编程语言中的线程还轻量.
 OTP 平台的天然的并发性与服务的自愈等特性, 都是建立在进程上的.</p>
 <p>学习 Elixir, 基本语法之外, 更重要的就是对 OTP 平台的学习. 而要理解 OTP,
 我们需要首先对 OTP 平台的进程模型有基本的认知.</p>
 <p>在 OTP 平台, 进程是执行流和资源的分配单位. 每个进程都有自己的执行流, 
 自己独立的调用栈和堆内存. 一个进程就是一个函数的执行环境. 当这个函数执行结束的时候,
-进程的寿命也就结束了. 为了让进程可以持续的提供服务, 就必须使用递归调用,
-在进程函数完成工作, 结束之前调用自己.</p>
+进程的寿命也就结束了.</p>
+<p>为了让进程可以持续的提供服务, 就必须使用递归调用, 在进程函数完成工作结束之前, 调用自己.</p>
 <p>递归调用使得进程可以完成服务的工作, 但是这只是第一步,
 一个无限循环如果不能从外部接受数据, 并给出回应的话, 除了消耗计算机的电力,
-不见得有什么作用. OTP 平台提供了 <code>send(pid,message)</code> 函数向 <code>pid</code> 发送信息;
-<code>receive/1</code> 函数,  在进程内部接受请求数据.</p>
+不见得有什么作用. OTP 平台提供了 <code>send(pid,message)</code> 函数向 <code>pid</code> 代表的进程发送信息;
+<code>receive/1</code> 函数,  在进程内部接受数据.</p>
 <p>这样在循环中, 通过 <code>receive/1</code> 接受外部的请求, 处理后通过 <code>send(pid,message)</code>
 回应请求, 一个进程就可以向外部提供服务支持.</p>
-<p>现在有一个问题, 如果进程启动了, 但是并没有理会其他程序发送的消息,
-该如何处理这些消息呢? OTP 平台为每个进程提供了消息队列, 接收到消息后,
+<p>如果进程启动了, 但是并没有理会其他程序发送的消息, 该如何处理这些消息呢?
+OTP 平台为每个进程提供了消息队列, 接收到消息后,
 首先就是放到消息队列中, 程序执行的过程中, 遇到了 <code>receive/1</code> 语句,
 就会对消息队列中的消息迭代 <code>receive/1</code> 方法, 如果消息匹配 <code>receive/1</code> 中模式,
 那么这个消息就被消费掉了, 如果消息不匹配, 那么这个消息依旧保留在队列中.</p>
 <p>当进程执行结束了, 如果进程中还有消息没有被处理,
 这些消息会随着进程的结束而一起被系统归为垃圾.</p>
 <p>启动一个进程的是核心模块的 <code>Kernel.spawn(fun)</code> 或 <code>Kernel.spawn(module,fun,args)</code>.</p>
-<p>进程每次都只处理邮箱中的一个消息.</p>
+<p><code>receive/1</code> 每次每次都只处理邮箱中的一个消息, 如果没有可以处理的消息,
+而且 <code>recieve/1</code> 中没有 <code>after</code> 子句的话, <code>receive/1</code> 会阻塞进程, 等待匹配的消息到来.</p>
+<p>如果有 <code>after</code> 子句, 超过指定的时间后, 没有消息进入邮箱的话, <code>receive/1</code> 会跳转到 <code>after</code>
+子句, 执行后面的处理逻辑.</p>
 <pre><code class="language-elixir">server_receive = fn this -&gt;
   {:messages, messages} = Process.info(self(), :messages)
 
@@ -5438,9 +5441,8 @@ send(server, {:times, 1, 3, client})
 send(server, {:divs, 8, 2, client})
 </code></pre>
 <p>在上面的代码中, <code>server_fun</code> 在另外一个进程中运行, 进程一启动, 立刻休眠了 100 ms,
-这样可以显示出, 消息队列的变化. 控制台的输出中, 我们可以看到消息队列, 从 4 个慢慢减少为零个.
+这样可以显示出消息队列的变化. 控制台的输出中, 我们可以看到消息队列, 从五个慢慢减少为一个.
 匹配消息按照入队的顺序被依次的处理, 不匹配 <code>receive</code> 模式的消息则留在队列中.</p>
-<!-- livebook:{"break_markdown":true} -->
 <pre><code>server message box have fellow messages: [
   {:hello, #PID&lt;0.417.0&gt;},
   {:add, 0, 1, #PID&lt;0.417.0&gt;},
@@ -5463,7 +5465,6 @@ server message box have fellow messages: [{:hello, #PID&lt;0.417.0&gt;}, {:divs,
 server message box have fellow messages: [hello: #PID&lt;0.417.0&gt;]
 
 </code></pre>
-<!-- livebook:{"break_markdown":true} -->
 <p>接下来, 让通过 <code>IEx.Helpers.flush/0</code> 来查看当前进程接收到的消息.
 <code>server_receive</code> 函数只能回应四则运算对应的请求, 所以, <code>{:hello, pid}</code> 一直都留在邮箱中.
 通过 <code>Process.alive?(pid)</code>, 可以检查一个进程是否还活着.</p>
@@ -5491,13 +5492,12 @@ server message box have fellow messages: [hello: #PID&lt;0.417.0&gt;]
 那么进程就会暂停. 等向服务器进程发送 <code>{:add,3,4, client}</code> 和 <code>{:sub,5,4,client}</code> 之后,
 服务进程立刻匹配了第一个消息; 处理结束后, 进入下一次循环, 输出了第一行.
 第二个循环处理 <code>:sub</code> 消息后, 开始下一个循环, 输出了第二行.</p>
-<pre><code class="language-elixir">IEx.Helpers.flush()
-</code></pre>
-<p>现在最后一个问题, 如何停止这个递归对用的服务进程呢?
-这里又集中方法, 最常规的就是明确的用函数命令进程退出: <code>Process.exit(pid,reason)</code>.
+<p>至此, 我们已经知道了如何启动一个服务, 如何处理和回应请求.
+但是如何停止这个递归调用的服务进程呢?
+这里有几种方法, 最常规的就是明确的用函数命令进程退出: <code>Process.exit(pid,reason)</code>.
 如果服务程序运行的过程出错了, 自然也是要退出的.</p>
-<p>在我们上面的代码中, 执行的四则运算, 四则运算是可能引发错误的, 我们通过发送错误的消息,
-就可以可服务进程异常退出. 例如像下面这样:</p>
+<p>在我们上面的代码中, 执行的四则运算, 四则运算是可能引发错误的. 因此,
+通过向服务进程发送不能作四则运算的请求数据, 可以引发服务进程异常退出. 例如像下面这样:</p>
 <pre><code class="language-elixir">send(server, {:add, :atom, :atom2, client})
 
 Process.alive?(server)
@@ -5506,32 +5506,28 @@ Process.alive?(server)
 <p>上面的代码说明, 直接把发送消息的接口暴露给客户端, 是非常危险的.
 永远不要信任客户的输入. Elixir 中通常的做法是, 客户端的接口, 通过代理函数来完成.
 在代理函数中完成对客户输入的检查.</p>
-<!-- livebook:{"break_markdown":true} -->
-<p>上面的例子, 我们自己定义了一个服务. 这里又很多可以利用的代码, 比如完成递归循环的代码.
+<p>上面的例子, 我们自己定义了一个服务.
 我们上面的代码中, 除了我们已经指出的, 把与服务器交互的接口直接暴露给客户端,
 容易引发服务进程的奔溃外, 还有一个问题, 服务进程直到死亡, 也没有把 <code>{:hello, pid}</code>
-的消息消费掉. 如果我们的进程没有退出, 这个消息将会一直存在于内存空间中, 而且不会被垃圾收集.
-如果程序中存在大量这样的垃圾, 最后系统会因为内存不足而不能启动新的进程, 从而影响系统.</p>
+消费掉. 如果我们的进程没有退出, 这个消息将会一直存在于内存空间中, 而且不会被垃圾收集.
+如果程序中存在大量这样的垃圾, 最后系统会因为内存不足, 而影响系统.</p>
 <p>对于服务程序来说, 一方面, 都需要写 <code>server_fun</code> 这样重复性的框架代码, 另一方面,
-每个人写的框架代码多少都会有些不同, 对合作的大型项目来说, 阅读这样的代码需要心智负担较大.
+每个人写的框架代码多少都会有些不同, 这样对代码的其他阅读者来说, 需要比较多的心智负担.
 更加糟糕的是, 如果框架代码没有经过仔细的测试, 像我们上面的例子中那样,
-还可能会有这样那样现在的 bug 存在.</p>
-<p>OTP 平台在进程的基础上, 做了进一步的抽象, 使我们可以更统一, 更规范的写服务相关的代码.
+还可能会有这样那样的 bug 存在.</p>
+<p>OTP 平台在进程的基础上, 做了进一步的抽象, 使我们可以更统一, 规范的写服务相关的代码.
 Elixir 在 OTP 的基础上, 通过 <code>GenServer</code> 模块, 提供了通用的服务模块的 API.</p>
 <p>接下来, 我们学习 <code>GenServer</code> 的用法.</p>
 <h2 id="genserver-api"><a class="header" href="#genserver-api">GenServer API</a></h2>
 <p><code>GenServer</code> 是一个行为. 它定义了, 8 个回调函数, 9 个和服务交互的辅助函数.</p>
 <h3 id="回调回调函数"><a class="header" href="#回调回调函数">回调回调函数</a></h3>
-<p>回调函数, 可以分成以下机组:</p>
-<ul>
-<li>
-<p>进程初始化:</p>
+<p>8 个回调函数, 可以分成以下 4 组:</p>
 <ol>
-<li><code>init(args)</code></li>
-</ol>
+<li>
+<p>进程初始化: <code>init(args)</code></p>
 </li>
 <li>
-<p>请求处理函数:</p>
+<p>请求处理函数</p>
 <ol>
 <li><code>handle_info(request,state)</code></li>
 <li><code>handle_call(request,from,state)</code></li>
@@ -5540,21 +5536,19 @@ Elixir 在 OTP 的基础上, 通过 <code>GenServer</code> 模块, 提供了通�
 </ol>
 </li>
 <li>
-<p>终结时, 资源清理函数:</p>
+<p>进程结束时资源清理钩子以及代码热更新钩子</p>
 <ol>
 <li><code>terminate(reason,state)</code></li>
+<li><code>code_change(old_env,state,extra)</code></li>
 </ol>
 </li>
 <li>
-<p>代码热更新和状态展示定制函数:</p>
-<ol>
-<li><code>code_change(old_env,state,extra)</code></li>
-<li><code>format_status(reason, pdict_and_state)</code></li>
-</ol>
+<p>状态展示定制函数: <code>format_status(reason, pdict_and_state)</code></p>
 </li>
-</ul>
+</ol>
 <h3 id="辅助函数"><a class="header" href="#辅助函数">辅助函数</a></h3>
-<ul>
+<p>9 个 辅助函数, 可以分成以下几组:</p>
+<ol>
 <li>
 <p>发送请求的辅助函数:</p>
 <ol>
@@ -5563,7 +5557,7 @@ Elixir 在 OTP 的基础上, 通过 <code>GenServer</code> 模块, 提供了通�
 <li><code>GenServer.cast</code></li>
 <li><code>GenServer.abcast</code></li>
 </ol>
-<p>这四个是对 <code>Kernel.send/2-3</code> 的抽象, 以适应通用像服务发送请求的不同应用.</p>
+<p>这四个是对 <code>Kernel.send/2-3</code> 的抽象, 以适应向服务发送请求的通用功能.</p>
 </li>
 <li>
 <p>启动和结束服务器的函数:</p>
@@ -5576,59 +5570,180 @@ Elixir 在 OTP 的基础上, 通过 <code>GenServer</code> 模块, 提供了通�
 是对 <code>spawn_link</code> 的封装; 而 <code>GenServer.stop</code> 是对 <code>Process.exit</code> 的抽象.</p>
 </li>
 <li>
-<p>发送回应的辅助函数:</p>
-<ol>
-<li><code>GenServer.reply</code></li>
-</ol>
-<p><code>GenServer.reply</code> 是在 <code>send</code> 的基础上, 为发送回应消息而作的封装.</p>
+<p>发送回应的辅助函数: <code>GenServer.reply</code> 是在 <code>send</code> 的基础上,
+为发送回应消息而作的封装.</p>
 </li>
 <li>
-<p>查询服务的函数:</p>
-<ol>
-<li><code>GenServer.where_is</code></li>
-</ol>
-<p><code>GenServer.where_is/1</code> 对应的则是 <code>Process.where_is/1</code>.</p>
+<p>查询服务的函数: <code>GenServer.where_is/1</code> 对应的则是 <code>Process.where_is/1</code>.</p>
 </li>
-</ul>
+</ol>
 <h3 id="服务进程与状态机"><a class="header" href="#服务进程与状态机">服务进程与状态机</a></h3>
 <p>每个 Elixir 服务进程, 可以看作是一个状态机. 状态机是由外部的输入来改变状态的抽象机器.
-在计算机理论中有重要的应用, 把一个 Elixir 进程看作一个状态机, 可以简化思维的负担.
-把 <code>GenServer</code> 看作状态机, 用图示来来表示如下:</p>
-<!-- livebook:{"break_markdown":true} -->
-<!-- Learn more at https://mermaid-js.github.io/mermaid -->
+把 <code>GenServer</code> 看作一个状态机, 用状态图来表示如下:</p>
 <pre class="mermaid">stateDiagram-v2
-[*] --&gt; start
-start --&gt; init
-note right of init
-   `init` return `{:ok, state, {:continue, continue}}`
-end note
-init --&gt; stop
-start --&gt; stop
-init --&gt; Loop
+start_link/1~2 --&gt; init/1
+start/1 --&gt; init/1
+init/1 --&gt; [*]: `#58;ignore` 或 `{#58;stop, reaseon}`
+init/1 --&gt; hibernate: 返回 `{#58;ok,state,#58;bibernate}`
+init/1 --&gt; timeout: `{#58;ok,state,timeout}`
+timeout --&gt; Loop: `#58;timeout`
+Loop --&gt; hibernate: 回调函数的返回中包含原子 `#58;hibernate` 且消息队列为空
+hibernate --&gt; Loop: 收到消息
+init/1 --&gt; Loop: 返回 `{#58;ok,state[,{#58;continue,continue}]}`
 Loop --&gt; Loop
-Loop --&gt; stop
-stop --&gt; [*]
+Loop --&gt; terminate/2
+terminate/2 --&gt; [*]
 </pre>
-<p>Loop 节点的定义为:</p>
+<p><code>GenServer.start</code> 和 <code>GenServer.start_link</code> 会启动进程.
+它们首先会调用 <code>init/1</code> 回调函数.</p>
+<p>根据 <code>init/1</code> 返回类型, 进程可能会进入四个状态: 1) 终止状态; 2) 冬眠状态;
+2) 循环状态; 4) 超时.</p>
+<p>冬眠状态指的是: 服务的消息队列为空, 服务进程停止执行循环, 开始完成垃圾收集工作.
+等新消息被接受后, 服务再次开始循环.</p>
+<p>超时状态是指: 当回调函数设置了超时参数后, 在给定的时间内, 消息队列一直都是空的,
+这时进程会向自己发送 <code>:timeout</code> 消息, 会触发 回调函数 <code>hanlde_info</code>.</p>
+<h4 id="init1-状态跳转表"><a class="header" href="#init1-状态跳转表"><code>init/1</code> 状态跳转表</a></h4>
+<div class="table-wrapper"><table><thead><tr><th><code>init/1</code> 返回值</th><th>被触发函数, 或程序状态</th></tr></thead><tbody>
+<tr><td>返回 <code>{:ok, state}</code></td><td>循环</td></tr>
+<tr><td>返回 <code>{:ok, state, timeout}</code>,且 进程 timeout 毫秒内没有收到消息</td><td>进入 timeout 状态, 触发 <code>handle_info</code></td></tr>
+<tr><td>返回 <code>{:ok,state,{:continue, contine}}</code></td><td>触发 <code>hanlde_continue</code></td></tr>
+<tr><td>返回 <code>{:ok,state,:hibernate}</code></td><td>进程冬眠状态</td></tr>
+<tr><td>返回 <code>{:stop, reason}</code></td><td>进程终止</td></tr>
+<tr><td>返回 <code>:ignore</code></td><td>进程终止</td></tr>
+</tbody></table>
+</div>
+<h4 id="触发-terminate2-的行为"><a class="header" href="#触发-terminate2-的行为">触发 <code>terminate/2</code> 的行为</a></h4>
+<p><code>terminate/2</code> 用来完成进程所占资源的清理工作, 它会被如下行为触发:</p>
+<ol>
+<li>
+<p>当前进程设置了 <code>:trap_exit</code>(<code>Process.flag(:trap_exit, ture)</code>,
+而父进程发送了退出消息 <code>Process.exit(pid,reason)</code>.</p>
+</li>
+<li>
+<p><code>GenServer.stop(server,reason)</code></p>
+</li>
+<li>
+<p>回调函数 <code>hanlde_*</code> 返回 第一个元素为 <code>:stop</code> 的元组</p>
+<div class="table-wrapper"><table><thead><tr><th>回调</th><th>返回值</th></tr></thead><tbody>
+<tr><td><code>handle_call/3</code></td><td><code>{:stop, reason, reply, new_state}</code>, <code>{:stop, reason, new_state}</code></td></tr>
+<tr><td><code>handle_cast/2</code></td><td><code>{:stop, reason :: term, new_state}</code></td></tr>
+<tr><td><code>handle_info/2</code></td><td><code>{:stop, reason :: term, new_state}</code></td></tr>
+<tr><td><code>handle_continue/2</code></td><td><code>{:stop, reason :: term(), new_state}</code></td></tr>
+</tbody></table>
+</div></li>
+<li>
+<p>回调函数引发异常 (<code>raise/2</code>), 或者推出进程 (<code>exit/1</code>)</p>
+</li>
+<li>
+<p>回调函数返回的非法的值</p>
+</li>
+</ol>
+<p>需要注意的是 <code>init/1</code> 并不会触发 <code>terminate/2</code>.</p>
+<h4 id="loop-节点"><a class="header" href="#loop-节点">Loop 节点</a></h4>
 <pre class="mermaid">stateDiagram-v2
-[*]: Loop
-[*] --&gt; info: send/send_after
-[*] --&gt; cast: GenServer.cast/abcast
-[*] --&gt; call: GenServer.call/muti_call
-[*] --&gt; continue: see note on right of init
+Loop
+Loop --&gt; info: send/send_after
+Loop --&gt; cast: GenServer.cast/abcast
+Loop --&gt; call: GenServer.call/muti_call
+Loop --&gt; continue: init/1 返回 `{#58;ok, state, #58;continue}`
+Loop --&gt; [*]
 
+call --&gt; continue
+call --&gt; Loop
 call --&gt; [*]
-call --&gt; continue: message
+
+info --&gt; continue
+info --&gt; Loop
 info --&gt; [*]
-info --&gt; continue: message
-continue --&gt; continue: message
+
+continue --&gt; continue
+continue --&gt; Loop
 continue --&gt; [*]
+
+
+cast --&gt; continue
+cast --&gt; Loop
 cast --&gt; [*]
-cast --&gt; continue: message
-note right of continue
-   message: `{:noreply,state,{:continue,continue}}`.
-end note
 </pre>
+<p>循环节点是我们的主节点. 用来处理接受到的消息和改变系统的状态.
+循环状态中有四个子状态, <code>cast</code>, <code>call</code>, <code>info</code> 和 <code>continue</code>.
+对应四种 回调函数 <code>handle_*</code>.</p>
+<h4 id="handle_call3-状态变化"><a class="header" href="#handle_call3-状态变化"><code>handle_call/3</code> 状态变化</a></h4>
+<p><code>GenServer.call/2-3</code> 或 <code>GenServer.mutil_call/4</code> 调用会触发 <code>handle_call/3</code>.
+根据 <code>handle_call/3</code> 的返回值不同, 服务的状态变化表如下:</p>
+<div class="table-wrapper"><table><thead><tr><th><code>handle_call/3</code> 返回值</th><th>服务状态</th></tr></thead><tbody>
+<tr><td><code>{:reply, reply, new_state}</code></td><td>以 <code>reply</code> 回应请求, 服务的 state 改变, 继续循环.</td></tr>
+<tr><td><code>{:reply, reply, new_state, timeout}</code></td><td>以 <code>reply</code> 回应请求, 服务的 state 改变, 如果 <code>timeout</code> 毫秒没有没有消息进来, 进程进入 timeout 状态.</td></tr>
+<tr><td><code>{:reply, reply, new_state, :hibernate}</code></td><td>以 <code>reply</code> 回应请求, 服务的 state 改变, 如果消息队列空了, 进程进入冬眠状态</td></tr>
+<tr><td><code>{:reply, reply, new_state, {:continue, term}}</code></td><td>以 <code>reply</code> 回应请求, 服务的 state 改变, 处理下一个消息前, 继续执行 <code>handle_continue</code> 回调</td></tr>
+<tr><td><code> {:stop, reason, reply, new_state}</code></td><td>以 <code>reply</code> 回应请求, 进程的 state 改变, 服务进入 terminate 状态, <code>terminate/2</code> 被触发</td></tr>
+<tr><td><code>{:stop, reason, new_state}</code></td><td>进程 state 改变, 服务进入 <code>terminate/2</code> 被触发.</td></tr>
+</tbody></table>
+</div>
+<h4 id="handle_cast2-状态变化"><a class="header" href="#handle_cast2-状态变化"><code>handle_cast/2</code> 状态变化</a></h4>
+<p><code>GenServer.cast/2</code> 或 <code>GenServer.abcast/2</code> 会触发 <code>handle_cast/2</code> 回调函数.</p>
+<p>根据 <code>handle_cast/2</code> 返回值的不同, 进程的状态变化如下表:</p>
+<div class="table-wrapper"><table><thead><tr><th><code>hanlde_cast/2</code> 的返回值</th><th>服务状态</th></tr></thead><tbody>
+<tr><td><code>{:noreply, new_state}</code></td><td>进程的 state 改变, 进入循环, 等待处理下一个消息.</td></tr>
+<tr><td><code>{:noreply, new_state, timeout}</code></td><td>进程的 state 改变, 如果 timeout 毫秒内, 消息对立依旧为空, 进程进入冬眠模式</td></tr>
+<tr><td><code>{:noreply, new_state,:hibernate}</code></td><td>进程的 state 改变, 如果消息对立为空, 进程进入冬眠状态</td></tr>
+<tr><td><code>{:noreply, new_state,{:continue, term}}</code></td><td>进程的 state 改变, 在处理其他消息之前, 继续执行 <code>handle_continue</code></td></tr>
+<tr><td><code>{:stop, reason :: term, new_state}</code></td><td>进程的 state 改变, 服务进入 terminate 状态, <code>terminate/2</code> 会被触发</td></tr>
+</tbody></table>
+</div>
+<h4 id="handle_info2-状态"><a class="header" href="#handle_info2-状态"><code>handle_info/2</code> 状态</a></h4>
+<p><code>GenServer.cast</code>, <code>GenServer.abcast</code>, <code>GenServer.call</code>, 和 <code>GenServer.muti_call</code>
+之外的方法发送给进程的消息, 都会触发 <code>handle_info</code> 回调函数.</p>
+<p>具体来说, 以下方法的调用都会触发相应的服务的 <code>handle_info/2</code> 回调函数:</p>
+<ul>
+<li><code>Kernel.send/2</code></li>
+<li><code>Process.send/2</code></li>
+<li><code>Process.send_after/3</code></li>
+</ul>
+<p>当服务处于 timeout 状态时, 会向进程自己发送 <code>:timeout</code> 消息.</p>
+<p>根据 <code>handle_info/2</code> 返回值的不同, 服务的状态变化有下表表示.</p>
+<div class="table-wrapper"><table><thead><tr><th><code>handle_info/2</code> 的返回值</th><th>服务状态</th></tr></thead><tbody>
+<tr><td><code>{:noreply, new_state}</code></td><td>进程 state 改变</td></tr>
+<tr><td><code>{:noreply, new_state, timeout}</code></td><td>进程 state 改变, 如果 timeout 毫秒内, 服务的消息队列中依旧为空, 服务进入 timeout 状态</td></tr>
+<tr><td><code>{:noreply, new_state, :hibernate}</code></td><td>进程 state 改变, 如果服务的消息队列为空, 进程进入冬眠状态.</td></tr>
+<tr><td><code>{:noreply, new_state, {:continue, term}}</code></td><td>进程 state 改变, 在处理其他消息之前, 继续执行 <code>handle_continue</code> 回调函数</td></tr>
+<tr><td><code>{:stop, reason :: term(), new_state}</code></td><td>进程 state 改变, 进程进入终止状态, <code>terminate/2</code> 会被调用</td></tr>
+</tbody></table>
+</div>
+<h4 id="handle_continue2"><a class="header" href="#handle_continue2"><code>handle_continue/2</code></a></h4>
+<p>回调函数中含有 <code>:continue</code> 原子的时候, 会触发 <code>hanlde_continue/2</code> 回调.
+<code>handle_continue/2</code> 总是在 <code>handle_*</code> 调用之后立即被调用的,
+而不是在下一个的循环中被调用. 触发 <code>handle_continue/2</code>
+的其他回调函数的返回情况如下:</p>
+<div class="table-wrapper"><table><thead><tr><th>回调函数</th><th>返回值</th></tr></thead><tbody>
+<tr><td><code>handle_call/3</code></td><td><code>{:reply, reply, new_state, {:continue, term}}</code></td></tr>
+<tr><td><code>handle_cast/2</code></td><td><code>{:noreply, new_state,{:continue, term}}</code></td></tr>
+<tr><td><code>hanlde_info/2</code></td><td><code>{:noreply, new_state, {:continue, term}}</code></td></tr>
+<tr><td><code>hanlde_continue/2</code></td><td><code>{:noreply, new_state, {:continue, term()}}</code></td></tr>
+</tbody></table>
+</div>
+<p><code>handle_continue/2</code> 返回值, 以及引发的服务状态由下表表示:</p>
+<div class="table-wrapper"><table><thead><tr><th><code>hanlde_continue/2</code> 返回值</th><th>状态</th></tr></thead><tbody>
+<tr><td><code>{:noreply, new_state}</code></td><td>修改进程状态</td></tr>
+<tr><td><code>{:noreply, new_state, timeout}</code></td><td>修改进程状态, 如果 timeout 毫秒内, 消息队列依旧为空, 服务进入超时状态, 触发 <code>handle_info</code></td></tr>
+<tr><td><code>{:noreply, new_state,:hibernate}</code></td><td>修改进程状态, 如果消息队列依旧为空, 服务进入冬眠状态</td></tr>
+<tr><td><code>{:noreply, new_state, {:continue, term}}</code></td><td>继续执行 <code>handle_continue/2</code> 子句</td></tr>
+</tbody></table>
+</div>
+<h2 id="基于-genserver-的其他模块"><a class="header" href="#基于-genserver-的其他模块">基于 <code>GenServer</code> 的其他模块</a></h2>
+<p><code>GenServer</code> Elixir 为我们提供的最重要的抽象.
+在 <code>GenServer</code> 的基础上, Elixir 还未我们提供了如下的模块:</p>
+<ul>
+<li><code>Task</code> 使用进程来完成异步计算</li>
+<li><code>Agent</code> 使用服务进程来保存状态</li>
+</ul>
+<p>OTP 的自愈特性, 是基于对进程的监督和重启的.</p>
+<ul>
+<li><code>Supervisor</code> 模块是一个行为, 用来帮助我们写出一致的管理者进程.</li>
+<li><code>DynamicSupervisor</code> 模型是一个行为, 用来帮助我们些出一致的动态管理者进程.</li>
+<li><code>Application</code> 模块是一个行为, 用来帮助我们统一启动进程数的格式和代码.</li>
+</ul>
+<p>后面的章节, 会对这些模块作一一介绍.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="第十二章-冷知识"><a class="header" href="#第十二章-冷知识">第十二章 冷知识</a></h1>
 <h2 id="函数参数个数"><a class="header" href="#函数参数个数">函数参数个数</a></h2>
 <p>在阅读 Elixir 文档的
