@@ -18,7 +18,12 @@ jobs:
         run: mdbook build
       - name: Checkout book
         uses: actions/checkout@v3
-        with: 
-          path: book
+        ref: book
       - name: realease
-        run: (ls .);(mv book/* .);rm book -rf
+        run: |
+          ls .
+          mv book/* .
+          rm book -rf
+          git add .
+          git commit -am "release"
+          git push
