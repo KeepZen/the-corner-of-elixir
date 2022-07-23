@@ -8,6 +8,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          persist-credentials: true
       - uses: jontze/action-mdbook@v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
@@ -24,10 +27,7 @@ jobs:
           git branch -M book
           git commit --message "Auto deploy from GitHub Actions build $GITHUB_RUN_NUMBER"
       - name: Force push to book
-        uses: ad-m/github-push-action@v0.5.0
+        uses: ad-m/github-push-action@mater
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          # this might change depending on whether you are publishing a site for a normal repo or a user/organization repo
+          ssh: true
           branch: book
-          force: true
-          directory: .
