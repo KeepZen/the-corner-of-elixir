@@ -18,14 +18,11 @@ jobs:
           use-mermaid: true
       - id: build
         name: mdbook build
-        run: mdbook build
-      - name: Checkout book
-        uses: actions/checkout@v3
-        with:
-          ref: book
-      - name: realease
         run: |
-          ls .
+          mdbook build
+          ls
+          git checkout book
+          ls
           mv book/* .
           rm book -rf
           git add .
