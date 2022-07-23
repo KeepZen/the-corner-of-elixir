@@ -25,5 +25,5 @@ jobs:
           git branch -M book
           git add --all
           git commit --message "Auto deploy from GitHub Actions build $GITHUB_RUN_NUMBER"
-          git remote add deploy git://github.com:KeepZen/the-corner-of-elixir.git
+          git remote add deploy git@github.com:KeepZen/the-corner-of-elixir.git
           git push --force deploy book
