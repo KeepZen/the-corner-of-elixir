@@ -1,4 +1,4 @@
-name: Setup mdBook with plugins (latest)
+name: book
 on:
   push:
     branches:
@@ -18,8 +18,8 @@ jobs:
           use-opengh: true
       - name: Show mdbook version
         run: mdbook --version
-      - name: Show linkchecker version
-        run: mdbook-linkcheck --version
+      #- name: Show linkchecker version
+      #  run: mdbook-linkcheck --version
       - name: Show mermaid version
         run: mdbook-mermaid --version
       - name: Show toc version
