@@ -21,6 +21,7 @@ jobs:
         run: |
           mdbook build
           ls
+          git branch
           git checkout book
           ls
           mv book/* .
