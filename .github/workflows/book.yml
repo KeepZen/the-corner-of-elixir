@@ -18,6 +18,6 @@ jobs:
           cd _site
           mdbook build -d ../book
           git checkout book
-          mv ../book/* .
+          mv ../book/*.html .
           git push
   
