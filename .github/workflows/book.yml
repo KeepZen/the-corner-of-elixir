@@ -4,8 +4,10 @@ on:
     branches:
       - main
 jobs:
-  run:
+  release-book:
     runs-on: ubuntu-latest
+    outputs: 
+      output1: ${{steps.build.ouputs.book}}
     steps:
       - uses: actions/checkout@v3
       - uses: jontze/action-mdbook@v1
@@ -14,7 +16,8 @@ jobs:
           # Optional Plugins have to be enabled
           #use-linkcheck: true
           use-mermaid: true
-      - name: mdbook build
+      - id: build
+        name: mdbook build
         run: mdbook build
       - name: Checkout book
         uses: actions/checkout@v3
