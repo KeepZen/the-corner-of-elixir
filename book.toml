@@ -6,7 +6,7 @@ src = "./"
 title = "角落里的长生不老药"
 
 [build]
-#build-dir = "../KeepZen.github.io/"
+#build-dir = "../book"
 
 [preprocessor.mermaid]
 command = "mdbook-mermaid"

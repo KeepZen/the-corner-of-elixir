@@ -16,4 +16,4 @@
 12. [第十二章 进程](ch12.process.md)
 13. [附录 冷知识](chx.cold_knowledge.md)
 
-或者你可以在 https://keepzen.github.io/the-corner-of-elixir/ 阅读.
+或者你可以在[这里](https://keepzen.github.io/the-corner-of-elixir/)阅读.
