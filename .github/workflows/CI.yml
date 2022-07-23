@@ -13,10 +13,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Setup elixir
-        uses: actions/setup-elixir@v1
+        uses: erlef/setup-beam@v1
         with:
-          elixir-version: 1.13.1
           otp-version: 24
+          elixir-version: 1.13.1
       - name: Install Dependence
         run: mix deps.get
       - name: Run mix docs
