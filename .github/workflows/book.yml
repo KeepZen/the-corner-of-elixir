@@ -11,8 +11,6 @@ jobs:
       - uses: jontze/action-mdbook@v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
-          # Optional Plugins have to be enabled
-          #use-linkcheck: true
           use-mermaid: true
       - id: build
         name: mdbook build
@@ -27,9 +25,9 @@ jobs:
           git commit --message "Auto deploy from GitHub Actions build $GITHUB_RUN_NUMBER"
       - name: Force push to book
         uses: ad-m/github-push-action@v0.5.0
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        # this might change depending on whether you are publishing a site for a normal repo or a user/organization repo
-        branch: book
-        force: true
-        directory: ./book
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # this might change depending on whether you are publishing a site for a normal repo or a user/organization repo
+          branch: book
+          force: true
+          directory: ./book
