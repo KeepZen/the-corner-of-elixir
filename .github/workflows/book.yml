@@ -18,7 +18,8 @@ jobs:
         run: mdbook build
       - name: Checkout book
         uses: actions/checkout@v3
-        ref: book
+        with:
+          ref: book
       - name: realease
         run: |
           ls .
