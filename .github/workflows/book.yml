@@ -20,10 +20,16 @@ jobs:
           mdbook build
           cd book
           git init
+          git add -A
           git config user.name "GitHub"
           git config user.email "noreply@github.com"
           git branch -M book
-          git add --all
           git commit --message "Auto deploy from GitHub Actions build $GITHUB_RUN_NUMBER"
-          git remote add deploy git@github.com:KeepZen/the-corner-of-elixir.git
-          git push --force deploy book
+      - name: Force push to book
+        uses: ad-m/github-push-action@v0.5.0
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        # this might change depending on whether you are publishing a site for a normal repo or a user/organization repo
+        branch: book
+        force: true
+        directory: ./book
