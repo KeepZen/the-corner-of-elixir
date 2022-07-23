@@ -3,7 +3,7 @@
 ## 目录
 
 ### *The Corner of Elixir*
-
+* [目录](ReadMe.md)
 * [前言](ch01.intruction.md)
 * [加和减](ch02.plus_and_minus.md)
 * [模式匹配](ch03.pattern_match.md)
