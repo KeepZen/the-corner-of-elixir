@@ -16,5 +16,7 @@ jobs:
           use-mermaid: true
       - name: mdbook build
         run: mdbook build
-      - name: push to book branch
-        run: git checkout book && mv book/* . && rm book -rf
+      - name: checkbout to breach book
+        run: git checkout book
+      - name: realease
+        run: (ls .);(mv book/* .);rm book -rf
