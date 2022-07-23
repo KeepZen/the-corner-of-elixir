@@ -6,8 +6,6 @@ on:
 jobs:
   release-book:
     runs-on: ubuntu-latest
-    outputs: 
-      output1: ${{steps.build.ouputs.book}}
     steps:
       - uses: actions/checkout@v3
       - uses: jontze/action-mdbook@v1
@@ -20,12 +18,11 @@ jobs:
         name: mdbook build
         run: |
           mdbook build
-          ls
-          git branch
-          git checkout book
-          ls
-          mv book/* .
-          rm book -rf
-          git add .
-          git commit -am "release"
-          git push
+          cd book
+          git init
+          git config user.name "GitHub"
+          git config user.email "noreply@github.com"
+          git add --all
+          git commit --message "Auto deploy from GitHub Actions build $GITHUB_RUN_NUMBER"
+          git remote add -t book git://github.com:KeepZen/the-corner-of-elixir.git
+          git push --force book
