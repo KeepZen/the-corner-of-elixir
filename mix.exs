@@ -17,7 +17,7 @@ defmodule TheCornerOfElixir.MixProject do
         language: ["cn-zh"],
         assets: "assets",
         before_closing_head_tag: &before_closing_head_tag/1,
-        main: "ReadMe",
+        main: "readme",
         markdown_processor: {ExDoc.Markdown.Earmark, footnotes: true},
         extras: [
           "cn/ReadMe.md",
