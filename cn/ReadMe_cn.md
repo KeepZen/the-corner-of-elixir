@@ -1,4 +1,4 @@
-# 角落里的长生不老药
+# 目录
 
 ## *The Corner of Elixir*
 
@@ -15,5 +15,3 @@
 11. [第十一章 如何理解宏](ch11.macro.md)
 12. [第十二章 进程](ch12.process.md)
 13. [附录 冷知识](chx.cold_knowledge.md)
-
-或者你可以在[这里](https://keepzen.github.io/the-corner-of-elixir/)阅读.

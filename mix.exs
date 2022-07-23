@@ -19,8 +19,12 @@ defmodule TheCornerOfElixir.MixProject do
         before_closing_head_tag: &before_closing_head_tag/1,
         main: "readme",
         markdown_processor: {ExDoc.Markdown.Earmark, footnotes: true},
+        groups_for_extras: [
+          中文: Path.wildcard("cn/*.md")
+        ],
         extras: [
-          "cn/ReadMe.md",
+          "ReadMe.md",
+          "cn/ReadMe_cn.md",
           "cn/ch01.intruction.md",
           "cn/ch02.plus_and_minus.md",
           "cn/ch03.pattern_match.md",
