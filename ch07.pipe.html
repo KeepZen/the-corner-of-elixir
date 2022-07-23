@@ -5,7 +5,10 @@
     <!-- Book generated using mdBook -->
     <meta charset="UTF-8">
     <title>管道操作符 - 角落里的长生不老药</title>
+
+
     <!-- Custom HTML head -->
+    
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,15 +19,18 @@
     <link rel="stylesheet" href="css/general.css">
     <link rel="stylesheet" href="css/chrome.css">
     <link rel="stylesheet" href="css/print.css" media="print">
+
     <!-- Fonts -->
     <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
     <link rel="stylesheet" href="fonts/fonts.css">
+
     <!-- Highlight.js Stylesheets -->
     <link rel="stylesheet" href="highlight.css">
     <link rel="stylesheet" href="tomorrow-night.css">
     <link rel="stylesheet" href="ayu-highlight.css">
 
     <!-- Custom theme stylesheets -->
+
     <!-- MathJax -->
     <script>
         MathJax = {
@@ -86,7 +92,7 @@
 
     <nav id="sidebar" class="sidebar" aria-label="Table of contents">
         <div class="sidebar-scrollbox">
-            <ol class="chapter"><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">1.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">2.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">3.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">4.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">5.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">6.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html" class="active"><strong aria-hidden="true">7.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">8.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">9.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">10.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">11.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="ch12.process.html"><strong aria-hidden="true">12.</strong> 进程</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">13.</strong> 附录 冷知识</a></li></ol>
+            <ol class="chapter"><li class="chapter-item expanded "><a href="index.html"><strong aria-hidden="true">1.</strong> 目录</a></li><li class="chapter-item expanded "><a href="ch01.intruction.html"><strong aria-hidden="true">2.</strong> 前言</a></li><li class="chapter-item expanded "><a href="ch02.plus_and_minus.html"><strong aria-hidden="true">3.</strong> 加和减</a></li><li class="chapter-item expanded "><a href="ch03.pattern_match.html"><strong aria-hidden="true">4.</strong> 模式匹配</a></li><li class="chapter-item expanded "><a href="ch04.parenthese.html"><strong aria-hidden="true">5.</strong> 括号</a></li><li class="chapter-item expanded "><a href="ch05.new_constructor.html"><strong aria-hidden="true">6.</strong> 定制新结构</a></li><li class="chapter-item expanded "><a href="ch06.async_programe.html"><strong aria-hidden="true">7.</strong> 异步编程</a></li><li class="chapter-item expanded "><a href="ch07.pipe.html" class="active"><strong aria-hidden="true">8.</strong> 管道操作符</a></li><li class="chapter-item expanded "><a href="ch08.error_handle.html"><strong aria-hidden="true">9.</strong> 错误处理</a></li><li class="chapter-item expanded "><a href="ch09.module.html"><strong aria-hidden="true">10.</strong> 模块</a></li><li class="chapter-item expanded "><a href="ch10.protocol_and_behaviour.html"><strong aria-hidden="true">11.</strong> 协议与行为</a></li><li class="chapter-item expanded "><a href="ch11.macro.html"><strong aria-hidden="true">12.</strong> 如何理解宏</a></li><li class="chapter-item expanded "><a href="ch12.process.html"><strong aria-hidden="true">13.</strong> 进程</a></li><li class="chapter-item expanded "><a href="chx.cold_knowledge.html"><strong aria-hidden="true">14.</strong> 附录 冷知识</a></li></ol>
         </div>
         <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
     </nav>
@@ -94,7 +100,7 @@
     <div id="page-wrapper" class="page-wrapper">
 
         <div class="page">
-            <div id="menu-bar-hover-placeholder"></div>
+                        <div id="menu-bar-hover-placeholder"></div>
             <div id="menu-bar" class="menu-bar sticky bordered">
                 <div class="left-buttons">
                     <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents"
@@ -126,6 +132,7 @@
                     <a href="print.html" title="Print this book" aria-label="Print this book">
                         <i id="print-button" class="fa fa-print"></i>
                     </a>
+
                 </div>
             </div>
 
@@ -140,6 +147,7 @@
                     </ul>
                 </div>
             </div>
+
             <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
             <script type="text/javascript">
                 document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
@@ -547,10 +555,12 @@ end
                         title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
+
                     <a rel="next" href="ch08.error_handle.html" class="mobile-nav-chapters next"
                         title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
+
                     <div style="clear: both"></div>
                 </nav>
             </div>
@@ -561,6 +571,7 @@ end
                 aria-label="Previous chapter" aria-keyshortcuts="Left">
                 <i class="fa fa-angle-left"></i>
             </a>
+
             <a rel="next" href="ch08.error_handle.html" class="nav-chapters next" title="Next chapter"
                 aria-label="Next chapter" aria-keyshortcuts="Right">
                 <i class="fa fa-angle-right"></i>
@@ -569,28 +580,18 @@ end
 
     </div>
 
-    <!-- Livereload script (if served using the cli tool) -->
-    <script type="text/javascript">
-        const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsAddress = wsProtocol + "//" + location.host + "/" + "__livereload";
-        const socket = new WebSocket(wsAddress);
-        socket.onmessage = function (event) {
-            if (event.data === "reload") {
-                socket.close();
-                location.reload();
-            }
-        };
 
-        window.onbeforeunload = function () {
-            socket.close();
-        }
-    </script>
+
+
     <script type="text/javascript">
         window.playground_copyable = true;
     </script>
+
+
     <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+
     <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
     <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
     <script src="book.js" type="text/javascript" charset="utf-8"></script>
@@ -598,6 +599,8 @@ end
     <!-- Custom JS scripts -->
     <script type="text/javascript" src="theme/mermaid.min.js"></script>
     <script type="text/javascript" src="theme/mermaid-init.js"></script>
+
+
 </body>
 
 </html>
