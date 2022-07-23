@@ -14,15 +14,9 @@ jobs:
           # Optional Plugins have to be enabled
           #use-linkcheck: true
           use-mermaid: true
-          use-toc: true
-          use-opengh: true
-      - name: Show mdbook version
-        run: mdbook --version
-      #- name: Show linkchecker version
-      #  run: mdbook-linkcheck --version
-      - name: Show mermaid version
-        run: mdbook-mermaid --version
-      - name: Show toc version
-        run: mdbook-toc --version
-      - name: Show open-on-gh version
-        run: mdbook-open-on-gh --version
+      - name: mdbook build
+        use: JamesIves/github-pages-deploy-action
+        env: 
+          ACCESS_TOKEN: ${{secrets.ACCESS_TOKEN}}
+          BRANCH: book
+          BUILD_SCRIPT: mdbook build
