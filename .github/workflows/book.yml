@@ -19,5 +19,5 @@ jobs:
           mdbook build -d ../book
           git checkout book
           mv ../book/*.html .
-          git push
+          git push origian book
   
