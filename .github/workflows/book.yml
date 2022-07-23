@@ -7,7 +7,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: jontze/action-mdbook@v1
         with:
           token: ${{secrets.GITHUB_TOKEN}}
@@ -16,7 +16,9 @@ jobs:
           use-mermaid: true
       - name: mdbook build
         run: mdbook build
-      - name: checkbout to breach book
-        run: git checkout book
+      - name: Checkout book
+        uses: actions/checkout@v3
+        with: 
+          path: book
       - name: realease
         run: (ls .);(mv book/* .);rm book -rf
