@@ -8,14 +8,19 @@ on:
 
 jobs:
   build:
-    name: Build, Test and Deploy
+    name: Build Doc
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Elixir action
-        uses: mileschou/elixir-action@master
+      - name: Setup elixir
+        uses: actions/setup-elixir@v1
         with:
-          args: mix docs
+          elixir-version: 1.13.4
+          otp-version: 24
+      - name: Install Dependence
+        run: mix deps.get
+      - name: Run mix docs
+        run: mix docs
       - uses: JamesIves/github-pages-deploy-action@4.1.7
         with:
           branch: book # The branch the action should deploy to.
