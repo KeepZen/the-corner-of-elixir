@@ -15,8 +15,11 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-      - run: (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.4" mdbook)
-      - run: mdbook build && mdbook test # In case of custom book path: mdbook build path/to/mybook && mdbook test path/to/mybook
+      - run: |
+          test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.4" mdbook
+          cargo install mdbook-mermaid
+          mdbook-mermaid install book
+      - run: mdbook build # In case of custom book path: mdbook build path/to/mybook && mdbook test path/to/mybook
       - uses: JamesIves/github-pages-deploy-action@4.1.7
         with:
           branch: book # The branch the action should deploy to.
