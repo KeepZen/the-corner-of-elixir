@@ -15,8 +15,6 @@ jobs:
           #use-linkcheck: true
           use-mermaid: true
       - name: mdbook build
-        use: JamesIves/github-pages-deploy-action
-        env: 
-          ACCESS_TOKEN: ${{secrets.ACCESS_TOKEN}}
-          BRANCH: book
-          BUILD_SCRIPT: mdbook build
+        run: mdbook build
+      - name: push to book branch
+        run: git checkout book && mv book/* . && rm book -rf
