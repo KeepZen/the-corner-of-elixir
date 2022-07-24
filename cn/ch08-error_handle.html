@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="encn-zh">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.28.4">
+    <meta name="project" content="The Corner of Elixir v4.0.0">
+
+      <meta name="author" content="Keep Zen">
+
+    <title>第八章 错误处理 — The Corner of Elixir v4.0.0</title>
+    <link rel="stylesheet" href="dist/elixir-b6f1ed5df9b1d42a7309.css" />
+
+    <script src="dist/sidebar_items-1785d4c7ff.js"></script>
+
+      <script src="docs_config.js"></script>
+
+    <script async src="dist/app-bd1cb213813bf4825aa2.js"></script>
+
+<style>
+  a.footnote {
+    vertical-align: super;
+  }
+  a.reversefootnote {
+    display: inline-block;
+    text-indent: -9999px;
+    line-height: 0;
+  }
+  a.reversefootnote:after {
+    content: '↩'; /* or any other text you want */
+    text-indent: 0;
+    display: block;
+    line-height: initial;
+  }
+</style>
+
+<script>
+MathJax = {
+tex: {
+inlineMath: [['$', '$']]
+}
+};
+</script>
+<script id="MathJax-script" async
+src="./assets/tex-chtml.js">
+</script>
+
+<script src="assets/mermaid.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+mermaid.initialize({ startOnLoad: false });
+let id = 0;
+for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+  const preEl = codeEl.parentElement;
+  const graphDefinition = codeEl.textContent;
+  const graphEl = document.createElement("div");
+  const graphId = "mermaid-graph-" + id++;
+  mermaid.render(graphId, graphDefinition, function (svgSource, bindListeners) {
+    graphEl.innerHTML = svgSource;
+    bindListeners && bindListeners(graphEl);
+    preEl.insertAdjacentElement("afterend", graphEl);
+    preEl.remove();
+  });
+}
+});
+</script>
+
+  </head>
+  <body data-type="extras">
+    <script>
+
+      try {
+        var settings = JSON.parse(localStorage.getItem('ex_doc:settings') || '{}');
+
+        if (settings.theme === 'dark' ||
+           ((settings.theme === 'system' || settings.theme == null) &&
+             window.matchMedia('(prefers-color-scheme: dark)').matches)
+           ) {
+          document.body.classList.add('dark')
+        }
+      } catch (error) { }
+    </script>
+
+<div class="main">
+
+
+<section class="sidebar">
+  <button class="sidebar-button sidebar-toggle" aria-label="toggle sidebar">
+    <i class="ri-menu-line ri-lg" title="Collapse/expand sidebar"></i>
+  </button>
+
+  <form class="sidebar-search" action="search.html">
+    <button type="submit" class="search-button" aria-label="Submit Search">
+      <i class="ri-search-2-line" aria-hidden="true" title="Submit search"></i>
+    </button>
+    <button type="button" tabindex="-1" class="search-close-button" aria-label="Cancel Search">
+      <i class="ri-close-line ri-lg" aria-hidden="true" title="Cancel search"></i>
+    </button>
+    <label class="search-label">
+      <p class="sr-only">Search</p>
+      <input name="q" type="text" class="search-input" placeholder="Search..." aria-label="Input your search terms" autocomplete="off" />
+    </label>
+  </form>
+
+  <div class="autocomplete">
+    <div class="autocomplete-results">
+    </div>
+  </div>
+
+  <div class="sidebar-header">
+
+    <div class="sidebar-projectDetails">
+      <a href="https://keepzen.github.io/the-corner-of-elixir" class="sidebar-projectName" translate="no">
+The Corner of Elixir
+      </a>
+      <strong class="sidebar-projectVersion" translate="no">
+        v4.0.0
+      </strong>
+    </div>
+    <ul class="sidebar-listNav">
+      <li><a id="extras-list-link" href="#full-list">Pages</a></li>
+
+
+    </ul>
+  </div>
+
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <output role="status" id="toast"></output>
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+<h1>
+<button class="settings display-settings">
+  <i class="ri-settings-3-line"></i>
+  <span class="sr-only">Settings</span>
+</button>
+
+
+    <a href="https://github.com/keepzen/the-corner-of-elixir/blob/main/cn/ch08.error_handle.md#L1" title="View Source" class="view-source" rel="help">
+      <i class="ri-code-s-slash-line" aria-hidden="true"></i>
+      <span class="sr-only">View Source</span>
+    </a>
+
+  <span>第八章 错误处理</span>
+</h1>
+
+<h2 id="错误分类" class="section-heading">
+  <a href="#错误分类" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">错误分类</p>
+  </a>
+  错误分类
+</h2>
+<p>Erlang 中把错误分成 4 类.</p><ol><li>编译时错误, 也就是语法错误</li><li>逻辑错误, 漏洞或者更常见的是说法 bug.</li><li>运行时错误, 运行时产生的错误</li><li>产生的错误, 也就是写代码中故意产生的错误.</li></ol><p>前两种错误, 发生在语言之外的, 在代码层面没法对其做处理.</p><p>后两种错误又叫做异常. 代码层面能处理的其实都是异常.</p><p>异常以引发异常的机制和函数不同, 又可以分成三类:</p><ol><li>错误(<code class="inline">:error</code>), 运行时的错误, 例如 <code class="inline">1 + :a</code> 或者有 <code class="inline">:erlang.error()</code> 引发的.</li><li>退出(<code class="inline">:exit</code>), 由 <code class="inline">:erlang.exit/1-2-3</code> 引发, 用来使进程退出执行.</li><li>抛出(<code class="inline">:throw</code>), 由 <code class="inline">:erlang.throw</code> 引发.</li></ol><p>Erlang 中用 <code class="inline">catch</code> 关键字来处理这些错误.
+而 Elixir 中, 除了 <code class="inline">catch</code> 外, 还从 Ruby 中引入了新的 <code class="inline">rescue</code> 保留字.
+那么自然的就有一个问题, <code class="inline">catch</code> 和 <code class="inline">rescue</code> 如何分工呢?</p><p>按照 <a href="https://hexdocs.pm/elixir/1.13.1/Kernel.SpecialForms.html#try/1">Elixir 文档</a>
+的说法, <code class="inline">rescue</code> 用来处理异常, 而 <code class="inline">catch</code> 可以用来捕获 <code class="inline">throw</code> 值和 <code class="inline">exit</code> 信号.
+(The <code class="inline">rescue</code> clause is used to handle exceptions while the <code class="inline">catch</code> clause can
+be used to catch thrown values and exits.)</p><p>但是什么是异常呢? Elixir文档中并没有明确的给出定义, 但是
+<a href="https://www.erlang.org/doc/reference_manual/errors.html#exceptions">Erlang 文档</a>
+中有清晰的解释.</p><p>如果 Elixir 中的异常和 Erlang 中的是一个概念话,
+那么我对 <code class="inline">rescue</code> 和 <code class="inline">catch</code> 的分工的理解,
+就成了: <code class="inline">rescue</code> 能处理所有三种类型的异常, 而 <code class="inline">catch</code> <em>只能</em> 处理 <code class="inline">throw</code> 和
+<code class="inline">exit</code> 引发的异常. 但是<strong>这样的理解是错误的</strong>.</p><p>例如下面的代码,<code class="inline">rescue</code> 在这里并没有把我们从 <code class="inline">throw</code> 引发的错误中拯救出来.</p><pre><code class="makeup elixir" translate="no"><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="9220190542-1">do</span><span class="w">
+  </span><span class="k">throw</span><span class="p" data-group-id="9220190542-2">(</span><span class="mi">1</span><span class="p" data-group-id="9220190542-2">)</span><span class="w">
+</span><span class="k" data-group-id="9220190542-1">rescue</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9220190542-3">(</span><span class="n">v</span><span class="p" data-group-id="9220190542-3">)</span><span class="w">
+</span><span class="k" data-group-id="9220190542-1">end</span></code></pre><p>使用 Erlang 对异常的分类, <code class="inline">rescue</code> 实际上只能处理错误 <code class="inline">error</code> 类型错误.
+Elixir 文档中也的确有提到 <code class="inline">rescue</code> 对 Erlang 的错误的处理,
+所有的 Erlang 错误都被转化为 <a href="https://hexdocs.pm/elixir/ErlangError.html"><code class="inline">ErlangError</code></a>.
+这可以看作是一种暗示: Elixir 中异常对应于 Erlang 的 <code class="inline">:error</code> 类型的错误.</p><p>理解了这一点, 对于 <code class="inline">catch</code> 的分工描述才能有正确的理解.
+在 Erlang 中, 本来就是用<code class="inline">try...catch</code> 来处理所有错误的;
+Elixir 中依旧可以使用 <code class="inline">catch</code> 来处理全部的三种类型的错误, 也就是说,
+在 Elixir 中 <code class="inline">catch</code> 并没有退化. 而 Elixir 中增加的保留字 <code class="inline">resuce</code>,
+只是针对 <code class="inline">:error</code> 类型的处理而提供的更优雅便捷的语法.</p><p><strong>结论</strong>: 我起初的理解刚好搞反了, <strong><code class="inline">catch</code> 是全能的错误处理者, 而 <code class="inline">rescue</code>
+才是挑剔者</strong>.</p><h2 id="怎么拯救" class="section-heading">
+  <a href="#怎么拯救" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">怎么拯救</p>
+  </a>
+  怎么拯救
+</h2>
+<p>上一节我们讨论了, Elixir 中的 <code class="inline">rescue</code> 的使用场景,
+现在我们来讨论如何使用它.</p><p>比如让我们使用 <code class="inline">try...rescue</code> 来来模拟 Erlang 的 maybe 特性.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Maybe</span><span class="w"> </span><span class="k" data-group-id="2565977157-1">do</span><span class="w">
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">maybe</span><span class="p" data-group-id="2565977157-2">(</span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">block</span><span class="p" data-group-id="2565977157-2">)</span><span class="w"> </span><span class="k" data-group-id="2565977157-3">do</span><span class="w">
+    </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="2565977157-4">do</span><span class="w">
+      </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="2565977157-5">do</span><span class="w">
+        </span><span class="k">unquote</span><span class="p" data-group-id="2565977157-6">(</span><span class="n">block</span><span class="p" data-group-id="2565977157-6">)</span><span class="w">
+      </span><span class="k" data-group-id="2565977157-5">rescue</span><span class="w">
+        </span><span class="n">e</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="p" data-group-id="2565977157-7">[</span><span class="nc">MatchError</span><span class="p" data-group-id="2565977157-7">]</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">e</span><span class="o">.</span><span class="n">term</span><span class="w">
+        </span><span class="c1"># %MatchError{term: term} -&gt; term</span><span class="w">
+        </span><span class="n">e</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">reraise</span><span class="w"> </span><span class="n">e</span><span class="p">,</span><span class="w"> </span><span class="c">__STACKTRACE__</span><span class="w">
+      </span><span class="k" data-group-id="2565977157-5">end</span><span class="w">
+    </span><span class="k" data-group-id="2565977157-4">end</span><span class="w">
+  </span><span class="k" data-group-id="2565977157-3">end</span><span class="w">
+</span><span class="k" data-group-id="2565977157-1">end</span></code></pre><p>不难推测, 还可以在第 7 行的列表中加入更多的错误类型.
+如果不管异常的名字叫什么都要处理的话, 就可以向第 9 行那样处理.</p><p>但是像第 7 行中对错误的处理, 处理的结果, 只是从错误结构中提取相应的异常消息,
+那么我忍不住, 就想使用注释掉的第 8 行那样的代码.
+但是第 8 行的代码是语法错误的. <code class="inline">rescue</code> 子句中, <code class="inline">-&gt;</code> 左侧的模式匹配,
+只基于异常的名字来处理<a href="#fn:1" id="fnref:1" class="footnote" title="see footnote">1</a>.</p><p>这样的处理有些奇怪啊! 如果允许第 8 行那样写代码, 代码不是显的更整洁吗?
+为什么 Elixir 对 <code class="inline">rescue</code> 的匹配匹配语法要限制只能匹配错误名字呢?
+现在还没有答案, 但是不要这一个问题阻拦了我们探索的脚步.
+也许后面的探索中, 答案自然就会浮出水面呢!</p><h2 id="如何捕获" class="section-heading">
+  <a href="#如何捕获" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">如何捕获</p>
+  </a>
+  如何捕获
+</h2>
+<p>通过上面对 <code class="inline">rescue</code> 和 <code class="inline">catch</code> 的分工的讨论, 我们知道 <code class="inline">catch</code> 是三项全能.
+现在让我们来看看 <code class="inline">catch</code> 的表现.</p><h3 id="抛接游戏" class="section-heading">
+  <a href="#抛接游戏" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">抛接游戏</p>
+  </a>
+  抛接游戏
+</h3>
+<p>Elixir 中 <code class="inline">throw</code> 可以抛出任意的数据类型 (就像 C++ 中那样),
+而 <code class="inline">catch</code> 可以原封不动的接住所有被抛出的东西.
+Elixir 中没有 <code class="inline">return</code> 语句, 使用 <code class="inline">throw</code> <code class="inline">catch</code> 可以模拟它.
+例如类似于下面的 Javascript 代码:</p><pre><code class="makeup javascript" translate="no"><span class="kd">function</span><span class="w"> </span><span class="nf">fun</span><span class="p" data-group-id="7666376510-1">(</span><span class="n">a</span><span class="p" data-group-id="7666376510-1">)</span><span class="p" data-group-id="7666376510-2">{</span><span class="w">
+  </span><span class="kr">if</span><span class="p" data-group-id="7666376510-3">(</span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">3</span><span class="p" data-group-id="7666376510-3">)</span><span class="w"> </span><span class="kr">return</span><span class="w"> </span><span class="s">&quot;a &gt; 3&quot;</span><span class="w">
+  </span><span class="kr">if</span><span class="p" data-group-id="7666376510-4">(</span><span class="n">a</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p" data-group-id="7666376510-4">)</span><span class="w"> </span><span class="kr">return</span><span class="w"> </span><span class="s">&quot;a &gt; 0&quot;</span><span class="w">
+  </span><span class="kr">if</span><span class="p" data-group-id="7666376510-5">(</span><span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p" data-group-id="7666376510-5">)</span><span class="w"> </span><span class="kr">return</span><span class="w"> </span><span class="n">a</span><span class="w">
+  </span><span class="kr">return</span><span class="w"> </span><span class="n">a</span><span class="o">+</span><span class="mi">1</span><span class="w">
+</span><span class="p" data-group-id="7666376510-2">}</span></code></pre><p>对应的 Elixir 代码可以这样来写:</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">fun</span><span class="p" data-group-id="2672556966-1">(</span><span class="n">a</span><span class="p" data-group-id="2672556966-1">)</span><span class="w"> </span><span class="k" data-group-id="2672556966-2">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="s">&quot;a &gt; 3&quot;</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="s">&quot;a &lt; 0&quot;</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">throw</span><span class="w"> </span><span class="n">a</span><span class="w">
+  </span><span class="k" data-group-id="2672556966-2">catch</span><span class="w">
+    </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="2672556966-2">else</span><span class="w">
+   </span><span class="bp">_</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+</span><span class="k" data-group-id="2672556966-2">end</span></code></pre><h3 id="信号捕获" class="section-heading">
+  <a href="#信号捕获" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">信号捕获</p>
+  </a>
+  信号捕获
+</h3>
+<p>在 Erlang 中, <code class="inline">catch</code> 实际上更加类似于 Linux 进程间通信机制中的信号陷阱.
+也就是说, <code class="inline">catch</code> 捕获的实际上是信号, Elixir 信号比 Linux 的信号通信高级的地方在于:
+Linux 的信号种类是固定的; 而 Elixir 中 <code class="inline">exit</code> 可以发送的信号,
+是由标签表示的<strong>类型</strong>与<strong>附加消息</strong>共同组成的. 其中标签个数可以认为是固定的,
+但是附加信息的数量是无限的.</p><p><code class="inline">catch</code> 子句中完整的匹配语法是这样的:</p><pre><code class="makeup elixir" translate="no"><span class="k">catch</span><span class="w">
+  </span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">guard</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span></code></pre><p>也就是说, <code class="inline">catch</code> 子句中 <code class="inline">-&gt;</code> 左侧, 应该是一个二元的参数列表形式.
+<code class="inline">when</code> 子句是可以省略的, 就像其他环境中的 <code class="inline">when</code> 那样.
+而 <code class="inline">catch v -&gt; ...</code> 是 <code class="inline">catch :throw, v -&gt; ...</code> 的语法糖,
+或者按照 Erlang 文档的说法, <code class="inline">catch</code> 的默认类型是 <code class="inline">:throw</code>.</p><p>我们用代码来检验以下我们的理解是否正确:</p><pre><code class="makeup elixir" translate="no"><span class="mi">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="8541231264-1">do</span><span class="w">
+  </span><span class="k">throw</span><span class="p" data-group-id="8541231264-2">(</span><span class="mi">1</span><span class="p" data-group-id="8541231264-2">)</span><span class="w">
+</span><span class="k" data-group-id="8541231264-1">catch</span><span class="w">
+  </span><span class="ss">:throw</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+</span><span class="k" data-group-id="8541231264-1">end</span><span class="w">
+
+</span><span class="mf">2.0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="8541231264-3">do</span><span class="w">
+  </span><span class="k">throw</span><span class="p" data-group-id="8541231264-4">(</span><span class="mf">2.0</span><span class="p" data-group-id="8541231264-4">)</span><span class="w">
+</span><span class="k" data-group-id="8541231264-3">catch</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+</span><span class="k" data-group-id="8541231264-3">end</span></code></pre><p>对 <code class="inline">throw</code> 产生的错误来说, <code class="inline">catch v -&gt;..</code> 和 <code class="inline">catch :throw, v -&gt; ...</code> 一样.
+这证实了 <code class="inline">catch v -&gt; ...</code> 只是 <code class="inline">catch :throw, v -&gt; ...</code> 的语法糖的结论.</p><pre><code class="makeup elixir" translate="no"><span class="mi">2</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="4216237731-1">do</span><span class="w">
+    </span><span class="n">exit</span><span class="p" data-group-id="4216237731-2">(</span><span class="mi">2</span><span class="p" data-group-id="4216237731-2">)</span><span class="w">
+  </span><span class="k" data-group-id="4216237731-1">catch</span><span class="w">
+    </span><span class="ss">:exit</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="4216237731-1">end</span></code></pre><p>对 <code class="inline">exit</code> 引发的错误, 可以使用 <code class="inline">catch :exit, v -&gt;</code> 捕获.</p><pre><code class="makeup elixir" translate="no"><span class="mi">3</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="2346488309-1">do</span><span class="w">
+    </span><span class="nc">:erlang</span><span class="o">.</span><span class="n">error</span><span class="p" data-group-id="2346488309-2">(</span><span class="mi">3</span><span class="p" data-group-id="2346488309-2">)</span><span class="w">
+  </span><span class="k" data-group-id="2346488309-1">catch</span><span class="w">
+    </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="2346488309-1">end</span><span class="w">
+
+</span><span class="ss">:reason</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="2346488309-3">do</span><span class="w">
+    </span><span class="nc">:erlang</span><span class="o">.</span><span class="n">error</span><span class="p" data-group-id="2346488309-4">(</span><span class="ss">:reason</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2346488309-5">[</span><span class="mi">2</span><span class="p" data-group-id="2346488309-5">]</span><span class="p" data-group-id="2346488309-4">)</span><span class="w">
+  </span><span class="k" data-group-id="2346488309-3">catch</span><span class="w">
+    </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">reason</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">reason</span><span class="w">
+  </span><span class="k" data-group-id="2346488309-3">end</span></code></pre><p>对Erlang 的 <code class="inline">:erlang.error/1-2-3</code> 产生的错误, <code class="inline">catch</code> 总是能捕获其原因(代码中的变量
+<code class="inline">reason</code>), 其值就是 <code class="inline">:erlang.error</code> 的第一个参数.</p><pre><code class="makeup elixir" translate="no"><span class="ss">:badarith</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="9238425617-1">do</span><span class="w">
+    </span><span class="mi">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">0</span><span class="w">
+  </span><span class="k" data-group-id="9238425617-1">catch</span><span class="w">
+    </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="9238425617-1">end</span><span class="w">
+
+</span><span class="p" data-group-id="9238425617-2">{</span><span class="ss">:badmatch</span><span class="p">,</span><span class="w"> </span><span class="ss">:error</span><span class="p" data-group-id="9238425617-2">}</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="9238425617-3">do</span><span class="w">
+    </span><span class="ss">:ok</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="ss">:error</span><span class="w">
+  </span><span class="k" data-group-id="9238425617-3">catch</span><span class="w">
+    </span><span class="c1"># not work</span><span class="w">
+    </span><span class="c1"># :error, %MatchError{}=v -&gt; v</span><span class="w">
+    </span><span class="c1"># now `reason` is not a Error, but a tuple</span><span class="w">
+    </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">reason</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">reason</span><span class="w">
+  </span><span class="k" data-group-id="9238425617-3">end</span></code></pre><p>使用 <code class="inline">catch :error, reason -&gt; ...</code> 来捕获运行时错误,
+<code class="inline">reason</code> 绑定错误发生的原因. 不同的错误, 产生的原因数据类型不统一.
+比如算术计算引发的错误, 是用一个原子 <code class="inline">:badarith</code> 表示.
+而匹配错误, 返回的是一个二元元组, 元组的第一个元素是原子 <code class="inline">:badmatch</code>,
+第二个元素则是匹配操作符 <code class="inline">=</code> 的右操作数.</p><pre><code class="makeup elixir" translate="no"><span class="ss">:reason</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="3503657684-1">do</span><span class="w">
+    </span><span class="n">exit</span><span class="p" data-group-id="3503657684-2">(</span><span class="ss">:reason</span><span class="p" data-group-id="3503657684-2">)</span><span class="w">
+  </span><span class="k" data-group-id="3503657684-1">catch</span><span class="w">
+    </span><span class="ss">:exit</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="3503657684-1">end</span><span class="w">
+
+</span><span class="p" data-group-id="3503657684-3">{</span><span class="ss">:kill</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="3503657684-3">}</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="3503657684-4">do</span><span class="w">
+    </span><span class="n">exit</span><span class="p" data-group-id="3503657684-5">(</span><span class="p" data-group-id="3503657684-6">{</span><span class="ss">:kill</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="3503657684-6">}</span><span class="p" data-group-id="3503657684-5">)</span><span class="w">
+  </span><span class="k" data-group-id="3503657684-4">catch</span><span class="w">
+    </span><span class="ss">:exit</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="3503657684-4">end</span></code></pre><p>对于 <code class="inline">exit</code> 产生的错误, 无论传递给 <a href="https://hexdocs.pm/elixir/Kernel.html#exit/1"><code class="inline">exit/1</code></a> 的是什么,
+<code class="inline">catch :exit, v -&gt;</code> 语句中 <code class="inline">v</code> 都能绑定它的值.</p><pre><code class="makeup elixir" translate="no"><span class="p" data-group-id="6704988287-1">%</span><span class="nc" data-group-id="6704988287-1">MatchError</span><span class="p" data-group-id="6704988287-1">{</span><span class="p" data-group-id="6704988287-1">}</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="6704988287-2">do</span><span class="w">
+    </span><span class="k">raise</span><span class="w"> </span><span class="nc">MatchError</span><span class="w">
+  </span><span class="k" data-group-id="6704988287-2">catch</span><span class="w">
+    </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6704988287-3">%</span><span class="nc" data-group-id="6704988287-3">MatchError</span><span class="p" data-group-id="6704988287-3">{</span><span class="p" data-group-id="6704988287-3">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="6704988287-2">end</span><span class="w">
+
+</span><span class="p" data-group-id="6704988287-4">%</span><span class="nc" data-group-id="6704988287-4">MatchError</span><span class="p" data-group-id="6704988287-4">{</span><span class="p" data-group-id="6704988287-4">}</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="6704988287-5">do</span><span class="w">
+    </span><span class="k">raise</span><span class="w"> </span><span class="nc">MatchError</span><span class="p">,</span><span class="w"> </span><span class="ss">term</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="6704988287-6">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6704988287-6">}</span><span class="w">
+  </span><span class="k" data-group-id="6704988287-5">rescue</span><span class="w">
+    </span><span class="n">v</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="nc">MatchError</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="6704988287-5">end</span></code></pre><p><code class="inline">catch</code> 和 <code class="inline">rescue</code> 都可以用来处理 <code class="inline">raise</code> 引发的错误.
+<code class="inline">catch</code> 的语法可以更方便的使用匹配语法, <code class="inline">rescue</code> 只能匹配模块名.</p><p>但是, 注意对比运行时产生的匹配错误与使用 <code class="inline">raise</code> 产生的匹配错误之间的微妙区别.
+运行时产生的匹配错误, 使用 <code class="inline">catch :error, v -&gt; ...</code> 语句时, <code class="inline">v</code> 绑定的是一个二元元组.
+而 <code class="inline">rasie</code> 产生的错误, 表达式 <code class="inline">catch :error, v -&gt;...</code> 中 <code class="inline">v</code> 绑定的是
+<code class="inline">%MatchError{}</code> 异常结构.</p><h2 id="更优雅的拯救" class="section-heading">
+  <a href="#更优雅的拯救" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">更优雅的拯救</p>
+  </a>
+  更优雅的拯救
+</h2>
+<p>在探索 <code class="inline">catch</code> 对异常的捕获是, 我们发现 <code class="inline">catch</code> 对运行时错误和 <code class="inline">raise</code>
+产生的错误有区分, 这使得 <code class="inline">catch</code> 对错误来源敏感, 这就导致了由不同的机制
+(<code class="inline">error</code> 或 <code class="inline">raise</code>) 产生的相同异常 (<a href="https://hexdocs.pm/elixir/MatchError.html"><code class="inline">MatchError</code></a>), 必须使用不一致的语法来处理.
+Elixir 中用 <code class="inline">rescue</code> 来统一处理异常, 而不再区分它们的来源.
+可是 <code class="inline">rescue</code> 子句中的匹配的语法, 只支持对异常名匹配.
+这样在需要提取异常消息的时候, 代码就不够简洁了.
+好在变量可以匹配任意给定的值, 这个匹配规则没有打破.
+所以 <code class="inline">rescue v -&gt;</code> 可以用来匹配任意的 <code class="inline">:error</code> 类型的异常.</p><p><code class="inline">rescue v -&gt;</code> 表达式中, 当变量 <code class="inline">v</code> 绑定异常结构后, 在 <code class="inline">-&gt;</code> 的右侧, 
+就可以使用结构的匹配语法来对异常做匹配了.
+也就是说, 对于异常, 我们可以使用下面的代码来完成匹配:</p><pre><code class="makeup elixir" translate="no"><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="0025284631-1">do</span><span class="w">
+   </span><span class="n">do_block_code</span><span class="w">
+</span><span class="k" data-group-id="0025284631-1">rescue</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="k">case</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="k" data-group-id="0025284631-2">do</span><span class="w">
+     </span><span class="p" data-group-id="0025284631-3">%</span><span class="nc" data-group-id="0025284631-3">ErrorName</span><span class="p" data-group-id="0025284631-3">{</span><span class="ss">field</span><span class="p">:</span><span class="w"> </span><span class="n">field_v</span><span class="p" data-group-id="0025284631-3">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">field_v</span><span class="w">
+     </span><span class="n">...</span><span class="w">
+    </span><span class="k" data-group-id="0025284631-2">end</span><span class="w">
+</span><span class="n">...</span><span class="w">
+</span><span class="k" data-group-id="0025284631-1">end</span></code></pre><p>我们可以定义自己的语法糖, 让 <code class="inline">rescue</code> 子句中, 可以使用更强大的模式匹配语法.</p><p><code class="inline">try</code> 是 Elixir 特殊表单, 社区对其语法有一致的预期,
+为了不迷惑, 不熟悉我们的库的程序员, 我们不使用 <code class="inline">try</code> 来作为我们的宏的名字.
+这个将要定义的宏是要增强 <code class="inline">rescue</code> 的匹配功能, 这里我们使用和 <code class="inline">fn!</code> 一样的命名惯例,
+把我们的宏命名为<code class="inline">try!</code>.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Try</span><span class="w"> </span><span class="k" data-group-id="7496488021-1">do</span><span class="w">
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">try!</span><span class="p" data-group-id="7496488021-2">(</span><span class="n">asts</span><span class="p" data-group-id="7496488021-2">)</span><span class="w"> </span><span class="k" data-group-id="7496488021-3">do</span><span class="w">
+    </span><span class="nc">Macro</span><span class="o">.</span><span class="n">postwalk</span><span class="p" data-group-id="7496488021-4">(</span><span class="n">asts</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">walker</span><span class="o">/</span><span class="mi">1</span><span class="p" data-group-id="7496488021-4">)</span><span class="w">
+    </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">make_try</span><span class="p" data-group-id="7496488021-5">(</span><span class="p" data-group-id="7496488021-5">)</span><span class="w">
+    </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">tap</span><span class="p" data-group-id="7496488021-6">(</span><span class="o">&amp;</span><span class="p" data-group-id="7496488021-7">(</span><span class="nc">Macro</span><span class="o">.</span><span class="n">to_string</span><span class="p" data-group-id="7496488021-8">(</span><span class="ni">&amp;1</span><span class="p" data-group-id="7496488021-8">)</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="7496488021-9">(</span><span class="p" data-group-id="7496488021-9">)</span><span class="p" data-group-id="7496488021-7">)</span><span class="p" data-group-id="7496488021-6">)</span><span class="w">
+  </span><span class="k" data-group-id="7496488021-3">end</span><span class="w">
+  </span><span class="c1">#...</span><span class="w">
+</span><span class="k" data-group-id="7496488021-1">end</span></code></pre><p>我们只是修改 <code class="inline">rescue</code> 分句, 所以, 遍历抽象语法树, 找到 <code class="inline">resuce</code> 分句相关的部分,
+修改抽象语法树, 这就是 <code class="inline">try!/1</code> 最重要的工作. 这个工作有 <code class="inline">walker/1</code> 函数完成.</p><p><code class="inline">walker</code> 函数使用模式匹配, 识别出 <code class="inline">rescue</code> 分句, 然后调整抽象语法树对应的部分,
+使得原来的 </p><pre><code class="makeup elixir" translate="no"><span class="k">rescue</span><span class="w"> 
+  </span><span class="p" data-group-id="8077239224-1">%</span><span class="nc" data-group-id="8077239224-1">Error_1</span><span class="p" data-group-id="8077239224-1">{</span><span class="p" data-group-id="8077239224-1">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+  </span><span class="p" data-group-id="8077239224-2">%</span><span class="nc" data-group-id="8077239224-2">Error_2</span><span class="p" data-group-id="8077239224-2">{</span><span class="p" data-group-id="8077239224-2">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+  </span><span class="n">...</span><span class="w">
+  </span><span class="p" data-group-id="8077239224-3">%</span><span class="nc" data-group-id="8077239224-3">Error_n</span><span class="p" data-group-id="8077239224-3">{</span><span class="p" data-group-id="8077239224-3">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span></code></pre><p>转化为:</p><pre><code class="makeup elixir" translate="no"><span class="k">rescue</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">case</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="k" data-group-id="0865539308-1">do</span><span class="w">
+      </span><span class="p" data-group-id="0865539308-2">%</span><span class="nc" data-group-id="0865539308-2">Error_1</span><span class="p" data-group-id="0865539308-2">{</span><span class="p" data-group-id="0865539308-2">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+      </span><span class="p" data-group-id="0865539308-3">%</span><span class="nc" data-group-id="0865539308-3">Error_2</span><span class="p" data-group-id="0865539308-3">{</span><span class="p" data-group-id="0865539308-3">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+      </span><span class="n">...</span><span class="w">
+      </span><span class="p" data-group-id="0865539308-4">%</span><span class="nc" data-group-id="0865539308-4">Error_n</span><span class="p" data-group-id="0865539308-4">{</span><span class="p" data-group-id="0865539308-4">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+  </span><span class="k" data-group-id="0865539308-1">end</span></code></pre><p>对应的代码, 非常简单:</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">walker</span><span class="p" data-group-id="6360081197-1">(</span><span class="p" data-group-id="6360081197-2">{</span><span class="ss">:rescue</span><span class="p">,</span><span class="w"> </span><span class="n">rescue_block</span><span class="p" data-group-id="6360081197-2">}</span><span class="p" data-group-id="6360081197-1">)</span><span class="w"> </span><span class="k" data-group-id="6360081197-3">do</span><span class="w">
+  </span><span class="p" data-group-id="6360081197-4">{</span><span class="ss">:rescue</span><span class="p">,</span><span class="w">
+   </span><span class="p" data-group-id="6360081197-5">[</span><span class="w">
+     </span><span class="p" data-group-id="6360081197-6">{</span><span class="ss">:-&gt;</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-7">[</span><span class="p" data-group-id="6360081197-7">]</span><span class="p">,</span><span class="w">
+      </span><span class="p" data-group-id="6360081197-8">[</span><span class="w">
+        </span><span class="p" data-group-id="6360081197-9">[</span><span class="p" data-group-id="6360081197-10">{</span><span class="ss">:v</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-11">[</span><span class="p" data-group-id="6360081197-11">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="6360081197-10">}</span><span class="p" data-group-id="6360081197-9">]</span><span class="p">,</span><span class="w">
+        </span><span class="p" data-group-id="6360081197-12">{</span><span class="ss">:case</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-13">[</span><span class="p" data-group-id="6360081197-13">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-14">[</span><span class="p" data-group-id="6360081197-15">{</span><span class="ss">:v</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-16">[</span><span class="p" data-group-id="6360081197-16">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="6360081197-15">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6360081197-17">[</span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">rescue_block</span><span class="p" data-group-id="6360081197-17">]</span><span class="p" data-group-id="6360081197-14">]</span><span class="p" data-group-id="6360081197-12">}</span><span class="w">
+      </span><span class="p" data-group-id="6360081197-8">]</span><span class="p" data-group-id="6360081197-6">}</span><span class="w">
+   </span><span class="p" data-group-id="6360081197-5">]</span><span class="p" data-group-id="6360081197-4">}</span><span class="w">
+</span><span class="k" data-group-id="6360081197-3">end</span><span class="w">
+
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">walker</span><span class="p" data-group-id="6360081197-18">(</span><span class="n">ast</span><span class="p" data-group-id="6360081197-18">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">ast</span></code></pre><p>最后, <code class="inline">try!</code> 还是需要使用特殊表达 <code class="inline">try</code> 来完成工作, 所以最后我们用 <code class="inline">make_try/1</code>
+来完成对 <code class="inline">try</code> 特殊表单的调用表达式.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">make_try</span><span class="p" data-group-id="4142014712-1">(</span><span class="n">block</span><span class="p" data-group-id="4142014712-1">)</span><span class="w"> </span><span class="k" data-group-id="4142014712-2">do</span><span class="w">
+  </span><span class="p" data-group-id="4142014712-3">{</span><span class="ss">:try</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="4142014712-4">[</span><span class="p" data-group-id="4142014712-4">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="4142014712-5">[</span><span class="n">block</span><span class="p" data-group-id="4142014712-5">]</span><span class="p" data-group-id="4142014712-3">}</span><span class="w">
+</span><span class="k" data-group-id="4142014712-2">end</span></code></pre><p>最后使用我们新定义的 <code class="inline">super_try</code> 来重构我们的 <code class="inline">maybe</code> 宏.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Maybe</span><span class="w"> </span><span class="k" data-group-id="4322417822-1">do</span><span class="w">
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">maybe</span><span class="p" data-group-id="4322417822-2">(</span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">block</span><span class="p" data-group-id="4322417822-2">)</span><span class="w"> </span><span class="k" data-group-id="4322417822-3">do</span><span class="w">
+    </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="4322417822-4">do</span><span class="w">
+      </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Super</span><span class="p">,</span><span class="w"> </span><span class="ss">only</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="4322417822-5">[</span><span class="ss">try!</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="4322417822-5">]</span><span class="w">
+
+      </span><span class="n">try!</span><span class="w"> </span><span class="k" data-group-id="4322417822-6">do</span><span class="w">
+        </span><span class="k">unquote</span><span class="p" data-group-id="4322417822-7">(</span><span class="n">block</span><span class="p" data-group-id="4322417822-7">)</span><span class="w">
+      </span><span class="k" data-group-id="4322417822-6">rescue</span><span class="w">
+        </span><span class="p" data-group-id="4322417822-8">%</span><span class="nc" data-group-id="4322417822-8">MatchError</span><span class="p" data-group-id="4322417822-8">{</span><span class="ss">term</span><span class="p">:</span><span class="w"> </span><span class="n">term</span><span class="p" data-group-id="4322417822-8">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">term</span><span class="w">
+      </span><span class="k" data-group-id="4322417822-6">end</span><span class="w">
+    </span><span class="k" data-group-id="4322417822-4">end</span><span class="w">
+  </span><span class="k" data-group-id="4322417822-3">end</span><span class="w">
+
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">maybe</span><span class="p" data-group-id="4322417822-9">(</span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="ss">else</span><span class="p">:</span><span class="w"> </span><span class="n">else_part</span><span class="p" data-group-id="4322417822-9">)</span><span class="w"> </span><span class="k" data-group-id="4322417822-10">do</span><span class="w">
+    </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="4322417822-11">do</span><span class="w">
+      </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Super</span><span class="p">,</span><span class="w"> </span><span class="ss">only</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="4322417822-12">[</span><span class="ss">try!</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="4322417822-12">]</span><span class="w">
+
+      </span><span class="n">try!</span><span class="w"> </span><span class="k" data-group-id="4322417822-13">do</span><span class="w">
+        </span><span class="k">unquote</span><span class="p" data-group-id="4322417822-14">(</span><span class="n">block</span><span class="p" data-group-id="4322417822-14">)</span><span class="w">
+      </span><span class="k" data-group-id="4322417822-13">rescue</span><span class="w">
+        </span><span class="p" data-group-id="4322417822-15">%</span><span class="nc" data-group-id="4322417822-15">MatchError</span><span class="p" data-group-id="4322417822-15">{</span><span class="ss">term</span><span class="p">:</span><span class="w"> </span><span class="n">term</span><span class="p" data-group-id="4322417822-15">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">term</span><span class="w">
+      </span><span class="k" data-group-id="4322417822-13">else</span><span class="w">
+        </span><span class="k">unquote</span><span class="p" data-group-id="4322417822-16">(</span><span class="n">else_part</span><span class="p" data-group-id="4322417822-16">)</span><span class="w">
+      </span><span class="k" data-group-id="4322417822-13">end</span><span class="w">
+    </span><span class="k" data-group-id="4322417822-11">end</span><span class="w">
+  </span><span class="k" data-group-id="4322417822-10">end</span><span class="w">
+</span><span class="k" data-group-id="4322417822-1">end</span></code></pre><p>测试一下:</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.MaybeTest</span><span class="w"> </span><span class="k" data-group-id="6073343544-1">do</span><span class="w">
+  </span><span class="kn">use</span><span class="w"> </span><span class="nc">ExUnit.Case</span><span class="w">
+  </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Maybe</span><span class="w">
+
+  </span><span class="n">test</span><span class="w"> </span><span class="s">&quot;maybe&quot;</span><span class="w"> </span><span class="k" data-group-id="6073343544-2">do</span><span class="w">
+    </span><span class="n">result_maybe</span><span class="w"> </span><span class="o">=</span><span class="w">
+      </span><span class="n">maybe</span><span class="w"> </span><span class="k" data-group-id="6073343544-3">do</span><span class="w">
+        </span><span class="p" data-group-id="6073343544-4">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p" data-group-id="6073343544-4">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="6073343544-5">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p" data-group-id="6073343544-5">}</span><span class="w">
+        </span><span class="p" data-group-id="6073343544-6">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="6073343544-6">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="6073343544-7">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6073343544-7">}</span><span class="w">
+        </span><span class="n">b</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+      </span><span class="k" data-group-id="6073343544-3">end</span><span class="w">
+
+    </span><span class="n">assert</span><span class="w"> </span><span class="n">result_maybe</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="p" data-group-id="6073343544-8">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p" data-group-id="6073343544-8">}</span><span class="w">
+  </span><span class="k" data-group-id="6073343544-2">end</span><span class="w">
+</span><span class="k" data-group-id="6073343544-1">end</span></code></pre><h2 id="错误处理子句的顺序" class="section-heading">
+  <a href="#错误处理子句的顺序" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">错误处理子句的顺序</p>
+  </a>
+  错误处理子句的顺序
+</h2>
+<p>最后, 讨论一下 <code class="inline">try</code> 结构中子句的顺序. 在 Elixir 文档中, 最完整的错误处理块为
+<code class="inline">try</code> ... <code class="inline">rescue</code> ... <code class="inline">catch</code> ... <code class="inline">else</code> ... <code class="inline">after</code>.
+我们看到的绝大部分例子, 都是省略部分子句的情况,
+但是这些子句的相对顺序还是保持的, 那么能不能改变这些子句的相对顺序呢?
+比如, 把 <code class="inline">rescue</code> 放在 <code class="inline">catch</code> 后.</p><pre><code class="makeup elixir" translate="no"><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="9839551298-1">do</span><span class="w">
+  </span><span class="k">raise</span><span class="w"> </span><span class="ss">:error</span><span class="w">
+</span><span class="k" data-group-id="9839551298-1">catch</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9839551298-2">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;catch v&quot;</span><span class="p" data-group-id="9839551298-2">)</span><span class="w">
+</span><span class="k" data-group-id="9839551298-1">rescue</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9839551298-3">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rescue&quot;</span><span class="p" data-group-id="9839551298-3">)</span><span class="w">
+</span><span class="k" data-group-id="9839551298-1">else</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9839551298-4">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;else&quot;</span><span class="p" data-group-id="9839551298-4">)</span><span class="w">
+</span><span class="k" data-group-id="9839551298-1">after</span><span class="w">
+  </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="9839551298-5">(</span><span class="s">&quot;after&quot;</span><span class="p" data-group-id="9839551298-5">)</span><span class="w">
+</span><span class="k" data-group-id="9839551298-1">end</span></code></pre><p>上面的代码, 编译器给出的警告, 警告的内容是 <code class="inline">catch</code> 应该放在 <code class="inline">resuce</code> 的后面,
+不过代码依旧可以运行. 那么为什么应该那样呢? 前面的讨论, 我们知道 <code class="inline">catch</code> 是全能捕手,
+上面的代码中, 用到的是它捕获 <code class="inline">throw value</code> 的语法,
+所以<code class="inline">rescue</code> 有机会捕获 <code class="inline">raise</code> 产生的错误. 但是如果使用的最通用 <code class="inline">catch</code> 的语法呢?
+例如下面的代码:</p><pre><code class="makeup elixir" translate="no"><span class="k">catch</span><span class="w">
+  </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w">
+</span><span class="k">rescue</span><span class="w">
+  </span><span class="n">rescue_code</span></code></pre><p>在上面的代码中, <code class="inline">rescue</code> 子句就是死代码, 永远不用有机会执行. 编译器给出警告的原因.</p><p>那么除了 <code class="inline">rescue</code> 和 <code class="inline">catch</code> 的相对位置外, 其他的子句呢? 能改变顺序码?
+比如, 把 <code class="inline">after</code> 子句放在 <code class="inline">resuce</code> 前面, 可以吗?</p><pre><code class="makeup elixir" translate="no"><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="5004398905-1">do</span><span class="w">
+  </span><span class="mi">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">0</span><span class="w">
+</span><span class="k" data-group-id="5004398905-1">after</span><span class="w">
+  </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="5004398905-2">(</span><span class="s">&quot;after&quot;</span><span class="p" data-group-id="5004398905-2">)</span><span class="w">
+</span><span class="k" data-group-id="5004398905-1">rescue</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="5004398905-3">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rescue&quot;</span><span class="p" data-group-id="5004398905-3">)</span><span class="w">
+    </span><span class="ss">:rescue</span><span class="w">
+</span><span class="k" data-group-id="5004398905-1">catch</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="5004398905-4">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;catch&quot;</span><span class="p" data-group-id="5004398905-4">)</span><span class="w">
+    </span><span class="ss">:catch</span><span class="w">
+</span><span class="k" data-group-id="5004398905-1">else</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="5004398905-5">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;else&quot;</span><span class="p" data-group-id="5004398905-5">)</span><span class="w">
+</span><span class="k" data-group-id="5004398905-1">end</span></code></pre><p>上面的代码片段, 不但能顺利通过编译, 而且警告都没有. 也就是说, 这是完全合法的代码.
+<code class="inline">after</code> 在代码中出现的顺序, 不影响其功能. 进一步的, 不难推测,
+<code class="inline">else</code> 也可以放在 <code class="inline">resuce</code> 子句前.</p><pre><code class="makeup elixir" translate="no"><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="4857034700-1">do</span><span class="w">
+  </span><span class="mi">2</span><span class="w">
+</span><span class="k" data-group-id="4857034700-1">rescue</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="4857034700-2">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;resuce v&quot;</span><span class="p" data-group-id="4857034700-2">)</span><span class="w">
+</span><span class="k" data-group-id="4857034700-1">else</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="4857034700-3">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;else&quot;</span><span class="p" data-group-id="4857034700-3">)</span><span class="w">
+</span><span class="k" data-group-id="4857034700-1">catch</span><span class="w">
+  </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="4857034700-4">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;catch :error ,v&quot;</span><span class="p" data-group-id="4857034700-4">)</span><span class="w">
+</span><span class="k" data-group-id="4857034700-1">end</span></code></pre><p>上面的代码, 也一切正常.</p><p>总结一下: 在 <code class="inline">try</code> 子句中: 如果 <code class="inline">rescue</code> 和 <code class="inline">catch</code> 都存在的话,
+<code class="inline">rescue</code> 应该放在 <code class="inline">catch</code> 子句的前面, 而其他的子句的顺序并没有特别的要求.</p><p>最后提醒读者, 我们这里是对语法规则的探索, 才故意打乱其顺序的,
+绝对不是鼓励大家在实际的编码中也这样做.</p><h2 id="什么时候必须-try" class="section-heading">
+  <a href="#什么时候必须-try" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">什么时候必须-try</p>
+  </a>
+  什么时候必须 try
+</h2>
+<p>在 Elixir 的官方文档中, 我们看到可以省略 <code class="inline">try</code> 关键字, 而直接处理错误的例子.
+例如在命名函数中:</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">fun</span><span class="p" data-group-id="4954932116-1">(</span><span class="p" data-group-id="4954932116-1">)</span><span class="w"> </span><span class="k" data-group-id="4954932116-2">do</span><span class="w">
+   </span><span class="n">...</span><span class="w">
+</span><span class="k" data-group-id="4954932116-2">catch</span><span class="w">
+  </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+</span><span class="k" data-group-id="4954932116-2">after</span><span class="w">
+  </span><span class="n">...</span><span class="w">
+</span><span class="k" data-group-id="4954932116-2">end</span></code></pre><p>那么什么时候, 可以省略 <code class="inline">try</code> 呢? 是不是所有后面需要 <code class="inline">do-block</code> 的语法结构中,
+都可以使用省略 <code class="inline">try</code> 而直接使用错误处理子句呢? 不是的. 例如,
+我们就不可以给 <code class="inline">if</code> 语句加一个 <code class="inline">catch</code> 子句. 就像下面的代码这样.</p><pre><code class="makeup elixir" translate="no"><span class="k">if</span><span class="w"> </span><span class="mi">3</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">4</span><span class="w"> </span><span class="k" data-group-id="0341181163-1">do</span><span class="w">
+  </span><span class="mi">1</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">0</span><span class="w">
+</span><span class="k" data-group-id="0341181163-1">catch</span><span class="w">
+  </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s">&quot;1/0&quot;</span><span class="w">
+</span><span class="k" data-group-id="0341181163-1">else</span><span class="w">
+  </span><span class="s">&quot;how it can be 3 not less than 4&quot;</span><span class="w">
+</span><span class="k" data-group-id="0341181163-1">end</span></code></pre><p>我们看到命名函数中, 可以直接使用错误处理的子句, 那么是不是在匿名函数中也可以直接使用呢?
+答案也是否定的, 而且 Elixir ≪语法参考≫文档的
+<a href="https://hexdocs.pm/elixir/1.13.1/syntax-reference.html#reserved-words">≪保留字≫</a>
+小节也给出了提示:</p><blockquote><p><code class="inline">do</code>, <code class="inline">end</code>, <code class="inline">catch</code>, <code class="inline">rescue</code>, <code class="inline">after</code>, <code class="inline">else</code> 在 <code class="inline">do-end</code> 块中使用.</p></blockquote><p><code class="inline">fn</code> 的语法是这样的:</p><pre><code class="makeup elixir" translate="no"><span class="k" data-group-id="7251681434-1">fn</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">...</span><span class="w"> </span><span class="k" data-group-id="7251681434-1">end</span></code></pre><p>当这里的 <code class="inline">...</code> 表示多于一个表达式的时候, 这里实际上是一个暗含的块, 但是并不是一个
+<code class="inline">do-block</code>. 这一点我们可以通过 <code class="inline">quote</code> 语句, 在抽象语法树的层面上看清.</p><pre><code class="makeup elixir" translate="no"><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="7196291865-1">do</span><span class="w">
+  </span><span class="k" data-group-id="7196291865-2">fn</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w">
+  </span><span class="k" data-group-id="7196291865-2">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">f</span><span class="p" data-group-id="7196291865-3">(</span><span class="n">a</span><span class="p" data-group-id="7196291865-3">)</span><span class="w"> </span><span class="k" data-group-id="7196291865-4">do</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w">
+  </span><span class="k" data-group-id="7196291865-4">end</span><span class="w">
+</span><span class="k" data-group-id="7196291865-1">end</span></code></pre><p><code class="inline">fn</code> 的块结构抽象语法树是:</p><pre><code class="makeup elixir" translate="no"><span class="p" data-group-id="3790365552-1">{</span><span class="ss">:__block__</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-2">[</span><span class="p" data-group-id="3790365552-2">]</span><span class="p">,</span><span class="w">
+  </span><span class="p" data-group-id="3790365552-3">[</span><span class="w">
+    </span><span class="p" data-group-id="3790365552-4">{</span><span class="ss">:+</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-5">[</span><span class="ss">context</span><span class="p">:</span><span class="w"> </span><span class="nc">Elixir</span><span class="p">,</span><span class="w"> </span><span class="ss">import</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="p" data-group-id="3790365552-5">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-6">[</span><span class="p" data-group-id="3790365552-7">{</span><span class="ss">:a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-8">[</span><span class="p" data-group-id="3790365552-8">]</span><span class="p">,</span><span class="w"> </span><span class="nc">Elixir</span><span class="p" data-group-id="3790365552-7">}</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="3790365552-6">]</span><span class="p" data-group-id="3790365552-4">}</span><span class="p">,</span><span class="w">
+    </span><span class="p" data-group-id="3790365552-9">{</span><span class="ss">:-</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-10">[</span><span class="ss">context</span><span class="p">:</span><span class="w"> </span><span class="nc">Elixir</span><span class="p">,</span><span class="w"> </span><span class="ss">import</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="p" data-group-id="3790365552-10">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-11">[</span><span class="p" data-group-id="3790365552-12">{</span><span class="ss">:a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3790365552-13">[</span><span class="p" data-group-id="3790365552-13">]</span><span class="p">,</span><span class="w"> </span><span class="nc">Elixir</span><span class="p" data-group-id="3790365552-12">}</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="3790365552-11">]</span><span class="p" data-group-id="3790365552-9">}</span><span class="w">
+  </span><span class="p" data-group-id="3790365552-3">]</span><span class="p" data-group-id="3790365552-1">}</span></code></pre><p>而函数 <code class="inline">f(a)</code> 定义的 <code class="inline">do...end</code> 块的抽象语法树是:</p><pre><code class="makeup elixir" translate="no"><span class="p" data-group-id="7022007442-1">[</span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="7022007442-2">{</span><span class="ss">:__block__</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-3">[</span><span class="p" data-group-id="7022007442-3">]</span><span class="p">,</span><span class="w">
+  </span><span class="p" data-group-id="7022007442-4">[</span><span class="w">
+    </span><span class="p" data-group-id="7022007442-5">{</span><span class="ss">:+</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-6">[</span><span class="ss">context</span><span class="p">:</span><span class="w"> </span><span class="nc">Elixir</span><span class="p">,</span><span class="w"> </span><span class="ss">import</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="p" data-group-id="7022007442-6">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-7">[</span><span class="p" data-group-id="7022007442-8">{</span><span class="ss">:a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-9">[</span><span class="p" data-group-id="7022007442-9">]</span><span class="p">,</span><span class="w"> </span><span class="nc">Elixir</span><span class="p" data-group-id="7022007442-8">}</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="7022007442-7">]</span><span class="p" data-group-id="7022007442-5">}</span><span class="p">,</span><span class="w">
+    </span><span class="p" data-group-id="7022007442-10">{</span><span class="ss">:-</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-11">[</span><span class="ss">context</span><span class="p">:</span><span class="w"> </span><span class="nc">Elixir</span><span class="p">,</span><span class="w"> </span><span class="ss">import</span><span class="p">:</span><span class="w"> </span><span class="nc">Kernel</span><span class="p" data-group-id="7022007442-11">]</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-12">[</span><span class="p" data-group-id="7022007442-13">{</span><span class="ss">:a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7022007442-14">[</span><span class="p" data-group-id="7022007442-14">]</span><span class="p">,</span><span class="w"> </span><span class="nc">Elixir</span><span class="p" data-group-id="7022007442-13">}</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="7022007442-12">]</span><span class="p" data-group-id="7022007442-10">}</span><span class="w">
+  </span><span class="p" data-group-id="7022007442-4">]</span><span class="p" data-group-id="7022007442-2">}</span><span class="p" data-group-id="7022007442-1">]</span></code></pre><p>知道了这些知识, 就不难理解为什么 <code class="inline">fn</code> 定义匿名函数的时候, <code class="inline">try</code> 不能省略了.</p><p>接着探索会发现, <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a>, <a href="https://hexdocs.pm/elixir/Kernel.html#defp/2"><code class="inline">defp/2</code></a>, <a href="https://hexdocs.pm/elixir/Kernel.html#defmacro/2"><code class="inline">defmacro/2</code></a> 和 <code class="inline">defmacrop</code> 中可以省略 <code class="inline">try</code>.
+其他情形下对 <code class="inline">try</code> 的省略,  都是对这个特定规则的过度推广.</p><div class="footnotes"><hr/><ol><li id="fn:1"><a class="reversefootnote" href="#fnref:1" title="return to article">&amp;#x21A9;</a><p>Elixir 文档中关于 <code class="inline">rescue</code> 匹配的文档, 翻译过来是: 除了以模式匹配外,
+<code class="inline">rescue</code> 围绕异常提供了一些方便, 允许我们根据异常的名字来展开救援.
+原文见 Elixir 文档关于
+<a href="https://hexdocs.pm/elixir/1.13.1/Kernel.SpecialForms.html#try/1-rescue-clauses">rescue 子句的描述</a>.</p></li></ol></div>
+<div class="bottom-actions">
+  <div class="bottom-actions-item">
+
+      <a href="ch07-pipe.html" class="bottom-actions-button" rel="prev">
+        <span class="subheader">
+          ← Previous Page
+        </span>
+        <span class="title">
+第七章 管道操作符
+        </span>
+      </a>
+
+  </div>
+  <div class="bottom-actions-item">
+
+      <a href="ch09-module.html" class="bottom-actions-button" rel="next">
+        <span class="subheader">
+          Next Page →
+        </span>
+        <span class="title">
+第九章 模块
+        </span>
+      </a>
+
+  </div>
+</div>
+
+      <footer class="footer">
+
+        <p>
+          Built using
+          <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" target="_blank" rel="help noopener" translate="no">ExDoc</a> (v0.28.4) for the
+
+            <a href="https://elixir-lang.org" title="Elixir" target="_blank" translate="no">Elixir programming language</a>
+
+        </p>
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+
+
+  </body>
+</html>
