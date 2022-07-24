@@ -28,7 +28,7 @@ defmodule TheCornerOfElixir.MixProject do
   defp cn_docs do
     [
       extras: [
-        "ReadMe.md"
+        "ReadMe.md",
         "en/index_en.md",
         # "en/ch01.intruction_en.md",
         # "en/ch02.plus_and_minus_en.md",
