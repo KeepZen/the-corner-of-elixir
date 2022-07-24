@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="encn-zh">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.28.4">
+    <meta name="project" content="The Corner of Elixir v4.0.0">
+
+      <meta name="author" content="Keep Zen">
+
+    <title>第十章 协议与行为 — The Corner of Elixir v4.0.0</title>
+    <link rel="stylesheet" href="dist/elixir-b6f1ed5df9b1d42a7309.css" />
+
+    <script src="dist/sidebar_items-1785d4c7ff.js"></script>
+
+      <script src="docs_config.js"></script>
+
+    <script async src="dist/app-bd1cb213813bf4825aa2.js"></script>
+
+<style>
+  a.footnote {
+    vertical-align: super;
+  }
+  a.reversefootnote {
+    display: inline-block;
+    text-indent: -9999px;
+    line-height: 0;
+  }
+  a.reversefootnote:after {
+    content: '↩'; /* or any other text you want */
+    text-indent: 0;
+    display: block;
+    line-height: initial;
+  }
+</style>
+
+<script>
+MathJax = {
+tex: {
+inlineMath: [['$', '$']]
+}
+};
+</script>
+<script id="MathJax-script" async
+src="./assets/tex-chtml.js">
+</script>
+
+<script src="assets/mermaid.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+mermaid.initialize({ startOnLoad: false });
+let id = 0;
+for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+  const preEl = codeEl.parentElement;
+  const graphDefinition = codeEl.textContent;
+  const graphEl = document.createElement("div");
+  const graphId = "mermaid-graph-" + id++;
+  mermaid.render(graphId, graphDefinition, function (svgSource, bindListeners) {
+    graphEl.innerHTML = svgSource;
+    bindListeners && bindListeners(graphEl);
+    preEl.insertAdjacentElement("afterend", graphEl);
+    preEl.remove();
+  });
+}
+});
+</script>
+
+  </head>
+  <body data-type="extras">
+    <script>
+
+      try {
+        var settings = JSON.parse(localStorage.getItem('ex_doc:settings') || '{}');
+
+        if (settings.theme === 'dark' ||
+           ((settings.theme === 'system' || settings.theme == null) &&
+             window.matchMedia('(prefers-color-scheme: dark)').matches)
+           ) {
+          document.body.classList.add('dark')
+        }
+      } catch (error) { }
+    </script>
+
+<div class="main">
+
+
+<section class="sidebar">
+  <button class="sidebar-button sidebar-toggle" aria-label="toggle sidebar">
+    <i class="ri-menu-line ri-lg" title="Collapse/expand sidebar"></i>
+  </button>
+
+  <form class="sidebar-search" action="search.html">
+    <button type="submit" class="search-button" aria-label="Submit Search">
+      <i class="ri-search-2-line" aria-hidden="true" title="Submit search"></i>
+    </button>
+    <button type="button" tabindex="-1" class="search-close-button" aria-label="Cancel Search">
+      <i class="ri-close-line ri-lg" aria-hidden="true" title="Cancel search"></i>
+    </button>
+    <label class="search-label">
+      <p class="sr-only">Search</p>
+      <input name="q" type="text" class="search-input" placeholder="Search..." aria-label="Input your search terms" autocomplete="off" />
+    </label>
+  </form>
+
+  <div class="autocomplete">
+    <div class="autocomplete-results">
+    </div>
+  </div>
+
+  <div class="sidebar-header">
+
+    <div class="sidebar-projectDetails">
+      <a href="https://keepzen.github.io/the-corner-of-elixir" class="sidebar-projectName" translate="no">
+The Corner of Elixir
+      </a>
+      <strong class="sidebar-projectVersion" translate="no">
+        v4.0.0
+      </strong>
+    </div>
+    <ul class="sidebar-listNav">
+      <li><a id="extras-list-link" href="#full-list">Pages</a></li>
+
+
+    </ul>
+  </div>
+
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <output role="status" id="toast"></output>
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+<h1>
+<button class="settings display-settings">
+  <i class="ri-settings-3-line"></i>
+  <span class="sr-only">Settings</span>
+</button>
+
+
+    <a href="https://github.com/keepzen/the-corner-of-elixir/blob/main/cn/ch10.protocol_and_behaviour.md#L1" title="View Source" class="view-source" rel="help">
+      <i class="ri-code-s-slash-line" aria-hidden="true"></i>
+      <span class="sr-only">View Source</span>
+    </a>
+
+  <span>第十章 协议与行为</span>
+</h1>
+
+<h2 id="如何选择" class="section-heading">
+  <a href="#如何选择" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">如何选择</p>
+  </a>
+  如何选择
+</h2>
+<p>就像 <code class="inline">case</code> 和 <code class="inline">cond</code> 一度让我感觉选择困难一样,
+面对协议和行为, 我往往也难以做出抉择.</p><p>但是这种困难和语言无关, 因为它不是语义方面的的问题, 而是系统设计知识不足带来的.</p><p>可以这样理解, 协议就是 OOP 编程中的接口 (Java) 或者纯抽象类(C++);
+而行为就是一般的抽象类. 至少协议和行为解决的问题与 OOP
+中接口与抽象类解决的问题是一样的.</p><p>接口和协议可以看作一个系统的 API 接口, 使用者只需要关心系统提供了那些功能,
+而不用关心这些功能是如何实现的.</p><p>抽象类或行为可以看作是可供 DIY 的产品. 基础的功能, 行为(<code class="inline">Behavior</code>)
+已经为我们定义好了, 系统各个部分交互的规则也已经完成了,
+但是具体的业务需求部分, 需要用户自己 DIY.</p><p>如果代码最主要的目的, 是简化系统的调用, 那么应该使用协议及其实现.
+如果代码提供的服务, 需要支持定制化的开发, 那么就应该使用协议.</p><h2 id="协议到底是什么" class="section-heading">
+  <a href="#协议到底是什么" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">协议到底是什么</p>
+  </a>
+  协议到底是什么
+</h2>
+<p>首先在底层, 协议和协议的实现到底是什么?</p><p>Erlang 中根本没有协议这样的语法概念. Elixir 运行在 Erlang 的虚拟机中,
+所以 Elixir 是用了 Erlang 中的概念为我们抽象出了协议这一新概念.</p><p>和协议关系最密切的概念就是行为, 就像上一节描述的那样, 这两个概念密切到我不知道如何选择.
+现在又知道, 协议是高级的概念, 那么可以肯定, 协议的概念一定构建在行为的基础上.</p><p>行为是模块的属性, 是模块发出的声明: 实现了某个模块中所有的 <code class="inline">@callback</code> 属性.</p><p>而一个理想的协议模块, 除了实现的动态调度的相关函数外, 没有其他函数.
+那么协议这个概念本质上, 就是 Elixir 帮助我们更简单的完成对行为的动态调度.</p><h2 id="协议与模块" class="section-heading">
+  <a href="#协议与模块" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">协议与模块</p>
+  </a>
+  协议与模块
+</h2>
+<p>在前面的模块的章节中, 我们已经知道了 <code class="inline">defprotocol</code> 和 <code class="inline">defimpl</code> 宏的调用,
+和 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 的调用一样, 在编译后会产生编译模块, 反映到文件系统中就是 <code class="inline">.beam</code> 文件.
+我们还知道, <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 是支持嵌套定义的, 那么这就意味着, <code class="inline">defprotocol</code> 和
+<code class="inline">defimpl</code> 除了定义在顶层的作用域外, 还可以嵌套在 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 的上下文中.</p><p>现在让我们定义一个 <code class="inline">Corner.Addable</code> 协议.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner</span><span class="w"> </span><span class="k" data-group-id="7210024640-1">do</span><span class="w">
+  </span><span class="kd">defprotocol</span><span class="w"> </span><span class="nc">Addable</span><span class="w"> </span><span class="k" data-group-id="7210024640-2">do</span><span class="w">
+    </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="7210024640-3">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="7210024640-3">)</span><span class="w">
+  </span><span class="k" data-group-id="7210024640-2">end</span><span class="w">
+
+  </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="7210024640-4">[</span><span class="nc">Integer</span><span class="p">,</span><span class="w"> </span><span class="nc">Float</span><span class="p" data-group-id="7210024640-4">]</span><span class="w"> </span><span class="k" data-group-id="7210024640-5">do</span><span class="w">
+    </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="7210024640-6">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="7210024640-6">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="w">
+  </span><span class="k" data-group-id="7210024640-5">end</span><span class="w">
+</span><span class="k" data-group-id="7210024640-1">end</span></code></pre><p>首先, 用 <code class="inline">elixirc</code> 来编译这段代码, 得到 4 个 <code class="inline">.beam</code> 文件,
+分别是: <code class="inline">Elixir.Corner.beam</code>,<code class="inline">Elixir.Coner.Addable.beam</code>,
+<code class="inline">Elixir.Coner.Addable.Integer</code> 和 <code class="inline">Elixir.Corner.Addable.Float</code>.</p><p>也就是说, 如果在模块内使用 <code class="inline">defprotocol</code>, 那么它的变化类似于 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a>,
+最后产生的模块名会添加外部模块前缀. 而协议的实现代码,
+实际上是定义在 <code class="inline">Protocol.Type</code> 这样的模块中的, 而不再添加外部模块的前缀.</p><p>例如下面的代码第 5 ~ 10 行,
+我们在 <code class="inline">TimeSpan</code> 模块的定义的上下文中, 为 <code class="inline">TimeSpan</code> 类型实现 <code class="inline">Coner.Addable</code> 协议.
+这新的实现, 是位于模块 &lt;s&gt;Corner.TimeSpan.&lt;/s&gt;Corner.Addable.Corner.TimeSpan 中,
+这里没有添加外部模块的前缀 <strong>Corner.TimeSpan</strong>.</p><p>也就是说, <code class="inline">defimpl Protocol, for: Type</code> 无论在哪里, 都一样展开为 <code class="inline">Protocol.Type</code>,
+而不会因为嵌套在其他模块结构中, 而添加新的前缀.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.TimeSpan</span><span class="w"> </span><span class="k" data-group-id="1285721031-1">do</span><span class="w">
+  </span><span class="kd">defstruct</span><span class="w"> </span><span class="ss">hour</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="ss">min</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="ss">second</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">
+  </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner</span><span class="o">.</span><span class="p" data-group-id="1285721031-2">{</span><span class="nc">Addable</span><span class="p">,</span><span class="w"> </span><span class="nc">TimeSpan</span><span class="p" data-group-id="1285721031-2">}</span><span class="w">
+
+  </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="bp">__MODULE__</span><span class="w"> </span><span class="k" data-group-id="1285721031-3">do</span><span class="w">
+    </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="1285721031-4">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="1285721031-4">)</span><span class="w"> </span><span class="k" data-group-id="1285721031-5">do</span><span class="w">
+      </span><span class="p" data-group-id="1285721031-6">%{</span><span class="ss">hour</span><span class="p">:</span><span class="w"> </span><span class="n">h1</span><span class="p">,</span><span class="w"> </span><span class="ss">min</span><span class="p">:</span><span class="w"> </span><span class="n">m1</span><span class="p">,</span><span class="w"> </span><span class="ss">second</span><span class="p">:</span><span class="w"> </span><span class="n">s1</span><span class="p" data-group-id="1285721031-6">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">a</span><span class="w">
+      </span><span class="p" data-group-id="1285721031-7">%{</span><span class="ss">hour</span><span class="p">:</span><span class="w"> </span><span class="n">h2</span><span class="p">,</span><span class="w"> </span><span class="ss">min</span><span class="p">:</span><span class="w"> </span><span class="n">m2</span><span class="p">,</span><span class="w"> </span><span class="ss">second</span><span class="p">:</span><span class="w"> </span><span class="n">s2</span><span class="p" data-group-id="1285721031-7">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">b</span><span class="w">
+      </span><span class="c1"># %__MODULE__{hour: h1 + h2, min: m1 + m2, second: s1 + s2}</span><span class="w">
+      </span><span class="p" data-group-id="1285721031-8">%</span><span class="nc" data-group-id="1285721031-8">TimeSpan</span><span class="p" data-group-id="1285721031-8">{</span><span class="ss">hour</span><span class="p">:</span><span class="w"> </span><span class="n">h1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">h2</span><span class="p">,</span><span class="w"> </span><span class="ss">min</span><span class="p">:</span><span class="w"> </span><span class="n">m1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">m2</span><span class="p">,</span><span class="w"> </span><span class="ss">second</span><span class="p">:</span><span class="w"> </span><span class="n">s1</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">s2</span><span class="p" data-group-id="1285721031-8">}</span><span class="w">
+    </span><span class="k" data-group-id="1285721031-5">end</span><span class="w">
+
+    </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="1285721031-9">(</span><span class="bp">__MODULE__</span><span class="p">,</span><span class="w"> </span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;__MODULE__&quot;</span><span class="p" data-group-id="1285721031-9">)</span><span class="w">
+  </span><span class="k" data-group-id="1285721031-3">end</span><span class="w">
+</span><span class="k" data-group-id="1285721031-1">end</span></code></pre><p>在这种模块嵌套的代码中, 要特别留意上下文. 请注意上面的代码片段中的 <code class="inline">__MODULE__</code>,
+在不同的上下文中, 其展开结果是不一样的.
+第 5 行的 <code class="inline">__MODULE__</code> 展开为 <code class="inline">Corner.TimeSpan</code> 在意料之中.
+但是第 12 行的 <code class="inline">__MODULE__</code> 展开是什么呢? 或者说,
+第 8 行的最终的语义和第 9 行一样吗? 通过控制台的输出,
+我们知道是第 13 行的 <code class="inline">__MODULE__</code> 展开为 <code class="inline">Corner.Addable.Corner.TimeSpan</code>.
+因此不难推测, 注释掉的第 9 行, 其语义与第 10 行的是不同的.
+虽然上面的讨论已经知道 <code class="inline">defimpl</code> 是要定义一个新的模块,
+但是我第一次编码的时候, 还是犯了第 9 行这样的错.</p><p>因为 <code class="inline">defprotocol</code> 和 <code class="inline">defimpl</code> 实际上是要创建模块,
+除了 <code class="inline">defprotocol</code> 对核心模块的少数几个宏做了限制外<a href="#fn:1" id="fnref:1" class="footnote" title="see footnote">1</a>,
+大部分的功能并没有限制, 所以就像我们可以在 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 的上下文中执行
+<code class="inline">def*</code> 以外的其他表达式那样, 在 <code class="inline">defprotocol</code> 和 <code class="inline">defimpl</code> 上下文中也可以这样做.</p><p>现在我们知道了, <code class="inline">defimpl</code> 可以嵌套到 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 中, 那么 <code class="inline">defimpl</code>
+内部可以嵌套 <code class="inline">defimpl</code> 调用吗?
+或者再推广一下: <code class="inline">defimpl</code> 都可以在什么样的上下文中调用呢?</p><p>以前的章节中, 我们见到的 <code class="inline">defimpl</code> 调用的上下文有:</p><ul><li>顶层作用域</li><li><a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a> 作用域</li></ul><p>剩下的作用还有如下几个:</p><ul><li><code class="inline">defprotoc</code></li><li><code class="inline">defimpl</code></li><li><code class="inline">def</code>, <code class="inline">defp</code>, <code class="inline">defmacro</code> <code class="inline">defmacop</code></li></ul><p>首先, 不可以直接在 <code class="inline">defprotoc</code> 的上下文中, 使用 <code class="inline">defimpl</code> 为正在定义的协议提供实现.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defprotocol</span><span class="w"> </span><span class="nc">Addable2</span><span class="w"> </span><span class="k" data-group-id="8299206791-1">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="8299206791-2">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="8299206791-2">)</span><span class="w">
+
+  </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Addable2</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Integer</span><span class="w"> </span><span class="k" data-group-id="8299206791-3">do</span><span class="w">
+    </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="8299206791-4">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="8299206791-4">)</span><span class="w"> </span><span class="k" data-group-id="8299206791-5">do</span><span class="w">
+      </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="w">
+    </span><span class="k" data-group-id="8299206791-5">end</span><span class="w">
+  </span><span class="k" data-group-id="8299206791-3">end</span><span class="w">
+</span><span class="k" data-group-id="8299206791-1">end</span></code></pre><p>编译这段代码, 得到了编译错误.
+错误是 <code class="inline">defimpl</code> 引发的, 错误的原因是不能加载模块 <code class="inline">Addable2</code>.
+这说明, 调用 <code class="inline">defimpl</code> 的时候, 会加载 <code class="inline">:for</code> 选项指定的模块.
+现在还没有完成 <code class="inline">Addable2</code> 模块的定义, 所以加载这个模块自然是失败的.</p><p>但是我们可以在协议定义的上下文中, 为其他协议提供实现吗? 答案是可以的.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defprotocol</span><span class="w"> </span><span class="nc">Corner.Addable2</span><span class="w"> </span><span class="k" data-group-id="7107032241-1">do</span><span class="w">
+  </span><span class="c1"># def add1(a)</span><span class="w">
+  </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Corner.Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">String</span><span class="w"> </span><span class="k" data-group-id="7107032241-2">do</span><span class="w">
+    </span><span class="nc">Kernel</span><span class="o">.</span><span class="kd">def</span><span class="p" data-group-id="7107032241-3">(</span><span class="n">add</span><span class="p" data-group-id="7107032241-4">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="7107032241-4">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="7107032241-3">)</span><span class="w">
+  </span><span class="k" data-group-id="7107032241-2">end</span><span class="w">
+
+  </span><span class="nc">Kernel</span><span class="o">.</span><span class="kd">def</span><span class="w"> </span><span class="nf">say_hello</span><span class="p" data-group-id="7107032241-5">(</span><span class="p" data-group-id="7107032241-5">)</span><span class="w"> </span><span class="k" data-group-id="7107032241-6">do</span><span class="w">
+    </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="7107032241-7">(</span><span class="s">&quot;Hello&quot;</span><span class="p" data-group-id="7107032241-7">)</span><span class="w">
+  </span><span class="k" data-group-id="7107032241-6">end</span><span class="w">
+</span><span class="k" data-group-id="7107032241-1">end</span><span class="w">
+
+</span><span class="nc">Corner.Addable2</span><span class="o">.</span><span class="n">say_hello</span><span class="p" data-group-id="7107032241-8">(</span><span class="p" data-group-id="7107032241-8">)</span></code></pre><p>但是要注意第 4 行, 这里使用 <code class="inline">Kernel.def</code> 远程方法调用的语法来调用 <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a>,
+因为在 <code class="inline">defprotocol</code> 上下文中, 特意排除了核心模块 <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a> 的导入.</p><p>在实验上面的代码片段前, 我以为 <code class="inline">defprotocol</code> 上下文中, 必须有 <a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">def/1</code></a> 语句,
+但是现在明白, 不是的. 起初还以为, <code class="inline">defprotocl</code> 上下文中, 不可以定义自己的函数,
+现在发现, 可以使用远程方法调用的语法, 用 <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">Kernel.def/2</code></a> 来定义自己的函数;
+就像上面的代码第 7~9 行中那样.</p><p>最后强调一下: 虽然可以像上面的代码片段那样, 用 <code class="inline">defprotocol</code> 来定义模块,
+但是绝对不推荐这样做.</p><p><strong>结论</strong>: 在 <code class="inline">defprotcoc</code> 定义的上下文中, 不能为正在定义的协议的提供实现.
+或者说, 宏调用 <code class="inline">defimpl Protocol,...</code>, 中的 <a href="https://hexdocs.pm/elixir/Protocol.html"><code class="inline">Protocol</code></a> 对应的模块必须是闭合的.</p><p>那么 <code class="inline">defimpl</code> 可以嵌套自己吗?</p><pre><code class="makeup elixir" translate="no"><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Corner.Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Tuple</span><span class="w"> </span><span class="k" data-group-id="2486562369-1">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="2486562369-2">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="2486562369-2">)</span><span class="w"> </span><span class="k" data-group-id="2486562369-3">do</span><span class="w">
+    </span><span class="nc">Tuple</span><span class="o">.</span><span class="n">append</span><span class="p" data-group-id="2486562369-4">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="2486562369-4">)</span><span class="w">
+  </span><span class="k" data-group-id="2486562369-3">end</span><span class="w">
+
+  </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Corner.Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">BitString</span><span class="w"> </span><span class="k" data-group-id="2486562369-5">do</span><span class="w">
+    </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="2486562369-6">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="2486562369-6">)</span><span class="w"> </span><span class="k" data-group-id="2486562369-7">do</span><span class="w">
+      </span><span class="n">a</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="n">b</span><span class="w">
+    </span><span class="k" data-group-id="2486562369-7">end</span><span class="w">
+  </span><span class="k" data-group-id="2486562369-5">end</span><span class="w">
+</span><span class="k" data-group-id="2486562369-1">end</span></code></pre><p><strong><code class="inline">defimpl</code> 中可以嵌入 <code class="inline">defimpl</code>; <code class="inline">defimpl</code> 在 <code class="inline">defimpl</code> 调用的上下文中,
+与在顶层的作用域上下文中, 没有区别</strong>.</p><p>这还真的出乎我的意料. 但是这样做, 除了让代码变得丑陋外, 一点其他用处也没有.</p><p><code class="inline">def</code> 和 <code class="inline">defp</code> 是用来在模块中定义函数的. 函数不可以嵌套定义,
+所以我预计, 在 <code class="inline">def</code> 上下文中, 是不可以调用 <code class="inline">defimpl</code> 的.
+但是还是让我们实验一下吧.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">EmbedImplToFun</span><span class="w"> </span><span class="k" data-group-id="0291857903-1">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">fun</span><span class="p" data-group-id="0291857903-2">(</span><span class="p" data-group-id="0291857903-2">)</span><span class="w"> </span><span class="k" data-group-id="0291857903-3">do</span><span class="w">
+    </span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Addable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Tuple</span><span class="w"> </span><span class="k" data-group-id="0291857903-4">do</span><span class="w">
+      </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="0291857903-5">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="0291857903-5">)</span><span class="w"> </span><span class="k" data-group-id="0291857903-6">do</span><span class="w">
+        </span><span class="nc">Tuple</span><span class="o">.</span><span class="n">concat</span><span class="p" data-group-id="0291857903-7">(</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="0291857903-7">)</span><span class="w">
+      </span><span class="k" data-group-id="0291857903-6">end</span><span class="w">
+    </span><span class="k" data-group-id="0291857903-4">end</span><span class="w">
+  </span><span class="k" data-group-id="0291857903-3">end</span><span class="w">
+</span><span class="k" data-group-id="0291857903-1">end</span></code></pre><p>又超出了预期了, 居然可以!</p><p>那么可以预期, 在 <code class="inline">def</code> 中也是可以调用 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a>.</p><p>Elixir 中不允许命名函数嵌套, 但是知道了上面的知识,
+我们就可以让函数返回模块, 然后在模块中定义命名函数,
+以这种迂回的方式来实现函数的嵌套.</p><p>详细讨论见<a href="chx-cold_knowledge.html">冷知识章节</a>.</p><h2 id="协议对函数的限制与辅助" class="section-heading">
+  <a href="#协议对函数的限制与辅助" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">协议对函数的限制与辅助</p>
+  </a>
+  协议对函数的限制与辅助
+</h2>
+<p>让我们再回到对协议的讨论上来.</p><p>协议看起来足够的简单. 似乎 <code class="inline">defprotocol</code> 只是作了限制的 <a href="https://hexdocs.pm/elixir/Kernel.html#defmodule/2"><code class="inline">defmodule/2</code></a>: 其上下文中,
+只能使用 <a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">def/1</code></a> 宏.</p><p>但是实际上不是这么简单的.</p><p>首先协议对其中的定义函数是有限制的: 协议中的函数, 不可以为零元函数.
+所以在 <code class="inline">defprotocol</code> 上下文中使用的 <a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">def/1</code></a> 是重新定义的, 而不是导入的
+<a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">Kernel.def/1</code></a>. 当我们在协议中定义零元函数的时候, 会引发编译错误.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defprotocol</span><span class="w"> </span><span class="nc">ZeroArityFun</span><span class="w"> </span><span class="k" data-group-id="0422270663-1">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">sayHi</span><span class="p" data-group-id="0422270663-2">(</span><span class="p" data-group-id="0422270663-2">)</span><span class="w">
+</span><span class="k" data-group-id="0422270663-1">end</span></code></pre><p>上面我们展示了, <code class="inline">defprotocol</code> 对 <a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">def/1</code></a> 的限制;
+接下来, 我们会看到协议对函数也有辅助:
+协议会对其中定义的函数的第一个参数做类型检查.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defprotocol</span><span class="w"> </span><span class="nc">Corner.Protocol</span><span class="w"> </span><span class="k" data-group-id="9252110974-1">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">sub_one</span><span class="p" data-group-id="9252110974-2">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-2">)</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add_one</span><span class="p" data-group-id="9252110974-3">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-3">)</span><span class="w">
+</span><span class="k" data-group-id="9252110974-1">end</span><span class="w">
+
+</span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Protocol</span><span class="w">
+
+</span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Protocol</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Integer</span><span class="w"> </span><span class="k" data-group-id="9252110974-4">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">sub_one</span><span class="p" data-group-id="9252110974-5">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-5">)</span><span class="w"> </span><span class="k" data-group-id="9252110974-6">do</span><span class="w">
+    </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="9252110974-7">(</span><span class="s">&quot;sub_one(i)&quot;</span><span class="p" data-group-id="9252110974-7">)</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w">
+  </span><span class="k" data-group-id="9252110974-6">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add_one</span><span class="p" data-group-id="9252110974-8">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-8">)</span><span class="w"> </span><span class="k" data-group-id="9252110974-9">do</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+  </span><span class="k" data-group-id="9252110974-9">end</span><span class="w">
+</span><span class="k" data-group-id="9252110974-4">end</span><span class="w">
+
+</span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Protocol</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Float</span><span class="w"> </span><span class="k" data-group-id="9252110974-10">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">sub_one</span><span class="p" data-group-id="9252110974-11">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-11">)</span><span class="w"> </span><span class="k" data-group-id="9252110974-12">do</span><span class="w">
+    </span><span class="nc">IO</span><span class="o">.</span><span class="n">puts</span><span class="p" data-group-id="9252110974-13">(</span><span class="s">&quot;sub_one(f)&quot;</span><span class="p" data-group-id="9252110974-13">)</span><span class="w">
+    </span><span class="n">a</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w">
+  </span><span class="k" data-group-id="9252110974-12">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add_one</span><span class="p" data-group-id="9252110974-14">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-14">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w">
+</span><span class="k" data-group-id="9252110974-10">end</span><span class="w">
+
+</span><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Protocol</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">BitString</span><span class="w"> </span><span class="k" data-group-id="9252110974-15">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">sub_one</span><span class="p" data-group-id="9252110974-16">(</span><span class="p" data-group-id="9252110974-17">&lt;&lt;</span><span class="bp">_</span><span class="o">::</span><span class="n">utf8</span><span class="p">,</span><span class="w"> </span><span class="n">rest</span><span class="o">::</span><span class="n">binary</span><span class="p" data-group-id="9252110974-17">&gt;&gt;</span><span class="p" data-group-id="9252110974-16">)</span><span class="w"> </span><span class="k" data-group-id="9252110974-18">do</span><span class="w">
+    </span><span class="n">rest</span><span class="w">
+  </span><span class="k" data-group-id="9252110974-18">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add_one</span><span class="p" data-group-id="9252110974-19">(</span><span class="n">a</span><span class="p" data-group-id="9252110974-19">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&lt;&gt;</span><span class="w"> </span><span class="s">&quot;one&quot;</span><span class="w">
+</span><span class="k" data-group-id="9252110974-15">end</span><span class="w">
+
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">sub_one</span><span class="p" data-group-id="9252110974-20">(</span><span class="mi">1</span><span class="p" data-group-id="9252110974-20">)</span><span class="w">
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">sub_one</span><span class="p" data-group-id="9252110974-21">(</span><span class="mf">1.0</span><span class="p" data-group-id="9252110974-21">)</span><span class="w">
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">sub_one</span><span class="p" data-group-id="9252110974-22">(</span><span class="s">&quot;Hello&quot;</span><span class="p" data-group-id="9252110974-22">)</span><span class="w">
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">add_one</span><span class="p" data-group-id="9252110974-23">(</span><span class="mi">1</span><span class="p" data-group-id="9252110974-23">)</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9252110974-24">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;add_one(1)&quot;</span><span class="p" data-group-id="9252110974-24">)</span><span class="w">
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">add_one</span><span class="p" data-group-id="9252110974-25">(</span><span class="mf">1.0</span><span class="p" data-group-id="9252110974-25">)</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9252110974-26">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;add_one(1.0)&quot;</span><span class="p" data-group-id="9252110974-26">)</span><span class="w">
+</span><span class="nc">Protocol</span><span class="o">.</span><span class="n">add_one</span><span class="p" data-group-id="9252110974-27">(</span><span class="s">&quot;One + &quot;</span><span class="p" data-group-id="9252110974-27">)</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">IO</span><span class="o">.</span><span class="n">inspect</span><span class="p" data-group-id="9252110974-28">(</span><span class="ss">label</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;add_one(</span><span class="se">\&quot;</span><span class="s">One + </span><span class="se">\&quot;</span><span class="s">)&quot;</span><span class="p" data-group-id="9252110974-28">)</span></code></pre><p>实际上, 协议对函数的辅助, 只是实现对模块的动态调度的自然结果;
+而对函数的限制, 则是实现动态调度的必然要求.</p><p>协议实际帮助我们消弭模块名, 来实现函数的动态调度.
+但是 Elixir 动态调度只能通过模式匹配来完成.
+函数调用的匹配包括一下内容的匹配:</p><ol><li>模块名</li><li>函数名</li><li>参数模式, guard 子句</li></ol><ul><li>协议要动态调度, 就是要消除模块之间的差异的, 所以在这里, 模块不能作为动态调度的依据了.</li><li>协议的实现中, 函数名都是一样的, 所以它自然也不能用作动态调度的依据.</li><li>零元函数, 因为没有参数, 所以最后可以用来区分不同函数的因子, 也不再有用.</li></ul><p>这就是协议上下文中要求 <a href="https://hexdocs.pm/elixir/Kernel.html#def/1"><code class="inline">def/1</code></a> 定义的函数, 必须至少含有一个参数的原因.</p><p>上面我们看到了, 协议的确做到了对协议实现模块的动态调度. 但是它是如何做到的呢?</p><h2 id="协议动态调度" class="section-heading">
+  <a href="#协议动态调度" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">协议动态调度</p>
+  </a>
+  协议动态调度
+</h2>
+<p>Elixir 协议模块文档的<a href="https://hexdocs.pm/elixir/Protocol.html#module-reflection">反射章节</a>,
+告诉我们: 每个协议模块, 都会包含了以下三个用来完成, 协议及其实现模块的反射操作的函数:</p><ol><li><code class="inline">__protocol__/1</code> 返回这个协议模块的相关的元信息.</li><li><code class="inline">impl_for/1</code> 返回给定数据的处理模块, 或者返回 <code class="inline">nil</code>.</li><li><code class="inline">impl_for!/1</code> 和上面的函数类似, 但是如果没有找到对应的实现的话, 会引发异常.</li></ol><p>所以通过 <code class="inline">impl_for</code> 或 <code class="inline">impl_for!</code> 可以完成对实现模块的动态调用.
+比如我们上面定义的 <code class="inline">Corner.Addable</code> 协议,
+<code class="inline">defprotocol</code> 对应的模块中, <code class="inline">add/2</code> 函数就可以非常简单的这样来实现<a href="#fn:2" id="fnref:2" class="footnote" title="see footnote">2</a>:</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Addable</span><span class="w"> </span><span class="k" data-group-id="6288039007-1">do</span><span class="w">
+  </span><span class="c1">#...</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">add</span><span class="p" data-group-id="6288039007-2">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p" data-group-id="6288039007-2">)</span><span class="w"> </span><span class="k" data-group-id="6288039007-3">do</span><span class="w">
+    </span><span class="n">m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">impl_for!</span><span class="p" data-group-id="6288039007-4">(</span><span class="n">a</span><span class="p" data-group-id="6288039007-4">)</span><span class="w">
+    </span><span class="n">m</span><span class="o">.</span><span class="n">add</span><span class="p" data-group-id="6288039007-5">(</span><span class="n">a</span><span class="p">,</span><span class="n">b</span><span class="p" data-group-id="6288039007-5">)</span><span class="w">
+  </span><span class="k" data-group-id="6288039007-3">end</span><span class="w">
+</span><span class="k" data-group-id="6288039007-1">end</span></code></pre><p>但是 <code class="inline">impl_for</code> 和 <code class="inline">impl_for!</code> 又是如何完成它们的工作的呢?</p><p>前面我们已经知道, 协议的实现模块的模块名都是以协议模块的模块名为前缀的.
+要完成 <code class="inline">impl_for</code> 和 <code class="inline">impl_for!</code> 可以分成两步走:</p><ol><li>在运行时获取所有的模块, 并依据模块名筛选出以协议名为前缀的模块.
+但是这样找出的模块不能保证就一定是协议的实现.</li><li>探测这些找到的模块的元信息, 来确认模块是否的确是协议的实现.</li></ol><p>那么第一个关键就是如何在运行时获取系统中的模块呢?
+Erlang 的标准库的 <code class="inline">:code</code> 模块提供了这样两个函数:</p><ol><li><code class="inline">all_available/0</code></li><li><code class="inline">all_loaded/0</code></li></ol><p>顾名思义, 这两个函数: 第一个用来获取所有的可以加载到系统中的模块;
+第二个用来获取所有加载到系统中的模块.</p><p>知道了这些知识, 第一步就不难完成了.</p><p>接下来我们探索一下, <code class="inline">defprotocl</code> 和 <code class="inline">defimpl</code> 如何配合,
+以便可以通过模块的元信息来确认某个模块是协议的实现的.
+协议的实现模块, 有一个 <code class="inline">:__protocol__</code> 属性, 其值为:
+<code class="inline">[protocol: Protocol, for: Type]</code>.
+我们可以通过 <code class="inline">ProtoclImpl.__info__(:attributes)</code> 或
+<code class="inline">Module.module_info(:attributes)</code>来获模块的所有的属性.
+这两个函数返回的都是关键字列表, 因此我们可以通过 Access 行为来获取 <code class="inline">:__protocol__</code>
+对应的值. 下面的代码, 获取了 <code class="inline">Corner.Addable.Integer</code> 模块的
+<code class="inline">:__protocol__</code> 属性的值:</p><pre><code class="makeup elixir" translate="no"><span class="nc">Corner.Addable.Integer</span><span class="o">.</span><span class="n">module_info</span><span class="p" data-group-id="9572906423-1">(</span><span class="ss">:attributes</span><span class="p" data-group-id="9572906423-1">)</span><span class="p" data-group-id="9572906423-2">[</span><span class="ss">:__protocol__</span><span class="p" data-group-id="9572906423-2">]</span></code></pre><p>所以第二步也就非常清楚了.</p><ol><li>根据数据, 判断对应的模块. 我想相应的代码, 大概是这样的:<pre><code class="makeup elixir" translate="no"><span class="w">   </span><span class="kd">def</span><span class="w"> </span><span class="nf">data_to_module</span><span class="p" data-group-id="7020776021-1">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-1">)</span><span class="w"> </span><span class="k" data-group-id="7020776021-2">do</span><span class="w">
+     </span><span class="k">cond</span><span class="w"> </span><span class="k" data-group-id="7020776021-3">do</span><span class="w">
+       </span><span class="n">is_tuple</span><span class="p" data-group-id="7020776021-4">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-4">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Tuple</span><span class="w">
+       </span><span class="n">is_atom</span><span class="p" data-group-id="7020776021-5">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-5">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Atom</span><span class="w">
+       </span><span class="n">is_list</span><span class="p" data-group-id="7020776021-6">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-6">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">List</span><span class="w">
+       </span><span class="n">is_bitstring</span><span class="p" data-group-id="7020776021-7">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-7">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">BitString</span><span class="w">
+       </span><span class="n">is_integer</span><span class="p" data-group-id="7020776021-8">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-8">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Integer</span><span class="w">
+       </span><span class="n">is_float</span><span class="p" data-group-id="7020776021-9">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-9">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Float</span><span class="w">
+       </span><span class="n">is_function</span><span class="p" data-group-id="7020776021-10">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-10">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Function</span><span class="w">
+       </span><span class="n">is_pid</span><span class="p" data-group-id="7020776021-11">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-11">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">PID</span><span class="w">
+       </span><span class="n">is_map</span><span class="p" data-group-id="7020776021-12">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-12">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Map</span><span class="w">
+       </span><span class="n">is_port</span><span class="p" data-group-id="7020776021-13">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-13">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Port</span><span class="w">
+       </span><span class="n">is_reference</span><span class="p" data-group-id="7020776021-14">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-14">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Reference</span><span class="w">
+       </span><span class="n">is_struct</span><span class="p" data-group-id="7020776021-15">(</span><span class="n">d</span><span class="p" data-group-id="7020776021-15">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="ss">:struct</span><span class="w">
+       </span><span class="bp">_</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Any</span><span class="w">
+     </span><span class="k" data-group-id="7020776021-3">end</span><span class="w">
+   </span><span class="k" data-group-id="7020776021-2">end</span></code></pre></li><li>根据协议实现的 <code class="inline">:__protoco__</code> 属性值, 来找到合适的处理模块, 代码大概是这样:<pre><code class="makeup elixir" translate="no"><span class="w">   </span><span class="kd">def</span><span class="w"> </span><span class="nf">filter</span><span class="p" data-group-id="3988346206-1">(</span><span class="p" data-group-id="3988346206-2">[</span><span class="ss">protocol</span><span class="p">:</span><span class="w"> </span><span class="n">pro</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="n">mod</span><span class="w"> </span><span class="p" data-group-id="3988346206-2">]</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="p" data-group-id="3988346206-1">)</span><span class="w"> </span><span class="k" data-group-id="3988346206-3">do</span><span class="w">
+     </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">data_to_module</span><span class="p" data-group-id="3988346206-4">(</span><span class="n">d</span><span class="p" data-group-id="3988346206-4">)</span><span class="w">
+     </span><span class="k">if</span><span class="w"> </span><span class="n">t</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="ss">:struct</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="p">%</span><span class="n">mod</span><span class="p" data-group-id="3988346206-5">{</span><span class="p" data-group-id="3988346206-5">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">d</span><span class="w"> </span><span class="k" data-group-id="3988346206-6">do</span><span class="w">
+       </span><span class="no">true</span><span class="w">
+     </span><span class="k" data-group-id="3988346206-6">else</span><span class="w">
+       </span><span class="n">mod</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">t</span><span class="w">
+     </span><span class="k" data-group-id="3988346206-6">end</span><span class="w">
+   </span><span class="k" data-group-id="3988346206-3">end</span></code></pre></li></ol><p>那么 <code class="inline">imp_for</code> 和 <code class="inline">impl_for!</code> 大概就是这样的:</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="6282514145-1">(</span><span class="n">d</span><span class="p" data-group-id="6282514145-1">)</span><span class="w"> </span><span class="k" data-group-id="6282514145-2">do</span><span class="w">
+  </span><span class="nc">:code</span><span class="o">.</span><span class="n">all_loaded</span><span class="p" data-group-id="6282514145-3">(</span><span class="p" data-group-id="6282514145-3">)</span><span class="w">
+  </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">map</span><span class="p" data-group-id="6282514145-4">(</span><span class="o">&amp;</span><span class="n">elem</span><span class="p" data-group-id="6282514145-5">(</span><span class="ni">&amp;1</span><span class="p">,</span><span class="mi">0</span><span class="p" data-group-id="6282514145-5">)</span><span class="p" data-group-id="6282514145-4">)</span><span class="w">
+  </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">filer</span><span class="p" data-group-id="6282514145-6">(</span><span class="o">&amp;</span><span class="n">by_module_name_prfix</span><span class="p" data-group-id="6282514145-7">(</span><span class="ni">&amp;1</span><span class="p">,</span><span class="bp">__MODULE__</span><span class="p" data-group-id="6282514145-7">)</span><span class="p" data-group-id="6282514145-6">)</span><span class="w">
+  </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">find</span><span class="p" data-group-id="6282514145-8">(</span><span class="no">nil</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">filter</span><span class="p" data-group-id="6282514145-9">(</span><span class="ni">&amp;1</span><span class="o">.</span><span class="n">module_info</span><span class="p" data-group-id="6282514145-10">(</span><span class="ss">:attributes</span><span class="p" data-group-id="6282514145-10">)</span><span class="p" data-group-id="6282514145-11">[</span><span class="ss">:__impl__</span><span class="p" data-group-id="6282514145-11">]</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="p" data-group-id="6282514145-9">)</span><span class="p" data-group-id="6282514145-8">)</span><span class="w">
+</span><span class="k" data-group-id="6282514145-2">end</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for!</span><span class="p" data-group-id="6282514145-12">(</span><span class="n">d</span><span class="p" data-group-id="6282514145-12">)</span><span class="w"> </span><span class="k" data-group-id="6282514145-13">do</span><span class="w">
+  </span><span class="n">t</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">impl_for</span><span class="p" data-group-id="6282514145-14">(</span><span class="n">d</span><span class="p" data-group-id="6282514145-14">)</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">t</span><span class="p">,</span><span class="w"> </span><span class="ss">else</span><span class="p">:</span><span class="w"> </span><span class="k">raise</span><span class="w"> </span><span class="nc">Protocol.UndefinedError</span><span class="p">,</span><span class="w"> </span><span class="n">d</span><span class="w">
+</span><span class="k" data-group-id="6282514145-13">end</span></code></pre><h2 id="elixir-的实现" class="section-heading">
+  <a href="#elixir-的实现" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">elixir-的实现</p>
+  </a>
+  Elixir 的实现
+</h2>
+<p>在我自己构思以上的实现后, 我发现, 我能看懂 Elixir 的 <code class="inline">impl_for</code> 的实现了.
+其源码在于<a href="https://github.com/elixir-lang/elixir/blob/v1.13.1/lib/elixir/lib/protocol.ex#L817">protocol.ex 的第 817 ~ 877行</a>.</p><p>如果把其中的宏展开的话, 代码是这样的:</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmacrop</span><span class="w"> </span><span class="nf">any_impl_for</span><span class="p" data-group-id="7692416292-1">(</span><span class="p" data-group-id="7692416292-1">)</span><span class="k" data-group-id="7692416292-2">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="na">@fallback_to_any</span><span class="w"> </span><span class="k" data-group-id="7692416292-3">do</span><span class="w">
+    </span><span class="k">quote</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="7692416292-4">(</span><span class="bp">__MODULE__</span><span class="o">.</span><span class="nc">Any</span><span class="p" data-group-id="7692416292-4">)</span><span class="o">.</span><span class="c">__impl__</span><span class="p" data-group-id="7692416292-5">(</span><span class="ss">:target</span><span class="p" data-group-id="7692416292-5">)</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-3">else</span><span class="w">
+    </span><span class="no">nil</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-3">end</span><span class="w">
+</span><span class="k" data-group-id="7692416292-2">end</span><span class="w">
+
+</span><span class="na">@spec</span><span class="w"> </span><span class="n">impl_for</span><span class="p" data-group-id="7692416292-6">(</span><span class="n">term</span><span class="p" data-group-id="7692416292-6">)</span><span class="w"> </span><span class="o">::</span><span class="w"> </span><span class="n">atom</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="no">nil</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="7692416292-7">(</span><span class="n">data</span><span class="p" data-group-id="7692416292-7">)</span><span class="w">
+
+</span><span class="c1"># What is this _v_ ?</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="7692416292-8">(</span><span class="p">%</span><span class="n">struct</span><span class="p" data-group-id="7692416292-9">{</span><span class="p" data-group-id="7692416292-9">}</span><span class="p" data-group-id="7692416292-8">)</span><span class="w"> </span><span class="k" data-group-id="7692416292-10">do</span><span class="w">
+  </span><span class="n">struct_impl_for</span><span class="p" data-group-id="7692416292-11">(</span><span class="n">struct</span><span class="p" data-group-id="7692416292-11">)</span><span class="w">
+</span><span class="k" data-group-id="7692416292-10">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="7692416292-12">(</span><span class="n">data</span><span class="p" data-group-id="7692416292-12">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">is_integer</span><span class="p" data-group-id="7692416292-13">(</span><span class="n">data</span><span class="p" data-group-id="7692416292-13">)</span><span class="w"> </span><span class="k" data-group-id="7692416292-14">do</span><span class="w">
+  </span><span class="c1"># Note this one.....................v</span><span class="w">
+  </span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Module</span><span class="o">.</span><span class="n">concat</span><span class="p" data-group-id="7692416292-15">(</span><span class="bp">__MODULE__</span><span class="p">,</span><span class="w"> </span><span class="nc">Integer</span><span class="p" data-group-id="7692416292-15">)</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="7692416292-16">do</span><span class="w">
+      </span><span class="n">target</span><span class="o">.</span><span class="c">__impl__</span><span class="p" data-group-id="7692416292-17">(</span><span class="ss">:target</span><span class="p" data-group-id="7692416292-17">)</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-16">rescue</span><span class="w">
+    </span><span class="nc">UndefinedFunctionError</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">any_impl_for</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-16">end</span><span class="w">
+</span><span class="k" data-group-id="7692416292-14">end</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="7692416292-18">(</span><span class="n">data</span><span class="p" data-group-id="7692416292-18">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">is_float</span><span class="p" data-group-id="7692416292-19">(</span><span class="n">data</span><span class="p" data-group-id="7692416292-19">)</span><span class="w"> </span><span class="k" data-group-id="7692416292-20">do</span><span class="w">
+  </span><span class="c1"># Note this one.....................v</span><span class="w">
+  </span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Module</span><span class="o">.</span><span class="n">concat</span><span class="p" data-group-id="7692416292-21">(</span><span class="bp">__MODULE__</span><span class="p">,</span><span class="w"> </span><span class="nc">Float</span><span class="p" data-group-id="7692416292-21">)</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="7692416292-22">do</span><span class="w">
+    </span><span class="n">target</span><span class="o">.</span><span class="c">__impl__</span><span class="p" data-group-id="7692416292-23">(</span><span class="ss">:target</span><span class="p" data-group-id="7692416292-23">)</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-22">rescue</span><span class="w">
+    </span><span class="nc">UndefinedFunctionError</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">any_impl_for</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-22">end</span><span class="w">
+</span><span class="k" data-group-id="7692416292-20">end</span><span class="w">
+
+</span><span class="n">...</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">impl_for</span><span class="p" data-group-id="7692416292-24">(</span><span class="bp">_</span><span class="p" data-group-id="7692416292-24">)</span><span class="w"> </span><span class="k" data-group-id="7692416292-25">do</span><span class="w">
+  </span><span class="n">any_impl_for</span><span class="w">
+</span><span class="k" data-group-id="7692416292-25">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">struct_impl_for</span><span class="p" data-group-id="7692416292-26">(</span><span class="n">struct</span><span class="p" data-group-id="7692416292-26">)</span><span class="w"> </span><span class="k" data-group-id="7692416292-27">do</span><span class="w">
+  </span><span class="n">target</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Module</span><span class="o">.</span><span class="n">concat</span><span class="p" data-group-id="7692416292-28">(</span><span class="bp">__MODULE__</span><span class="p">,</span><span class="w"> </span><span class="n">struct</span><span class="p" data-group-id="7692416292-28">)</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="7692416292-29">do</span><span class="w">
+    </span><span class="n">target</span><span class="o">.</span><span class="c">__impl__</span><span class="p" data-group-id="7692416292-30">(</span><span class="ss">:target</span><span class="p" data-group-id="7692416292-30">)</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-29">rescue</span><span class="w">
+    </span><span class="nc">UndefinedFunctionError</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">any_impl_for</span><span class="w">
+  </span><span class="k" data-group-id="7692416292-29">end</span><span class="w">
+</span><span class="k" data-group-id="7692416292-27">end</span></code></pre><p>这样的实现, 确实高明. 宏的代码共 60 行; 每个基础类型, 展开后 8 行代码,
+全部基础类型的 <code class="inline">impl_for</code> 子句就有: $8\times 11 = 88$ 行.
+我这里的代码所以短, 是因为我只对 Integer 和 Float 做了展开,
+其他 9 个基本类型的账号, 都用 <code class="inline">...</code> 代替的缘故.</p><p>通过查看 Elixir 的源码, 还可以知道, 每个协议的实现模块中都有一个
+<code class="inline">__impl__(:target)</code> 函数. 这是 <code class="inline">defimpl</code> 与 <code class="inline">defprotocol</code>
+打的配合, 为的是消除命名冲突.</p><p>Elixir 的实现, 时间复杂度为 O(0), 而我的实现, 实际复杂多为 O(1). 😳</p><p>在上面的代码片段的第 11 行, 有一个不常见的语法.
+对一个结构对象 <code class="inline">struct_obj</code> 来说, <code class="inline">%s{} = struct_obj</code>,
+那么变量 <code class="inline">s</code> 中绑定的内容就是 <code class="inline">struct_obj</code> 结构所在模块的名字.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Point</span><span class="w"> </span><span class="k" data-group-id="6077464859-1">do</span><span class="w">
+  </span><span class="kd">defstruct</span><span class="w"> </span><span class="ss">x</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="ss">y</span><span class="p">:</span><span class="w"> </span><span class="mi">0</span><span class="w">
+</span><span class="k" data-group-id="6077464859-1">end</span><span class="w">
+
+</span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Point</span><span class="p">,</span><span class="w"> </span><span class="ss">as</span><span class="p">:</span><span class="w"> </span><span class="nc">P</span><span class="w">
+</span><span class="n">obj</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="6077464859-2">%</span><span class="nc" data-group-id="6077464859-2">P</span><span class="p" data-group-id="6077464859-2">{</span><span class="p" data-group-id="6077464859-2">}</span><span class="w">
+</span><span class="p">%</span><span class="n">module</span><span class="p" data-group-id="6077464859-3">{</span><span class="p" data-group-id="6077464859-3">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">obj</span><span class="w">
+</span><span class="n">module</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="nc">Corner.Point</span><span class="w"> </span><span class="c1"># true</span></code></pre><div class="footnotes"><hr/><ol><li id="fn:1"><a class="reversefootnote" href="#fnref:1" title="return to article">&amp;#x21A9;</a><p>见 Elixir 协议模块源码的 第<a href="https://github.com/elixir-lang/elixir/blob/7e4fbe657dbf9c3e19e3d2bd6c17cc6d724b4710/lib/elixir/lib/protocol.ex#L684">690~703</a> 行.</p></li><li id="fn:2"><a class="reversefootnote" href="#fnref:2" title="return to article">&amp;#x21A9;</a><p>这是我的猜测, 所以 <code class="inline">defpotocol</code> 真正产生的代码和这里的代码肯定不一样.</p></li></ol></div>
+<div class="bottom-actions">
+  <div class="bottom-actions-item">
+
+      <a href="ch09-module.html" class="bottom-actions-button" rel="prev">
+        <span class="subheader">
+          ← Previous Page
+        </span>
+        <span class="title">
+第九章 模块
+        </span>
+      </a>
+
+  </div>
+  <div class="bottom-actions-item">
+
+      <a href="ch11-macro.html" class="bottom-actions-button" rel="next">
+        <span class="subheader">
+          Next Page →
+        </span>
+        <span class="title">
+第十一章 如何理解宏
+        </span>
+      </a>
+
+  </div>
+</div>
+
+      <footer class="footer">
+
+        <p>
+          Built using
+          <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" target="_blank" rel="help noopener" translate="no">ExDoc</a> (v0.28.4) for the
+
+            <a href="https://elixir-lang.org" title="Elixir" target="_blank" translate="no">Elixir programming language</a>
+
+        </p>
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+
+
+  </body>
+</html>
