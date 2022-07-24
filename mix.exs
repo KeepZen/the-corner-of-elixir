@@ -1,45 +1,53 @@
 defmodule TheCornerOfElixir.MixProject do
   use Mix.Project
-
+  @name :"The Corner of Elixir"
   def project do
     [
-      app: :the_corner_of_elixir,
+      app: @name,
       version: "4.0.0",
       elixir: "~> 1.13",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       source_url: "https://github.com/keepzen/the-corner-of-elixir",
-      homepage_url: "keepzen.github.io/the-corner-of-elixir",
-      docs: [
-        formatters: ["html"],
-        authors: ["Keep Zen"],
-        api_reference: false,
-        language: ["cn-zh"],
-        assets: "assets",
-        before_closing_head_tag: &before_closing_head_tag/1,
-        main: "readme",
-        markdown_processor: {ExDoc.Markdown.Earmark, footnotes: true},
-        groups_for_extras: [
-          中文: Path.wildcard("cn/*.md")
-        ],
-        extras: [
-          "ReadMe.md",
-          "cn/ReadMe_cn.md",
-          "cn/ch01.intruction.md",
-          "cn/ch02.plus_and_minus.md",
-          "cn/ch03.pattern_match.md",
-          "cn/ch04.parenthese.md",
-          "cn/ch05.new_constructor.md",
-          "cn/ch06.async_programe.md",
-          "cn/ch07.pipe.md",
-          "cn/ch08.error_handle.md",
-          "cn/ch09.module.md",
-          "cn/ch10.protocol_and_behaviour.md",
-          "cn/ch11.macro.md",
-          "cn/ch12.process.md",
-          "cn/chx.cold_knowledge.md"
-        ]
-      ]
+      homepage_url: "https://keepzen.github.io/the-corner-of-elixir",
+      deps: [corner: "https://hexdocs.pm/corner/api-reference.html"],
+      docs:
+        [
+          formatters: ["html"],
+          authors: ["Keep Zen"],
+          api_reference: false,
+          language: ["en", "cn-zh"],
+          assets: "assets",
+          before_closing_head_tag: &before_closing_head_tag/1,
+          main: "readme",
+          markdown_processor: {ExDoc.Markdown.Earmark, footnotes: true}
+        ] ++ cn_docs()
+    ]
+  end
+
+  defp cn_docs do
+    [
+      groups_for_extras: [
+        中文: Path.wildcard("cn/*.md")
+      ],
+      extras: [
+        "ReadMe.md",
+        "cn/index_cn.md",
+        "cn/ch01.intruction.md",
+        "cn/ch02.plus_and_minus.md",
+        "cn/ch03.pattern_match.md",
+        "cn/ch04.parenthese.md",
+        "cn/ch05.new_constructor.md",
+        "cn/ch06.async_programe.md",
+        "cn/ch07.pipe.md",
+        "cn/ch08.error_handle.md",
+        "cn/ch09.module.md",
+        "cn/ch10.protocol_and_behaviour.md",
+        "cn/ch11.macro.md",
+        "cn/ch12.process.md",
+        "cn/chx.cold_knowledge.md"
+      ],
+      output: "doc/cn"
     ]
   end
 
