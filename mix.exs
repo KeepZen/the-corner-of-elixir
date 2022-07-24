@@ -27,27 +27,24 @@ defmodule TheCornerOfElixir.MixProject do
 
   defp cn_docs do
     [
-      groups_for_extras: [
-        中文: Path.wildcard("cn/*.md")
-      ],
       extras: [
-        "ReadMe.md",
-        "cn/index_cn.md",
-        "cn/ch01.intruction.md",
-        "cn/ch02.plus_and_minus.md",
-        "cn/ch03.pattern_match.md",
-        "cn/ch04.parenthese.md",
-        "cn/ch05.new_constructor.md",
-        "cn/ch06.async_programe.md",
-        "cn/ch07.pipe.md",
-        "cn/ch08.error_handle.md",
-        "cn/ch09.module.md",
-        "cn/ch10.protocol_and_behaviour.md",
-        "cn/ch11.macro.md",
-        "cn/ch12.process.md",
-        "cn/chx.cold_knowledge.md"
+        "ReadMe.md"
+        # "en/index_en.md",
+        # "en/ch01.intruction_en.md",
+        # "en/ch02.plus_and_minus_en.md",
+        # "en/ch03.pattern_match_en.md",
+        # "en/ch04.parenthese_en.md",
+        # "en/ch05.new_constructor_en.md",
+        # "en/ch06.async_programe_en.md",
+        # "en/ch07.pipe_en.md",
+        # "en/ch08.error_handle_en.md",
+        # "en/ch09.module_en.md",
+        # "en/ch10.protocol_and_behaviour_en.md",
+        # "en/ch11.macro_en.md",
+        # "en/ch12.process_en.md",
+        # "en/chx.cold_knowledge_en.md"
       ],
-      output: "doc/cn"
+      output: "doc/en"
     ]
   end
 
