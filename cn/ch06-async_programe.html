@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="encn-zh">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="ExDoc v0.28.4">
+    <meta name="project" content="The Corner of Elixir v4.0.0">
+
+      <meta name="author" content="Keep Zen">
+
+    <title>第六章 异步编程 — The Corner of Elixir v4.0.0</title>
+    <link rel="stylesheet" href="dist/elixir-b6f1ed5df9b1d42a7309.css" />
+
+    <script src="dist/sidebar_items-1785d4c7ff.js"></script>
+
+      <script src="docs_config.js"></script>
+
+    <script async src="dist/app-bd1cb213813bf4825aa2.js"></script>
+
+<style>
+  a.footnote {
+    vertical-align: super;
+  }
+  a.reversefootnote {
+    display: inline-block;
+    text-indent: -9999px;
+    line-height: 0;
+  }
+  a.reversefootnote:after {
+    content: '↩'; /* or any other text you want */
+    text-indent: 0;
+    display: block;
+    line-height: initial;
+  }
+</style>
+
+<script>
+MathJax = {
+tex: {
+inlineMath: [['$', '$']]
+}
+};
+</script>
+<script id="MathJax-script" async
+src="./assets/tex-chtml.js">
+</script>
+
+<script src="assets/mermaid.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+mermaid.initialize({ startOnLoad: false });
+let id = 0;
+for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+  const preEl = codeEl.parentElement;
+  const graphDefinition = codeEl.textContent;
+  const graphEl = document.createElement("div");
+  const graphId = "mermaid-graph-" + id++;
+  mermaid.render(graphId, graphDefinition, function (svgSource, bindListeners) {
+    graphEl.innerHTML = svgSource;
+    bindListeners && bindListeners(graphEl);
+    preEl.insertAdjacentElement("afterend", graphEl);
+    preEl.remove();
+  });
+}
+});
+</script>
+
+  </head>
+  <body data-type="extras">
+    <script>
+
+      try {
+        var settings = JSON.parse(localStorage.getItem('ex_doc:settings') || '{}');
+
+        if (settings.theme === 'dark' ||
+           ((settings.theme === 'system' || settings.theme == null) &&
+             window.matchMedia('(prefers-color-scheme: dark)').matches)
+           ) {
+          document.body.classList.add('dark')
+        }
+      } catch (error) { }
+    </script>
+
+<div class="main">
+
+
+<section class="sidebar">
+  <button class="sidebar-button sidebar-toggle" aria-label="toggle sidebar">
+    <i class="ri-menu-line ri-lg" title="Collapse/expand sidebar"></i>
+  </button>
+
+  <form class="sidebar-search" action="search.html">
+    <button type="submit" class="search-button" aria-label="Submit Search">
+      <i class="ri-search-2-line" aria-hidden="true" title="Submit search"></i>
+    </button>
+    <button type="button" tabindex="-1" class="search-close-button" aria-label="Cancel Search">
+      <i class="ri-close-line ri-lg" aria-hidden="true" title="Cancel search"></i>
+    </button>
+    <label class="search-label">
+      <p class="sr-only">Search</p>
+      <input name="q" type="text" class="search-input" placeholder="Search..." aria-label="Input your search terms" autocomplete="off" />
+    </label>
+  </form>
+
+  <div class="autocomplete">
+    <div class="autocomplete-results">
+    </div>
+  </div>
+
+  <div class="sidebar-header">
+
+    <div class="sidebar-projectDetails">
+      <a href="https://keepzen.github.io/the-corner-of-elixir" class="sidebar-projectName" translate="no">
+The Corner of Elixir
+      </a>
+      <strong class="sidebar-projectVersion" translate="no">
+        v4.0.0
+      </strong>
+    </div>
+    <ul class="sidebar-listNav">
+      <li><a id="extras-list-link" href="#full-list">Pages</a></li>
+
+
+    </ul>
+  </div>
+
+  <div class="gradient"></div>
+  <ul id="full-list" class="sidebar-fullList"></ul>
+</section>
+
+<section class="content">
+  <output role="status" id="toast"></output>
+  <div class="content-outer">
+    <div id="content" class="content-inner">
+
+<h1>
+<button class="settings display-settings">
+  <i class="ri-settings-3-line"></i>
+  <span class="sr-only">Settings</span>
+</button>
+
+
+    <a href="https://github.com/keepzen/the-corner-of-elixir/blob/main/cn/ch06.async_programe.md#L1" title="View Source" class="view-source" rel="help">
+      <i class="ri-code-s-slash-line" aria-hidden="true"></i>
+      <span class="sr-only">View Source</span>
+    </a>
+
+  <span>第六章 异步编程</span>
+</h1>
+
+<p>OTP 平台的卖点之一是对并发的友好支持. 所以 Elixir 对异步的支持是天然的.
+OTP 平台的并发模型就是很好的异步的例子. 其实在 Javascript 这样的单进程的语言中,
+异步代码的执行背后同样是多线程/进程来完成的.
+Javascript 中异步编程, 虽然引入了多线程/进程,
+但是并不破坏 Javascript 的单进程编程模式.
+Javascript 语言的成功, 我认为和单进程编程模式是非常有关系的.
+这个模式极大的减轻了程序员的心智负担.</p><p>把 Javascript 中的异步编程的概念, 移植到 Elixir 中, 使得进程之间的交互变得透明,
+在使用 Elixir 的时候, 也可以把注意力集中到业务逻辑, 而不是异步交互的细节,
+这样不但可以提供生产效率, 也能增强代码的可维护和可理解性.</p><h2 id="承诺-promise" class="section-heading">
+  <a href="#承诺-promise" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">承诺-promise</p>
+  </a>
+  承诺(Promise)
+</h2>
+<p>Elixir 对异步编程的支持由 <a href="https://hexdocs.pm/elixir/Task.html"><code class="inline">Task</code></a> 模块提供. 但是我很少使用它,
+<a href="https://hexdocs.pm/elixir/Task.html"><code class="inline">Task</code></a> 不是一个代数结构类型 (Algebraic Structure Type)<a href="#fn:1" id="fnref:1" class="footnote" title="see footnote">1</a>, 因此无法完成链式操作.
+Javascipt 中的 Promise 不一样, 它是一个代数结构类型, 可以完成链式操作.
+使用 Promise, Javascript 社区成功的解决了回调地狱问题.
+因此我希望首先能把这个类型引入到 Elixir 语言中.</p><p>我们将要定义的 Promise 模块, 对外提供的接口有 8 个函数, 其中 6 个来源于
+Javascript 的 Promise API. 但是这里没有定义 <code class="inline">catch</code> 函数.
+<code class="inline">catch</code> 在 Elixir 中是保留字, 不允许用作函数名, 因此这里用 <code class="inline">on_error</code> 来代替.</p><p>最后的 2 个函数: <code class="inline">of/1</code> 和 <code class="inline">map(promise,fun/1)</code> 是函子的通用函数.</p><ol><li><code class="inline">Promise</code> 构造函数 <code class="inline">Promise.new((resolve,reject)-&gt;any)</code></li><li><code class="inline">Promise</code> 特化的构造函数 <code class="inline">Promise.resolve(v)</code> 把 <code class="inline">v</code>
+转化为已完成的<code class="inline">Promise</code> 结构.</li><li><code class="inline">Promise</code> 特化的构造函数 <code class="inline">Promise.reject(v)</code> 把 <code class="inline">v</code>
+转化为已拒绝的 <code class="inline">Promise</code> 结构.</li><li><code class="inline">Promise</code> 的转化换函数 <code class="inline">Promise.then(promise,fun, error_hanlder\\nil)</code></li><li><code class="inline">Promise</code> 错误处理函数<code class="inline">Promise.on_error(promise,fun)</code></li><li><code class="inline">Promise</code> 解构函数 <code class="inline">await(promise)</code> 返回 <code class="inline">Promise</code> 中包含的类型</li><li>函子构造函数 <code class="inline">Promise.of({:resolved|:rejected,v})</code> 把任意类型的值 <code class="inline">v</code>
+转化为一个 <code class="inline">Promise</code> 结构.</li><li>函子通用转化换函数 <code class="inline">Promise.map(promise,fun)</code></li></ol><p>我们首先来看看 <code class="inline">Promise</code> 的 API.</p><p><code class="inline">Promise</code> 对象有 5 个状态: 待执行(<code class="inline">:pending</code>), 已完成(<code class="inline">:resolved</code>),
+已拒绝(<code class="inline">:rejected</code>) 和出错 (<code class="inline">:error</code>).</p><p>这一点和 Javascript 的 API 不一样. 所以要把 <code class="inline">:rejected</code> 拆分成两个状态,
+是为了处理错误的方便. Javascript 的异步函数中, 是使用 <code class="inline">try...catch</code> 来处理错误的.
+在 Elixir 社区, 很少使用 <code class="inline">try...catch</code>, 更常规的做法是用标签来标记返回结果.
+所以, 这里我们细分了拒绝的状态. 在这里的分类中,
+<code class="inline">:rejected</code> 通过 <code class="inline">Promise.rejecte/1</code>, <code class="inline">Promise.of(v, :rejected)</code>
+或者动态创建 <code class="inline">Promise</code> 时调用 <code class="inline">rejecter/1</code> 创建的 <code class="inline">Promise</code>.
+而错误指的是客户端代码运行过程中抛出错误.</p><p>当需要提取 Promise 的值的时候, 调用 <code class="inline">Promise.await</code> 函数.</p><p><code class="inline">Promise.await/1</code> 会等待 Promise 对象从待执行变为已执行的状态.
+<code class="inline">Promise.await/1</code> 返回 <code class="inline">{tag, result}</code>.
+<code class="inline">tag</code> 的可能值为 <code class="inline">:resolved</code>, <code class="inline">:rejected</code>, <code class="inline">:error</code>, <code class="inline">:stop</code>.
+我们的 Promise 是用 <a href="https://hexdocs.pm/elixir/GenServer.html"><code class="inline">GenServer</code></a> 实现的, <code class="inline">:stop</code> 表示 <code class="inline">Promise</code> 服务已经终止.</p><h3 id="动态构造函数-new-fun" class="section-heading">
+  <a href="#动态构造函数-new-fun" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">动态构造函数-new-fun</p>
+  </a>
+  动态构造函数 <code class="inline">new(fun)</code>
+</h3>
+<p><code class="inline">Promsie.new/1</code> 接受一个二元函数 <code class="inline">fun</code>, 返回一个待执行状态的 <code class="inline">Promise</code> 结构.</p><p><code class="inline">fun</code> 函数规范为: <code class="inline">(resolver,rejecter -&gt; any)</code>.
+其中 <code class="inline">resolver</code>, <code class="inline">rejecter</code> 都是一元函数, 其调用后, 会改变 <code class="inline">Promise</code> 的状态.</p><p><code class="inline">fun</code> 的返回值会被丢弃, 但是如果 <code class="inline">fun</code> 抛出了异常, 那么 <code class="inline">Promise</code> 的状态将转化为
+<strong>拒绝状态</strong>. 在 <code class="inline">fun</code> 中, 如果调用 <code class="inline">resolver/1</code> 或 <code class="inline">rejecter/1</code>, 之前, 没有出错,
+那么 <code class="inline">Promise</code> 状态将转化为: <strong>完成</strong> 或 <strong>拒绝</strong>. <code class="inline">resolver/1</code> 或 <code class="inline">rejecter/1</code>
+应该是 <code class="inline">fun</code> 执行的最后一个语句, 当其中一个执行后, <code class="inline">fun</code> 的后续代码都不会再被执行.</p><p><code class="inline">Promise.new/1</code> 调用 <a href="https://hexdocs.pm/elixir/GenServer.html#start/2"><code class="inline">GenServer.start/2</code></a> 启动 <code class="inline">Promise</code> 服务进程.
+<a href="https://hexdocs.pm/elixir/GenServer.html#start/2"><code class="inline">GenServer.start/2</code></a> 会使用他的第二个参数来调用回调函数 <code class="inline">init/1</code>.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="w"> </span><span class="k" data-group-id="4402522471-1">do</span><span class="w">
+  </span><span class="kn">use</span><span class="w"> </span><span class="nc">GenServer</span><span class="w">
+  </span><span class="na">@receive_time</span><span class="w"> </span><span class="mi">60</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">1000</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">new</span><span class="p" data-group-id="4402522471-2">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">receive_time</span><span class="w"> </span><span class="o">\\</span><span class="w"> </span><span class="na">@receive_time</span><span class="p" data-group-id="4402522471-2">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="4402522471-3">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p" data-group-id="4402522471-3">)</span><span class="w"> </span><span class="k" data-group-id="4402522471-4">do</span><span class="w">
+    </span><span class="p" data-group-id="4402522471-5">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">pid</span><span class="p" data-group-id="4402522471-5">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">GenServer</span><span class="o">.</span><span class="n">start</span><span class="p" data-group-id="4402522471-6">(</span><span class="bp">__MODULE__</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="4402522471-7">[</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p" data-group-id="4402522471-8">(</span><span class="p" data-group-id="4402522471-8">)</span><span class="p">,</span><span class="w"> </span><span class="n">receive_time</span><span class="p" data-group-id="4402522471-7">]</span><span class="p" data-group-id="4402522471-6">)</span><span class="w">
+    </span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="4402522471-9">{</span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p" data-group-id="4402522471-9">}</span><span class="w">
+  </span><span class="k" data-group-id="4402522471-4">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">init</span><span class="p" data-group-id="4402522471-10">(</span><span class="p" data-group-id="4402522471-11">[</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="n">receive_time</span><span class="p" data-group-id="4402522471-11">]</span><span class="p" data-group-id="4402522471-10">)</span><span class="w"> </span><span class="k" data-group-id="4402522471-12">do</span><span class="w">
+    </span><span class="n">state</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="4402522471-13">%{</span><span class="w">
+      </span><span class="ss">receive_time</span><span class="p">:</span><span class="w"> </span><span class="n">receive_time</span><span class="p">,</span><span class="w">
+      </span><span class="ss">sender_ref</span><span class="p">:</span><span class="w"> </span><span class="n">make_ref</span><span class="p" data-group-id="4402522471-14">(</span><span class="p" data-group-id="4402522471-14">)</span><span class="p">,</span><span class="w">
+      </span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:pending</span><span class="p">,</span><span class="w">
+      </span><span class="ss">sender</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w">
+      </span><span class="ss">timer_ref</span><span class="p">:</span><span class="w"> </span><span class="no">nil</span><span class="p">,</span><span class="w">
+      </span><span class="ss">result</span><span class="p">:</span><span class="w"> </span><span class="no">nil</span><span class="w">
+    </span><span class="p" data-group-id="4402522471-13">}</span><span class="w">
+
+    </span><span class="p" data-group-id="4402522471-15">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="4402522471-16">{</span><span class="ss">:continue</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="4402522471-16">}</span><span class="p" data-group-id="4402522471-15">}</span><span class="w">
+  </span><span class="k" data-group-id="4402522471-12">end</span><span class="w">
+  </span><span class="c1">#...</span><span class="w">
+</span><span class="k" data-group-id="4402522471-1">end</span></code></pre><p>在初始化函数 <code class="inline">init/1</code> 中, 我们只初始化了状态, 但是还没有完成对函数 <code class="inline">fun</code> 的执行.
+所以, 这里, 我们返回的时一个三元的元组.</p><p><code class="inline">GenSerrver</code> 接收到 <code class="inline">init/1</code> 返回的三元元组后, 会理解执行 <code class="inline">handle_continue</code> 回调.</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">handle_continue</span><span class="p" data-group-id="8832820856-1">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8832820856-2">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:pending</span><span class="p" data-group-id="8832820856-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="8832820856-1">)</span><span class="w"> </span><span class="k" data-group-id="8832820856-3">do</span><span class="w">
+  </span><span class="p" data-group-id="8832820856-4">%{</span><span class="ss">sender_ref</span><span class="p">:</span><span class="w"> </span><span class="n">sender_ref</span><span class="p" data-group-id="8832820856-4">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="w">
+  
+  </span><span class="n">run_and_handle_error</span><span class="p" data-group-id="8832820856-5">(</span><span class="w">
+    </span><span class="k" data-group-id="8832820856-6">fn</span><span class="w"> </span><span class="bp">_</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="n">fun</span><span class="o">.</span><span class="p" data-group-id="8832820856-7">(</span><span class="o">&amp;</span><span class="n">resolver</span><span class="p" data-group-id="8832820856-8">(</span><span class="n">sender_ref</span><span class="p">,</span><span class="w"> </span><span class="ni">&amp;1</span><span class="p" data-group-id="8832820856-8">)</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">rejecter</span><span class="p" data-group-id="8832820856-9">(</span><span class="n">sender_ref</span><span class="p">,</span><span class="w"> </span><span class="ni">&amp;1</span><span class="p" data-group-id="8832820856-9">)</span><span class="p" data-group-id="8832820856-7">)</span><span class="w">
+      </span><span class="k">throw</span><span class="p" data-group-id="8832820856-10">(</span><span class="p" data-group-id="8832820856-11">{</span><span class="n">sender_ref</span><span class="p">,</span><span class="w"> </span><span class="ss">:stop</span><span class="p" data-group-id="8832820856-11">}</span><span class="p" data-group-id="8832820856-10">)</span><span class="w">
+    </span><span class="k" data-group-id="8832820856-6">end</span><span class="p">,</span><span class="w">
+    </span><span class="n">state</span><span class="w">
+  </span><span class="p" data-group-id="8832820856-5">)</span><span class="w">
+</span><span class="k" data-group-id="8832820856-3">end</span></code></pre><p><code class="inline">run_and_handle_error/2</code> 执行函数, 捕获错误, 并改变服务进程的状态, 此外,
+这个函数还对潜在的内厝泄露问题做了防护.</p><p>当客户端疏忽, 创建一个 <code class="inline">Promise</code> 后从来左右在通过 <code class="inline">await/1</code> 取回结果,
+<code class="inline">Promise</code> 对应的服务进程就会永远运行在系统中. 为了避免这种情况,
+当 <code class="inline">Promise</code> 处于完成状态之后, 一定时间内, 客户端不发送继续处理的请求,
+也不取回结果, 系统将会自动终结, 以完成垃圾回收的工作. 这里默认的时间
+由 <code class="inline">@receive_time</code> 提供, 当前为 1 分钟.
+可以为 <code class="inline">Promise.new/2</code> 提供第二个参数来调整这个值.</p><p>当接受到 <code class="inline">:run</code> 消息后, 取消接受记时. 执行函数 <code class="inline">fun</code>. 执行结束后, 重新开始计时.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">run_and_handle_error</span><span class="p" data-group-id="9155512359-1">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9155512359-2">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="n">tag</span><span class="p">,</span><span class="w"> </span><span class="ss">result</span><span class="p">:</span><span class="w"> </span><span class="n">result</span><span class="p" data-group-id="9155512359-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="9155512359-1">)</span><span class="w"> </span><span class="k" data-group-id="9155512359-3">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">state</span><span class="o">.</span><span class="n">timer_ref</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="nc">:timer</span><span class="o">.</span><span class="n">cancel</span><span class="p" data-group-id="9155512359-4">(</span><span class="n">state</span><span class="o">.</span><span class="n">timer_ref</span><span class="p" data-group-id="9155512359-4">)</span><span class="w">
+  </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="9155512359-5">do</span><span class="w">
+    </span><span class="k">if</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">fun</span><span class="o">.</span><span class="p" data-group-id="9155512359-6">(</span><span class="p" data-group-id="9155512359-7">{</span><span class="n">tag</span><span class="p">,</span><span class="w"> </span><span class="n">result</span><span class="p" data-group-id="9155512359-7">}</span><span class="p" data-group-id="9155512359-6">)</span><span class="p">,</span><span class="w"> </span><span class="ss">else</span><span class="p">:</span><span class="w"> </span><span class="n">fun</span><span class="o">.</span><span class="p" data-group-id="9155512359-8">(</span><span class="n">result</span><span class="p" data-group-id="9155512359-8">)</span><span class="w">
+  </span><span class="k" data-group-id="9155512359-5">catch</span><span class="w">
+    </span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">catch_error</span><span class="p" data-group-id="9155512359-9">(</span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="c">__STACKTRACE__</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="9155512359-9">)</span><span class="w">
+  </span><span class="k" data-group-id="9155512359-5">else</span><span class="w">
+    </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="n">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="9155512359-10">{</span><span class="ss">:timeout</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="o">.</span><span class="n">sender_ref</span><span class="p" data-group-id="9155512359-10">}</span><span class="w">
+      </span><span class="n">timer_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">send_after</span><span class="p" data-group-id="9155512359-11">(</span><span class="n">self</span><span class="p" data-group-id="9155512359-12">(</span><span class="p" data-group-id="9155512359-12">)</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="o">.</span><span class="n">receive_time</span><span class="p" data-group-id="9155512359-11">)</span><span class="w">
+      </span><span class="p" data-group-id="9155512359-13">%{</span><span class="n">state</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">timer_ref</span><span class="p">:</span><span class="w"> </span><span class="n">timer_ref</span><span class="p">,</span><span class="w"> </span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:resolved</span><span class="p">,</span><span class="w"> </span><span class="ss">result</span><span class="p">:</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="9155512359-13">}</span><span class="w">
+      </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">noreply</span><span class="p" data-group-id="9155512359-14">(</span><span class="p" data-group-id="9155512359-14">)</span><span class="w">
+  </span><span class="k" data-group-id="9155512359-5">end</span><span class="w">
+</span><span class="k" data-group-id="9155512359-3">end</span></code></pre><p><code class="inline">catch_error/4</code> 用来处理所有的异常情况.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">catch_error</span><span class="p" data-group-id="0996914014-1">(</span><span class="ss">:throw</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-2">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="ss">:stop</span><span class="p" data-group-id="0996914014-2">}</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-3">%{</span><span class="ss">sender_ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="0996914014-3">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="0996914014-1">)</span><span class="w"> </span><span class="k" data-group-id="0996914014-4">do</span><span class="w">
+  </span><span class="n">send</span><span class="p" data-group-id="0996914014-5">(</span><span class="n">state</span><span class="o">.</span><span class="n">sender</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-6">{</span><span class="ss">:result</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-7">{</span><span class="ss">:stop</span><span class="p">,</span><span class="w"> </span><span class="ss">:done</span><span class="p" data-group-id="0996914014-7">}</span><span class="p" data-group-id="0996914014-6">}</span><span class="p" data-group-id="0996914014-5">)</span><span class="w">
+  </span><span class="nc">Process</span><span class="o">.</span><span class="n">exit</span><span class="p" data-group-id="0996914014-8">(</span><span class="n">self</span><span class="p" data-group-id="0996914014-9">(</span><span class="p" data-group-id="0996914014-9">)</span><span class="p">,</span><span class="w"> </span><span class="ss">:kill</span><span class="p" data-group-id="0996914014-8">)</span><span class="w">
+</span><span class="k" data-group-id="0996914014-4">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">catch_error</span><span class="p" data-group-id="0996914014-10">(</span><span class="ss">:throw</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-11">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="n">tag</span><span class="p">,</span><span class="w"> </span><span class="n">result</span><span class="p" data-group-id="0996914014-11">}</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-12">%{</span><span class="ss">sender_ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="0996914014-12">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="0996914014-10">)</span><span class="w"> </span><span class="k" data-group-id="0996914014-13">do</span><span class="w">
+  </span><span class="n">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="0996914014-14">{</span><span class="ss">:timeout</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="0996914014-14">}</span><span class="w">
+  </span><span class="n">timer_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">send_after</span><span class="p" data-group-id="0996914014-15">(</span><span class="n">self</span><span class="p" data-group-id="0996914014-16">(</span><span class="p" data-group-id="0996914014-16">)</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="o">.</span><span class="n">receive_time</span><span class="p" data-group-id="0996914014-15">)</span><span class="w">
+  </span><span class="p" data-group-id="0996914014-17">%{</span><span class="n">state</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">timer_ref</span><span class="p">:</span><span class="w"> </span><span class="n">timer_ref</span><span class="p">,</span><span class="w"> </span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="n">tag</span><span class="p">,</span><span class="w"> </span><span class="ss">result</span><span class="p">:</span><span class="w"> </span><span class="n">result</span><span class="p" data-group-id="0996914014-17">}</span><span class="w">
+  </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">noreply</span><span class="p" data-group-id="0996914014-18">(</span><span class="p" data-group-id="0996914014-18">)</span><span class="w">
+</span><span class="k" data-group-id="0996914014-13">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">catch_error</span><span class="p" data-group-id="0996914014-19">(</span><span class="n">tab</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="n">stacktrace</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="0996914014-20">%{</span><span class="ss">sender_ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="0996914014-20">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="0996914014-19">)</span><span class="w">
+     </span><span class="ow">when</span><span class="w"> </span><span class="n">tab</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="p" data-group-id="0996914014-21">[</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="ss">:throw</span><span class="p" data-group-id="0996914014-21">]</span><span class="w"> </span><span class="k" data-group-id="0996914014-22">do</span><span class="w">
+  </span><span class="n">message</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="0996914014-23">{</span><span class="ss">:timeout</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="0996914014-23">}</span><span class="w">
+  </span><span class="n">timer_ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">send_after</span><span class="p" data-group-id="0996914014-24">(</span><span class="n">self</span><span class="p" data-group-id="0996914014-25">(</span><span class="p" data-group-id="0996914014-25">)</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="o">.</span><span class="n">receive_time</span><span class="p" data-group-id="0996914014-24">)</span><span class="w">
+  </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="0996914014-26">{</span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="n">stacktrace</span><span class="p" data-group-id="0996914014-26">}</span><span class="w">
+  </span><span class="p" data-group-id="0996914014-27">%{</span><span class="n">state</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">timer_ref</span><span class="p">:</span><span class="w"> </span><span class="n">timer_ref</span><span class="p">,</span><span class="w"> </span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="ss">result</span><span class="p">:</span><span class="w"> </span><span class="n">result</span><span class="p" data-group-id="0996914014-27">}</span><span class="w">
+  </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">noreply</span><span class="p" data-group-id="0996914014-28">(</span><span class="p" data-group-id="0996914014-28">)</span><span class="w">
+</span><span class="k" data-group-id="0996914014-22">end</span></code></pre><p>前两个分句捕获的是 <code class="inline">Promise</code> 服务进程内部抛出的消息.
+第三个分句捕获客户端提供的函数 <code class="inline">fun</code> 运行过程中产生的错误.
+如果 <code class="inline">fun</code> 函数中既没有调用 <code class="inline">resolver/1</code> 也没有调用 <code class="inline">rejecter/1</code>, 而且没有产生错误,
+那么 <code class="inline">Promise</code> 服务进程就是抛出 <code class="inline">{ref, :stop}</code>, 这样第一个分句就会执行.
+结果就是像客户端发送 <code class="inline">{:result, {:stop, :done}}</code> 信息后, 立刻终止运行了.</p><p>而当 <code class="inline">fun</code> 函数中有调用 <code class="inline">reserver/1</code> 或 <code class="inline">rejecter/1</code> 的时候, 第二个分句会执行.
+重新开始了客户端接受计时, 并更新了 <code class="inline">Promise</code> 服务器进程的其他状态信息.</p><h3 id="数据构造函数" class="section-heading">
+  <a href="#数据构造函数" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">数据构造函数</p>
+  </a>
+  数据构造函数
+</h3>
+<p><code class="inline">Promise.of(v,tag\\:resolved)</code>, <code class="inline">Promise.resolve(v)</code> 和 <code class="inline">Promise.reject(v)</code>
+是三个数据构造函数. 用来把 <code class="inline">v</code> 置于 <code class="inline">Promise</code> 结构内.
+<code class="inline">Promise.resolve(v)</code> 是 <code class="inline">Promise.of(v)</code> 的代理;
+<code class="inline">Promise.rejcet(v)</code> 与 <code class="inline">Promise.of(v, :rejected)</code> 效果一样.</p><p>这些构造函数和 <code class="inline">new/1</code> 的最大差别在于, 这些函数构造的 <code class="inline">Promise</code> 服务绝对不会出现死锁,
+使用 <code class="inline">Promise.new(fun)</code> 构造 <code class="inline">Promise</code> 服务的时候, 如果在 <code class="inline">fun</code> 既没有调用
+<code class="inline">resolver/1</code>, 也没有 <code class="inline">rejectoer/1</code>, 且没有引发异常的化, <code class="inline">Promise</code> 进程就会死锁.</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">of</span><span class="p" data-group-id="4823880129-1">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="o">\\</span><span class="w"> </span><span class="ss">:resolved</span><span class="p" data-group-id="4823880129-1">)</span><span class="w"> </span><span class="k" data-group-id="4823880129-2">do</span><span class="w">
+  </span><span class="n">new</span><span class="p" data-group-id="4823880129-3">(</span><span class="k" data-group-id="4823880129-4">fn</span><span class="w"> </span><span class="n">resolver</span><span class="p">,</span><span class="w"> </span><span class="n">rejecter</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="k">if</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="ss">:resolved</span><span class="w"> </span><span class="k" data-group-id="4823880129-5">do</span><span class="w">
+      </span><span class="n">resolver</span><span class="o">.</span><span class="p" data-group-id="4823880129-6">(</span><span class="n">v</span><span class="p" data-group-id="4823880129-6">)</span><span class="w">
+    </span><span class="k" data-group-id="4823880129-5">else</span><span class="w">
+      </span><span class="n">rejecter</span><span class="o">.</span><span class="p" data-group-id="4823880129-7">(</span><span class="n">v</span><span class="p" data-group-id="4823880129-7">)</span><span class="w">
+    </span><span class="k" data-group-id="4823880129-5">end</span><span class="w">
+  </span><span class="k" data-group-id="4823880129-4">end</span><span class="p" data-group-id="4823880129-3">)</span><span class="w">
+</span><span class="k" data-group-id="4823880129-2">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p" data-group-id="4823880129-8">(</span><span class="n">v</span><span class="p" data-group-id="4823880129-8">)</span><span class="w"> </span><span class="k" data-group-id="4823880129-9">do</span><span class="w">
+  </span><span class="n">of</span><span class="p" data-group-id="4823880129-10">(</span><span class="n">v</span><span class="p" data-group-id="4823880129-10">)</span><span class="w">
+</span><span class="k" data-group-id="4823880129-9">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">reject</span><span class="p" data-group-id="4823880129-11">(</span><span class="n">v</span><span class="p" data-group-id="4823880129-11">)</span><span class="w"> </span><span class="k" data-group-id="4823880129-12">do</span><span class="w">
+  </span><span class="n">of</span><span class="p" data-group-id="4823880129-13">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="ss">:rejected</span><span class="p" data-group-id="4823880129-13">)</span><span class="w">
+</span><span class="k" data-group-id="4823880129-12">end</span></code></pre><h3 id="数据转化函数" class="section-heading">
+  <a href="#数据转化函数" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">数据转化函数</p>
+  </a>
+  数据转化函数
+</h3>
+<p><code class="inline">map/1</code>, <code class="inline">then/1-2</code> 和 <code class="inline">on_error/1</code> 是三个函数转化函数.</p><p>其中 <code class="inline">then/1-2</code> 和 <code class="inline">on_error/1</code> 与 Javascript 的 Promise API
+向对应的.<a href="#fn:2" id="fnref:2" class="footnote" title="see footnote">2</a>. <code class="inline">then/1</code> 只处理 <strong>:resolved</strong> 状态的 Promise,
+<a href="https://hexdocs.pm/elixir/Kernel.html#then/2"><code class="inline">then/2</code></a> 接受两个转化函数, 第一个处理 <strong>:resolved</strong> 状态的,
+第二个处理 <strong>:rejected, :error</strong> 状态的.
+<code class="inline">on_error/1</code> 只处理 <strong>:rejected</strong> 和 <strong>:promise</strong> 状态的的 Promise.</p><p><code class="inline">map</code> 是为了配合 Elixir 的函数子句而提供的 API. 也就是说,
+无论 <code class="inline">Promise</code> 的状态是什么, 都统一有一个函数来处理.</p><p>对于 <code class="inline">:resolved</code> 和 <code class="inline">:rejected</code> 状态的 <code class="inline">Promise</code>, <code class="inline">map</code> 的处理函数 <code class="inline">fun</code>,
+接受到的数据就是 Promise 中的数据. 当 <code class="inline">Promise</code> 的状态是 <code class="inline">:error</code> 的时候,
+<code class="inline">map</code> 的处理函数接受到的是 <code class="inline">{:error, {v,[stack]}}</code>.</p><p><code class="inline">map/1</code>, <code class="inline">then/1-2</code> 和 <code class="inline">on_error/1</code> 做的工作是类似的, 分成三个函数,
+只是为了客户端调用的方便. 它们只是向 <code class="inline">Promise</code> 服务进程发送异步的 
+<code class="inline">{:run,fun1,fun2}</code> 消息.</p><p>在本章的开头, 我抱怨 <a href="https://hexdocs.pm/elixir/Task.html"><code class="inline">Task</code></a> 模块不是一个代数结构, 并许诺为 Elixir 种引入 <code class="inline">Promise</code>.
+<code class="inline">Promise</code> 是代数结构. 代数结构的关键就是, 数据转化后已经形成对应的结构.
+对 <code class="inline">Promise</code> 来说, 就是要求所有的转化函数, 必须也返回 <code class="inline">Promise</code> 结构.
+如此, 才能完成链式调用. 这就是什么, 在 <code class="inline">async_send_run/3</code> 的最后返回 <code class="inline">Promise</code>
+结构的原因.</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">then</span><span class="p" data-group-id="6337834759-1">(</span><span class="n">promise</span><span class="p">,</span><span class="w"> </span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="n">fun2</span><span class="w"> </span><span class="o">\\</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="6337834759-1">)</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">then</span><span class="p" data-group-id="6337834759-2">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="6337834759-3">{</span><span class="p" data-group-id="6337834759-3">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="n">fun2</span><span class="p" data-group-id="6337834759-2">)</span><span class="w">
+    </span><span class="ow">when</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="6337834759-4">(</span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6337834759-4">)</span><span class="w"> </span><span class="ow">and</span><span class="w">
+           </span><span class="p" data-group-id="6337834759-5">(</span><span class="n">fun2</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="no">nil</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="6337834759-6">(</span><span class="n">fun2</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6337834759-6">)</span><span class="p" data-group-id="6337834759-5">)</span><span class="w"> </span><span class="k" data-group-id="6337834759-7">do</span><span class="w">
+  </span><span class="n">async_send_run</span><span class="p" data-group-id="6337834759-8">(</span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="n">fun2</span><span class="p" data-group-id="6337834759-8">)</span><span class="w">
+</span><span class="k" data-group-id="6337834759-7">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">map</span><span class="p" data-group-id="6337834759-9">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="6337834759-10">{</span><span class="p" data-group-id="6337834759-10">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="6337834759-9">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="6337834759-11">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6337834759-11">)</span><span class="w"> </span><span class="k" data-group-id="6337834759-12">do</span><span class="w">
+  </span><span class="n">async_send_run</span><span class="p" data-group-id="6337834759-13">(</span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="6337834759-13">)</span><span class="w">
+</span><span class="k" data-group-id="6337834759-12">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">on_error</span><span class="p" data-group-id="6337834759-14">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="6337834759-15">{</span><span class="p" data-group-id="6337834759-15">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="6337834759-14">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="6337834759-16">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="6337834759-16">)</span><span class="w"> </span><span class="k" data-group-id="6337834759-17">do</span><span class="w">
+  </span><span class="n">async_send_run</span><span class="p" data-group-id="6337834759-18">(</span><span class="n">this</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="6337834759-18">)</span><span class="w">
+</span><span class="k" data-group-id="6337834759-17">end</span><span class="w">
+
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">async_send_run</span><span class="p" data-group-id="6337834759-19">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="6337834759-20">{</span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p" data-group-id="6337834759-20">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="n">fun2</span><span class="p" data-group-id="6337834759-19">)</span><span class="w"> </span><span class="k" data-group-id="6337834759-21">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">is_pid</span><span class="p" data-group-id="6337834759-22">(</span><span class="n">pid</span><span class="p" data-group-id="6337834759-22">)</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">alive?</span><span class="p" data-group-id="6337834759-23">(</span><span class="n">pid</span><span class="p" data-group-id="6337834759-23">)</span><span class="w"> </span><span class="k" data-group-id="6337834759-24">do</span><span class="w">
+    </span><span class="nc">GenServer</span><span class="o">.</span><span class="n">cast</span><span class="p" data-group-id="6337834759-25">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6337834759-26">{</span><span class="ss">:run</span><span class="p">,</span><span class="w"> </span><span class="n">fun1</span><span class="p">,</span><span class="w"> </span><span class="n">fun2</span><span class="p" data-group-id="6337834759-26">}</span><span class="p" data-group-id="6337834759-25">)</span><span class="w">
+    </span><span class="n">m</span><span class="w">
+  </span><span class="k" data-group-id="6337834759-24">else</span><span class="w">
+    </span><span class="p" data-group-id="6337834759-27">%{</span><span class="n">m</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:stop</span><span class="p" data-group-id="6337834759-27">}</span><span class="w">
+  </span><span class="k" data-group-id="6337834759-24">end</span><span class="w">
+</span><span class="k" data-group-id="6337834759-21">end</span></code></pre><p>异步消息 <code class="inline">{:run, fun1,fun2}</code> 的处理函数如下:</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">handle_cast</span><span class="p" data-group-id="1013915245-1">(</span><span class="p" data-group-id="1013915245-2">{</span><span class="ss">:run</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p" data-group-id="1013915245-2">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="1013915245-3">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:resolved</span><span class="p" data-group-id="1013915245-3">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-1">)</span><span class="w">
+    </span><span class="ow">when</span><span class="w"> </span><span class="n">is_function</span><span class="p" data-group-id="1013915245-4">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="1013915245-4">)</span><span class="w"> </span><span class="k" data-group-id="1013915245-5">do</span><span class="w">
+  </span><span class="n">run_and_handle_error</span><span class="p" data-group-id="1013915245-6">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-6">)</span><span class="w">
+</span><span class="k" data-group-id="1013915245-5">end</span><span class="w">
+
+</span><span class="c1"># reject happend but no error_hanlder</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">handle_cast</span><span class="p" data-group-id="1013915245-7">(</span><span class="p" data-group-id="1013915245-8">{</span><span class="ss">:run</span><span class="p">,</span><span class="w"> </span><span class="c">_fun</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="1013915245-8">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="1013915245-9">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="n">tag</span><span class="p" data-group-id="1013915245-9">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-7">)</span><span class="w">
+    </span><span class="c1"># _fun is not nil</span><span class="w">
+    </span><span class="ow">when</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="ss">:resolved</span><span class="w"> </span><span class="k" data-group-id="1013915245-10">do</span><span class="w">
+  </span><span class="n">noreply</span><span class="p" data-group-id="1013915245-11">(</span><span class="n">state</span><span class="p" data-group-id="1013915245-11">)</span><span class="w">
+</span><span class="k" data-group-id="1013915245-10">end</span><span class="w">
+
+</span><span class="c1"># resolved happend but just error_hanler</span><span class="w">
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">handle_cast</span><span class="p" data-group-id="1013915245-12">(</span><span class="p" data-group-id="1013915245-13">{</span><span class="ss">:run</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p">,</span><span class="w"> </span><span class="c">_fun</span><span class="p" data-group-id="1013915245-13">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="1013915245-14">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="ss">:resolved</span><span class="p" data-group-id="1013915245-14">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-12">)</span><span class="w"> </span><span class="k" data-group-id="1013915245-15">do</span><span class="w">
+  </span><span class="n">noreply</span><span class="p" data-group-id="1013915245-16">(</span><span class="n">state</span><span class="p" data-group-id="1013915245-16">)</span><span class="w">
+</span><span class="k" data-group-id="1013915245-15">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">handle_cast</span><span class="p" data-group-id="1013915245-17">(</span><span class="p" data-group-id="1013915245-18">{</span><span class="ss">:run</span><span class="p">,</span><span class="w"> </span><span class="c">_fun</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="1013915245-18">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="1013915245-19">%{</span><span class="ss">state</span><span class="p">:</span><span class="w"> </span><span class="n">tag</span><span class="p" data-group-id="1013915245-19">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-17">)</span><span class="w">
+    </span><span class="ow">when</span><span class="w"> </span><span class="n">tag</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="ss">:resolved</span><span class="w"> </span><span class="k" data-group-id="1013915245-20">do</span><span class="w">
+  </span><span class="n">run_and_handle_error</span><span class="p" data-group-id="1013915245-21">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">state</span><span class="p" data-group-id="1013915245-21">)</span><span class="w">
+</span><span class="k" data-group-id="1013915245-20">end</span></code></pre><p>第一个分句是 <code class="inline">:resolved</code> 状态时, <code class="inline">fun</code> 转化数据的情形.
+第二个分句是 <code class="inline">:rejected</code> 状态, 但是并没有提供错误处理函数的情形.
+第三个分句是 <code class="inline">:res;pved</code> 状态, 但是没有提供数据转化函数的情形.
+第四个分句是错误状态的, 使用 <code class="inline">fun</code> 处理错误处理状态的情形.</p><h3 id="await" class="section-heading">
+  <a href="#await" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">await</p>
+  </a>
+  await
+</h3>
+<p><code class="inline">Promise.await/1</code> 函数用来提取 <code class="inline">Promise</code> 中记录的值.
+本质来说, <code class="inline">await/1</code> 是客户端向 <code class="inline">Promise</code> 服务进程发送同步请求: <code class="inline">{:await, pid}</code>.
+但是当 <code class="inline">Promise</code> 服务进程已经死掉了, 那么这个函数会返回会返回 <code class="inline">{:stop, :done}</code>.</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">await</span><span class="p" data-group-id="5324811934-1">(</span><span class="p" data-group-id="5324811934-2">%{</span><span class="p" data-group-id="5324811934-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">this</span><span class="p" data-group-id="5324811934-1">)</span><span class="w"> </span><span class="k" data-group-id="5324811934-3">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">alive?</span><span class="p" data-group-id="5324811934-4">(</span><span class="n">this</span><span class="o">.</span><span class="n">pid</span><span class="p" data-group-id="5324811934-4">)</span><span class="w"> </span><span class="k" data-group-id="5324811934-5">do</span><span class="w">
+    </span><span class="n">send</span><span class="p" data-group-id="5324811934-6">(</span><span class="n">this</span><span class="o">.</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5324811934-7">{</span><span class="ss">:await</span><span class="p">,</span><span class="w"> </span><span class="n">self</span><span class="p" data-group-id="5324811934-8">(</span><span class="p" data-group-id="5324811934-8">)</span><span class="p" data-group-id="5324811934-7">}</span><span class="p" data-group-id="5324811934-6">)</span><span class="w">
+    </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5324811934-9">do</span><span class="w">
+      </span><span class="p" data-group-id="5324811934-10">{</span><span class="ss">:result</span><span class="p">,</span><span class="w"> </span><span class="n">message</span><span class="p" data-group-id="5324811934-10">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">message</span><span class="w">
+    </span><span class="k" data-group-id="5324811934-9">after</span><span class="w">
+      </span><span class="ss">:infinity</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="p" data-group-id="5324811934-11">{</span><span class="ss">:stop</span><span class="p">,</span><span class="w"> </span><span class="ss">:bad</span><span class="p" data-group-id="5324811934-11">}</span><span class="w">
+    </span><span class="k" data-group-id="5324811934-9">end</span><span class="w">
+  </span><span class="k" data-group-id="5324811934-5">else</span><span class="w">
+    </span><span class="p" data-group-id="5324811934-12">{</span><span class="ss">:stop</span><span class="p">,</span><span class="w"> </span><span class="ss">:done</span><span class="p" data-group-id="5324811934-12">}</span><span class="w">
+  </span><span class="k" data-group-id="5324811934-5">end</span><span class="w">
+</span><span class="k" data-group-id="5324811934-3">end</span></code></pre><h3 id="最后的提示" class="section-heading">
+  <a href="#最后的提示" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">最后的提示</p>
+  </a>
+  最后的提示
+</h3>
+<p>最后要注意的是, 这里全部都是函数, 没有宏, 所以<strong>不要使用 <code class="inline">import</code> 语句</strong>,
+如果使用 import 导入全部函数, 那么会引发 <code class="inline">Promise.then/1</code> 与 <a href="https://hexdocs.pm/elixir/Kernel.html#then/2"><code class="inline">Kernel.then/2</code></a>
+的命名冲突.</p><h2 id="流-stream" class="section-heading">
+  <a href="#流-stream" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">流-stream</p>
+  </a>
+  流(Stream)
+</h2>
+<p>Generater 是 ES6 中引入的新的语法, 让我们可以通过 <code class="inline">function*</code> 来创建产生子.
+有了这个语法, 在 Javascript 中, 我们就可以产生无限数量的序列了.</p><p>Elixir 标准库中, 提供了 <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a> 模块.
+任意的在枚举过程中, 一个接一个产生的可枚举数据类型, 都可以叫做 <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a><a href="#fn:3" id="fnref:3" class="footnote" title="see footnote">3</a>.
+虽说 Stream 模块提供<strong>组合</strong>和<strong>创建</strong> <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a> 的函数.
+但是从函数的数量上来说, 这个库中提供的, 创建 <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a> 的函数只有 3 个,
+堪堪占据全部函数的十分之一左右.</p><p>对于无限序列, <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a> 模块提供的 API 非常方便.
+比如让我们产生一个斐波那契数列的 <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a>:</p><pre><code class="makeup elixir" translate="no"><span class="nc">Stream</span><span class="o">.</span><span class="n">unfold</span><span class="p" data-group-id="9530960231-1">(</span><span class="p" data-group-id="9530960231-2">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="9530960231-2">}</span><span class="p">,</span><span class="w"> </span><span class="k" data-group-id="9530960231-3">fn</span><span class="w"> </span><span class="p" data-group-id="9530960231-4">{</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="9530960231-4">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="p" data-group-id="9530960231-5">{</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9530960231-6">{</span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="9530960231-6">}</span><span class="p" data-group-id="9530960231-5">}</span><span class="w"> </span><span class="k" data-group-id="9530960231-3">end</span><span class="p" data-group-id="9530960231-1">)</span><span class="w">
+</span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Stream</span><span class="o">.</span><span class="n">take</span><span class="p" data-group-id="9530960231-7">(</span><span class="mi">10</span><span class="p" data-group-id="9530960231-7">)</span><span class="w">
+</span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">to_list</span><span class="p" data-group-id="9530960231-8">(</span><span class="p" data-group-id="9530960231-8">)</span></code></pre><p>但是, 当要求产生特定的序列时, 就开始变得怪异了. 比如, 产生斐波那契数列中,
+和小于 10000 的序列.</p><pre><code class="makeup elixir" translate="no"><span class="nc">Stream</span><span class="o">.</span><span class="n">unfold</span><span class="p" data-group-id="6988818056-1">(</span><span class="w">
+  </span><span class="p" data-group-id="6988818056-2">{</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p" data-group-id="6988818056-2">}</span><span class="p">,</span><span class="w">
+  </span><span class="k" data-group-id="6988818056-3">fn</span><span class="w"> </span><span class="p" data-group-id="6988818056-4">{</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="p" data-group-id="6988818056-4">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">sum</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="mi">1000</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="6988818056-5">{</span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="6988818056-6">{</span><span class="n">a</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">sum</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">a</span><span class="p" data-group-id="6988818056-6">}</span><span class="p" data-group-id="6988818056-5">}</span><span class="p">,</span><span class="w"> </span><span class="ss">else</span><span class="p">:</span><span class="w"> </span><span class="no">nil</span><span class="w"> </span><span class="k" data-group-id="6988818056-3">end</span><span class="w">
+</span><span class="p" data-group-id="6988818056-1">)</span><span class="w">
+</span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">to_list</span><span class="p" data-group-id="6988818056-7">(</span><span class="p" data-group-id="6988818056-7">)</span></code></pre><p>这样的 API, 虽然能完成工作, 但是代码的可读性非常差, 阅读这样的代码, 往往一头雾水.</p><p>这是因为控制流由 <a href="https://hexdocs.pm/elixir/Stream.html#unfold/2"><code class="inline">Stream.unfold/2</code></a> 控制的.
+<code class="inline">Stream.unfold(acc,fun)</code> 通过判断 <code class="inline">fun</code> 返回结果,
+来决定为流中产生什么元素或者是否结束序列.
+具体的说, 当 <code class="inline">fun</code> 返回的是 <code class="inline">nil</code> 的时候, 序列结束.
+当 <code class="inline">fun</code> 返回一个二元元组的时候, 元组的第一个元素作为序列的元素,
+第二个元素作为继续调用 <code class="inline">fun</code> 的参数.
+这就是为什么, <a href="https://hexdocs.pm/elixir/Stream.html#unfold/2"><code class="inline">Stream.unfold/2</code></a> 第二个参数的类型为
+<code class="inline">(acc() -&gt; {element(), acc()} | nil)</code> 的原因.</p><p>如果要完成更加复杂的工作, 例如写一个从文件中读取内容的 <a href="https://hexdocs.pm/elixir/Stream.html"><code class="inline">Stream</code></a>,
+那么就必须使用 <a href="https://hexdocs.pm/elixir/Stream.html#resource/3"><code class="inline">Stream.resource/3</code></a>. 和 <a href="https://hexdocs.pm/elixir/Stream.html#unfold/2"><code class="inline">Stream.unfold/2</code></a> 类似,
+<a href="https://hexdocs.pm/elixir/Stream.html#resource/3"><code class="inline">Stream.resource/3</code></a> 根据回调函数的返回结果来决定如何产生流的元素和什么时候结束流.
+但是 <code class="inline">Stream.resource(start_fun,next_fun,end_fun)</code>
+因为要调用 <code class="inline">end_fun</code> 完成最后的资源清理工作,
+所以不能仅要求 <code class="inline">next_fun</code> 返回 <code class="inline">nil</code> 来表示流结束.
+<code class="inline">next_fun</code> 的类型规范是: <code class="inline">(acc() -&gt; {[element()], acc()} | {:halt, acc()})</code>.
+当返回的结果为<code class="inline">{:halt,acc()}</code> 的时候, <code class="inline">Stream.resource</code> 调用 <code class="inline">end_fun(acc)</code>,
+并结束流序列. 但为什么表示需要参数元素的时候, 不能直接返回 <code class="inline">{elememt(), acc()}</code>
+而必须把要产生的序列放在列表中呢? 这是因为如果返回 <code class="inline">{element(),acc()}</code> 那么,
+<a href="https://hexdocs.pm/elixir/Stream.html#unfold/2"><code class="inline">Stream.unfold/2</code></a> 就无法产生一个包含 <code class="inline">:halt</code> 的 Stream 序列了.</p><p>Stream 让我想起了 Javascript 的产生子. 如果 Elixir 提供了产生子,
+那么产生子函数结合上面定义的 Promise 就可以写出更加容易读的 Stream.</p><h2 id="产生子-generater" class="section-heading">
+  <a href="#产生子-generater" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">产生子-generater</p>
+  </a>
+  产生子(Generater)
+</h2>
+<p>定义产生子的宏, 就叫做 <code class="inline">defgen</code> 吧.</p><p>我们使用 Javascript 产生子函数类似的语法. 在 <code class="inline">defgen</code> 上下文中, 可以使用 <code class="inline">yield</code>.
+表达式 <code class="inline">yield a</code> 会等待 迭代子的 <code class="inline">next/2</code> 的执行. 待 <code class="inline">next/2</code> 执行后, <code class="inline">next/2</code>
+会得到返回值 <code class="inline">{:ok, a}</code>; 而在产生子内部, <code class="inline">yield a</code> 的返回值是 <code class="inline">next/2</code> 的第二个参数.
+产生子函数中最后一个 <code class="inline">yield</code> 语句执行完成后, 再调用 <code class="inline">next/2</code> 会返回 <code class="inline">:done</code>.</p><p>在 Javascript 中, 产生子函数返回的迭代器(记为 <code class="inline">g</code>), 第一次调用 <code class="inline">g.next(v)</code> 时,
+传给 <code class="inline">next</code> 方法的值 <code class="inline">v</code> 被丢弃了. 我一直认为这时一个实现的 bug.
+现在有机会来自己实现产生子, 我希望, 第一次调用 <code class="inline">next(g,v)</code> 传入的值 <code class="inline">v</code> 不会被丢弃.
+在第一次调用 <code class="inline">next/2</code> 的时候, 就可以为 <code class="inline">next/2</code> 的第二参数提供任意的值.</p><p>那么该如何来实现呢? Elixir 现有的语法中, 如何组合出这样的功能呢?
+首先 <code class="inline">receive</code> 会暂停一个进程的执行, 直到收到需要的数据, 才接着执行.
+所以, 产生子函数, 应该运行在另外的一个进程中, 当<code class="inline">defgen</code> 返回的匿名函数被调用的时候,
+产生子函数开始执行, 直到遇到第一个 <code class="inline">yield</code> 语句, 停止执行. 等待 <code class="inline">next/2</code> 函数发送信号.
+当产生子进程, 收到 <code class="inline">next/2</code> 的发送的信号后, 表达式 <code class="inline">yield a</code> 完成如下工作:</p><ol><li>参数 <code class="inline">a</code> 发送给 <code class="inline">next</code></li><li>把 <code class="inline">next</code> 发送过来的数据作为 <code class="inline">yeild a</code> 的返回值传递后其他语句</li><li>继续执行其他语句, 直到遇到新的 <code class="inline">yeild</code> 语句<pre><code class="mermaid">sequenceDiagram
+    participant  主进程
+    participant  产生子进程
+    主进程-&gt;&gt; 产生子进程: 启动产生子进程 g = generater.(...)
+    产生子进程--&gt;&gt;产生子进程: 运行, 遇到 yield 后,&lt;br&gt;等待主进程发送信号
+    主进程-&gt;&gt; 产生子进程: v --- next(g,v)
+    产生子进程-&gt;&gt;主进程:  {:ok,b} --- yield b
+    主进程--&gt;&gt; 产生子进程: ...
+    产生子进程--&gt;&gt;主进程:  ...
+    主进程 --&gt;&gt; 主进程: 子进程还活着吗?
+    主进程 -&gt;&gt; 主进程: 没有</code></pre><code class="inline">defgen name do...end</code> 产生一个匿名函数, 这个匿名函数绑定给了变量 <code class="inline">name</code>.
+调用匿名函数 <code class="inline">name</code> 会启动产生子进程, 并返回一个透明结构.
+这个透明结构, 对应于 Javascript 的产生子迭代器,
+但是, 在我们这里, 用它来作为客户端与产生子进程通信的信道.
+如果我们愿意, 还可以为这个信道/迭代器实现枚举协议,
+这样就可以使用 <a href="https://hexdocs.pm/elixir/Enum.html"><code class="inline">Enum</code></a> 模块和 <code class="inline">for</code> 来处理产生的序列了.</li></ol><p><code class="inline">defgen fun(a,b) do...end</code> 和 第 5章
+<a href="ch05-new_constructor.html">≪定制新结构≫</a>
+的递归匿名函数小节中, 定义的 <code class="inline">fn!/2</code> 宏有大量的功能是相同的:</p><ol><li>它们都定义匿名函数,</li><li>在宏的上下文中, 都可以完成对定义的匿名函数的递归调用.</li><li>还帮助我们把这个匿名函数绑定给了变量.</li></ol><p>这些共同的功能, 都是如何构造递归调用的匿名函数的, 所以, 可以把通用的代码,
+提出到 Ast 辅助模块中.</p><p>其中功能完全一样的是对子句参数个数的检查. 我们把这个函数命名为
+<code class="inline">clauses_arity_check(ast)</code>.
+然后就是构建递归匿名函数的工作, 这两个匿名函数几乎是一样的,
+所不同的是向递归匿名函数中添加的参数个数不一样, 稍微把定义 <code class="inline">fn!</code> 宏时用到的
+<code class="inline">make_fn/3</code> 做一点修改, 就变成了 <code class="inline">make_recursive_fn/4</code>. </p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">make_recursive_fn</span><span class="p" data-group-id="9022806105-1">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p">,</span><span class="w"> </span><span class="n">correct_args_fun</span><span class="p" data-group-id="9022806105-1">)</span><span class="w"> </span><span class="k" data-group-id="9022806105-2">do</span><span class="w">
+  </span><span class="n">new_body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Enum</span><span class="o">.</span><span class="n">map</span><span class="p" data-group-id="9022806105-3">(</span><span class="n">body</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">clause_handler</span><span class="p" data-group-id="9022806105-4">(</span><span class="n">correct_args_fun</span><span class="p">,</span><span class="w"> </span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="ni">&amp;1</span><span class="p" data-group-id="9022806105-4">)</span><span class="p" data-group-id="9022806105-3">)</span><span class="w">
+  </span><span class="p" data-group-id="9022806105-5">{</span><span class="ss">:fn</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-6">[</span><span class="p" data-group-id="9022806105-6">]</span><span class="p">,</span><span class="w"> </span><span class="n">new_body</span><span class="p" data-group-id="9022806105-5">}</span><span class="w">
+</span><span class="k" data-group-id="9022806105-2">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">clause_handler</span><span class="p" data-group-id="9022806105-7">(</span><span class="w">
+       </span><span class="n">correct_args_fun</span><span class="p">,</span><span class="w">
+       </span><span class="n">name_ast</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="9022806105-8">{</span><span class="n">atom</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p" data-group-id="9022806105-8">}</span><span class="p">,</span><span class="w">
+       </span><span class="p" data-group-id="9022806105-9">{</span><span class="ss">:-&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-10">[</span><span class="n">args</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">body</span><span class="p" data-group-id="9022806105-10">]</span><span class="p" data-group-id="9022806105-9">}</span><span class="w">
+     </span><span class="p" data-group-id="9022806105-7">)</span><span class="w"> </span><span class="k" data-group-id="9022806105-11">do</span><span class="w">
+  </span><span class="n">new_body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Macro</span><span class="o">.</span><span class="n">postwalk</span><span class="p" data-group-id="9022806105-12">(</span><span class="n">body</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">correct_recursive_call</span><span class="p" data-group-id="9022806105-13">(</span><span class="n">atom</span><span class="p">,</span><span class="w"> </span><span class="ni">&amp;1</span><span class="p" data-group-id="9022806105-13">)</span><span class="p" data-group-id="9022806105-12">)</span><span class="w">
+  </span><span class="n">new_args</span><span class="w"> </span><span class="o">=</span><span class="w">
+    </span><span class="k">if</span><span class="w"> </span><span class="n">new_body</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">body</span><span class="w"> </span><span class="k" data-group-id="9022806105-14">do</span><span class="w">
+      </span><span class="n">correct_args_fun</span><span class="o">.</span><span class="p" data-group-id="9022806105-15">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">name_ast</span><span class="p" data-group-id="9022806105-15">)</span><span class="w">
+    </span><span class="k" data-group-id="9022806105-14">else</span><span class="w">
+      </span><span class="n">name_atom</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s">&quot;_</span><span class="si" data-group-id="9022806105-16">#{</span><span class="n">atom</span><span class="si" data-group-id="9022806105-16">}</span><span class="s">&quot;</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">String</span><span class="o">.</span><span class="n">to_atom</span><span class="p" data-group-id="9022806105-17">(</span><span class="p" data-group-id="9022806105-17">)</span><span class="w">
+      </span><span class="n">correct_args_fun</span><span class="o">.</span><span class="p" data-group-id="9022806105-18">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-19">{</span><span class="n">name_atom</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-20">[</span><span class="p" data-group-id="9022806105-20">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="9022806105-19">}</span><span class="p" data-group-id="9022806105-18">)</span><span class="w">
+    </span><span class="k" data-group-id="9022806105-14">end</span><span class="w">
+  </span><span class="p" data-group-id="9022806105-21">{</span><span class="ss">:-&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-22">[</span><span class="n">new_args</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">new_body</span><span class="p" data-group-id="9022806105-22">]</span><span class="p" data-group-id="9022806105-21">}</span><span class="w">
+</span><span class="k" data-group-id="9022806105-11">end</span><span class="w">
+</span><span class="c1"># ast of `atom.(...args)` -&gt; ast of `atom.(atom, ...args)`.</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">correct_recursive_call</span><span class="p" data-group-id="9022806105-23">(</span><span class="n">atom</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-24">{</span><span class="p" data-group-id="9022806105-25">{</span><span class="ss">:.</span><span class="p">,</span><span class="w"> </span><span class="n">m1</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-26">[</span><span class="p" data-group-id="9022806105-27">{</span><span class="n">atom</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p" data-group-id="9022806105-27">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="9022806105-26">]</span><span class="p" data-group-id="9022806105-25">}</span><span class="p">,</span><span class="w"> </span><span class="n">m2</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="9022806105-24">}</span><span class="p" data-group-id="9022806105-23">)</span><span class="w"> </span><span class="k" data-group-id="9022806105-28">do</span><span class="w">
+  </span><span class="p" data-group-id="9022806105-29">{</span><span class="p" data-group-id="9022806105-30">{</span><span class="ss">:.</span><span class="p">,</span><span class="w"> </span><span class="n">m1</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-31">[</span><span class="n">fun</span><span class="p" data-group-id="9022806105-31">]</span><span class="p" data-group-id="9022806105-30">}</span><span class="p">,</span><span class="w"> </span><span class="n">m2</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="9022806105-32">[</span><span class="n">fun</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="9022806105-32">]</span><span class="p" data-group-id="9022806105-29">}</span><span class="w">
+</span><span class="k" data-group-id="9022806105-28">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">correct_recursive_call</span><span class="p" data-group-id="9022806105-33">(</span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="n">ast</span><span class="p" data-group-id="9022806105-33">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">ast</span></code></pre><p>这里, 我们添加的新参数 <code class="inline">correct_args_fun</code>. <code class="inline">fn!/2</code> 的相关代码, 只要用 <code class="inline">Ast</code>
+模块中的代码替换原来的相关代码, 就可以完成更新.</p><p>在 <code class="inline">Ast</code> 模块的帮助下, 我们就可以专心写与 <code class="inline">defgen</code> 相关的核心功能了.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Generater</span><span class="w"> </span><span class="k" data-group-id="8212613761-1">do</span><span class="w">
+  </span><span class="kd">defstruct</span><span class="w"> </span><span class="ss">ref</span><span class="p">:</span><span class="w"> </span><span class="no">nil</span><span class="p">,</span><span class="w"> </span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="no">nil</span><span class="p">,</span><span class="w"> </span><span class="ss">async</span><span class="p">:</span><span class="w"> </span><span class="no">false</span><span class="w">
+  </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Ast</span><span class="w">
+
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">defgen</span><span class="p" data-group-id="8212613761-2">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">async</span><span class="w"> </span><span class="o">\\</span><span class="w"> </span><span class="no">false</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">block</span><span class="p" data-group-id="8212613761-2">)</span><span class="w"> </span><span class="k" data-group-id="8212613761-3">do</span><span class="w">
+    </span><span class="k">case</span><span class="w"> </span><span class="nc">Ast</span><span class="o">.</span><span class="n">clauses_arity_check</span><span class="p" data-group-id="8212613761-4">(</span><span class="n">block</span><span class="p" data-group-id="8212613761-4">)</span><span class="w"> </span><span class="k" data-group-id="8212613761-5">do</span><span class="w">
+      </span><span class="p" data-group-id="8212613761-6">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">arity</span><span class="p" data-group-id="8212613761-6">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="n">tem_fun</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p" data-group-id="8212613761-7">{</span><span class="ss">:TEM_fun</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-8">[</span><span class="p" data-group-id="8212613761-8">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="8212613761-7">}</span><span class="w">
+        </span><span class="n">tem_fun_ast</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Ast</span><span class="o">.</span><span class="n">make_recursive_fn</span><span class="p" data-group-id="8212613761-9">(</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="n">block</span><span class="p">,</span><span class="w"> </span><span class="o">&amp;</span><span class="n">make_args</span><span class="o">/</span><span class="mi">2</span><span class="p" data-group-id="8212613761-9">)</span><span class="w">
+        </span><span class="n">params</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Macro</span><span class="o">.</span><span class="n">generate_arguments</span><span class="p" data-group-id="8212613761-10">(</span><span class="n">arity</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="8212613761-10">)</span><span class="w">
+
+        </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="8212613761-11">do</span><span class="w">
+          </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-12">(</span><span class="n">name</span><span class="p" data-group-id="8212613761-12">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="8212613761-13">fn</span><span class="w"> </span><span class="k">unquote_splicing</span><span class="p" data-group-id="8212613761-14">(</span><span class="n">params</span><span class="p" data-group-id="8212613761-14">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+            </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-15">(</span><span class="n">tem_fun</span><span class="p" data-group-id="8212613761-15">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-16">(</span><span class="n">tem_fun_ast</span><span class="p" data-group-id="8212613761-16">)</span><span class="w">
+            </span><span class="n">async</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-17">(</span><span class="n">async</span><span class="p" data-group-id="8212613761-17">)</span><span class="w">
+            </span><span class="n">ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">make_ref</span><span class="p" data-group-id="8212613761-18">(</span><span class="p" data-group-id="8212613761-18">)</span><span class="w">
+            </span><span class="n">me</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p" data-group-id="8212613761-19">(</span><span class="p" data-group-id="8212613761-19">)</span><span class="w">
+
+            </span><span class="n">fun</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="8212613761-20">fn</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+              </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="8212613761-21">do</span><span class="w">
+                </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-22">(</span><span class="n">tem_fun</span><span class="p" data-group-id="8212613761-22">)</span><span class="o">.</span><span class="p" data-group-id="8212613761-23">(</span><span class="k">unquote</span><span class="p" data-group-id="8212613761-24">(</span><span class="n">tem_fun</span><span class="p" data-group-id="8212613761-24">)</span><span class="p">,</span><span class="w"> </span><span class="n">me</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="k">unquote_splicing</span><span class="p" data-group-id="8212613761-25">(</span><span class="n">params</span><span class="p" data-group-id="8212613761-25">)</span><span class="p" data-group-id="8212613761-23">)</span><span class="w">
+              </span><span class="k" data-group-id="8212613761-21">rescue</span><span class="w">
+                </span><span class="n">error</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">send</span><span class="p" data-group-id="8212613761-26">(</span><span class="n">me</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-27">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-28">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="c">__STACKTRACE__</span><span class="p" data-group-id="8212613761-28">}</span><span class="p" data-group-id="8212613761-27">}</span><span class="p" data-group-id="8212613761-26">)</span><span class="w">
+              </span><span class="k" data-group-id="8212613761-21">end</span><span class="w">
+            </span><span class="k" data-group-id="8212613761-20">end</span><span class="w">
+
+            </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">spawn</span><span class="p" data-group-id="8212613761-29">(</span><span class="n">fun</span><span class="p" data-group-id="8212613761-29">)</span><span class="w">
+            </span><span class="n">struct</span><span class="p" data-group-id="8212613761-30">(</span><span class="k">unquote</span><span class="p" data-group-id="8212613761-31">(</span><span class="bp">__MODULE__</span><span class="p" data-group-id="8212613761-31">)</span><span class="p">,</span><span class="w"> </span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="ss">ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="ss">async</span><span class="p">:</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="8212613761-32">(</span><span class="n">async</span><span class="p" data-group-id="8212613761-32">)</span><span class="p" data-group-id="8212613761-30">)</span><span class="w">
+          </span><span class="k" data-group-id="8212613761-13">end</span><span class="w">
+        </span><span class="k" data-group-id="8212613761-11">end</span><span class="w">
+        </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Macro</span><span class="o">.</span><span class="n">postwalk</span><span class="p" data-group-id="8212613761-33">(</span><span class="o">&amp;</span><span class="n">yield_to_send</span><span class="p" data-group-id="8212613761-34">(</span><span class="n">async</span><span class="p">,</span><span class="w"> </span><span class="ni">&amp;1</span><span class="p" data-group-id="8212613761-34">)</span><span class="p" data-group-id="8212613761-33">)</span><span class="w">
+      </span><span class="c1"># |&gt; tap(&amp;(Macro.to_string(&amp;1) |&gt; IO.puts()))</span><span class="w">
+
+      </span><span class="ss">:error</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="p" data-group-id="8212613761-35">{</span><span class="ss">:=</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-36">[</span><span class="n">name</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-37">{</span><span class="ss">:fn</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8212613761-38">[</span><span class="p" data-group-id="8212613761-38">]</span><span class="p">,</span><span class="w"> </span><span class="n">block</span><span class="p" data-group-id="8212613761-37">}</span><span class="p" data-group-id="8212613761-36">]</span><span class="p" data-group-id="8212613761-35">}</span><span class="w">
+    </span><span class="k" data-group-id="8212613761-5">end</span><span class="w">
+  </span><span class="k" data-group-id="8212613761-3">end</span><span class="w">
+  </span><span class="c1"># other ...</span><span class="w">
+</span><span class="k" data-group-id="8212613761-1">end</span></code></pre><p><code class="inline">defgen</code> 的定义和 <code class="inline">fn!</code> 的定义非常的像, 差别只有两处,
+第一处是为递归匿名函数修改参数的函数 <code class="inline">make_args/2</code> 定义不同.
+产生子函数, 需要两个额外的参数表示产生子进程的 <code class="inline">pid</code> 和用来做通信参考的 <code class="inline">ref</code>.
+这个改动也是非常的简单, 只需要把这两个参数加载函数名之后就可以了.</p><pre><code class="makeup elixir" translate="no"><span class="na">@pid</span><span class="w"> </span><span class="p" data-group-id="8258053118-1">{</span><span class="ss">:pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8258053118-2">[</span><span class="p" data-group-id="8258053118-2">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="8258053118-1">}</span><span class="w">
+</span><span class="na">@ref</span><span class="w"> </span><span class="p" data-group-id="8258053118-3">{</span><span class="ss">:ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8258053118-4">[</span><span class="p" data-group-id="8258053118-4">]</span><span class="p">,</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="8258053118-3">}</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">make_args</span><span class="p" data-group-id="8258053118-5">(</span><span class="p" data-group-id="8258053118-6">[</span><span class="p" data-group-id="8258053118-7">{</span><span class="ss">:when</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="8258053118-7">}</span><span class="p" data-group-id="8258053118-6">]</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="8258053118-5">)</span><span class="w"> </span><span class="k" data-group-id="8258053118-8">do</span><span class="w">
+  </span><span class="p" data-group-id="8258053118-9">[</span><span class="p" data-group-id="8258053118-10">{</span><span class="ss">:when</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="8258053118-11">[</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="na">@pid</span><span class="p">,</span><span class="w"> </span><span class="na">@ref</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="8258053118-11">]</span><span class="p" data-group-id="8258053118-10">}</span><span class="p" data-group-id="8258053118-9">]</span><span class="w">
+</span><span class="k" data-group-id="8258053118-8">end</span><span class="w">
+
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">make_args</span><span class="p" data-group-id="8258053118-12">(</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="8258053118-12">)</span><span class="w"> </span><span class="k" data-group-id="8258053118-13">do</span><span class="w">
+  </span><span class="p" data-group-id="8258053118-14">[</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="na">@pid</span><span class="p">,</span><span class="w"> </span><span class="na">@ref</span><span class="w"> </span><span class="o">|</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="8258053118-14">]</span><span class="w">
+</span><span class="k" data-group-id="8258053118-13">end</span></code></pre><p>第二个改动是 <code class="inline">defgen</code> 定义最后的对产生的抽象语法树的遍历.
+在本节的开始, 讲到在 <code class="inline">defgen</code> 上下文中, 是可以使用关键字 <code class="inline">yield</code> 的.
+最后的对抽线语法树的遍历, 就是处理关键字 <code class="inline">yield</code>.</p><p>简单来说, <code class="inline">c = yield expression</code> 要被转化为:</p><pre><code class="makeup elixir" translate="no"><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="2558208896-1">do</span><span class="w">
+  </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">send</span><span class="p" data-group-id="2558208896-2">(</span><span class="n">pid</span><span class="p">,</span><span class="p" data-group-id="2558208896-3">{</span><span class="n">ref</span><span class="p">,</span><span class="p" data-group-id="2558208896-4">[</span><span class="n">expresssion</span><span class="p" data-group-id="2558208896-4">]</span><span class="p" data-group-id="2558208896-3">}</span><span class="p" data-group-id="2558208896-2">)</span><span class="w">
+</span><span class="k" data-group-id="2558208896-1">end</span></code></pre><p>对于的代码如下:</p><pre><code class="makeup elixir" translate="no"><span class="na">@doc</span><span class="w"> </span><span class="s">&quot;&quot;&quot;
+     Transform `c = yield a`
+     &quot;&quot;&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="no">false</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">yield_to_send</span><span class="p" data-group-id="2277378270-1">(</span><span class="n">async</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-2">{</span><span class="ss">:=</span><span class="p">,</span><span class="w"> </span><span class="n">m1</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-3">[</span><span class="n">left</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-4">{</span><span class="ss">:yield</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p" data-group-id="2277378270-4">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">yield_exp</span><span class="p" data-group-id="2277378270-3">]</span><span class="p" data-group-id="2277378270-2">}</span><span class="p" data-group-id="2277378270-1">)</span><span class="w"> </span><span class="k" data-group-id="2277378270-5">do</span><span class="w">
+  </span><span class="n">receive_and_send</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">yield_to_send</span><span class="p" data-group-id="2277378270-6">(</span><span class="n">async</span><span class="p">,</span><span class="w"> </span><span class="n">yield_exp</span><span class="p" data-group-id="2277378270-6">)</span><span class="w">
+  </span><span class="p" data-group-id="2277378270-7">{</span><span class="ss">:=</span><span class="p">,</span><span class="w"> </span><span class="n">m1</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-8">[</span><span class="n">left</span><span class="p">,</span><span class="w"> </span><span class="n">receive_and_send</span><span class="p" data-group-id="2277378270-8">]</span><span class="p" data-group-id="2277378270-7">}</span><span class="w">
+</span><span class="k" data-group-id="2277378270-5">end</span><span class="w">
+</span><span class="na">@doc</span><span class="w"> </span><span class="s">&quot;&quot;&quot;
+     Transform `yield a` to
+     `
+     receive do
+       v -&gt; send(pid,{ref,[a]})
+       v
+     end
+     `
+     &quot;&quot;&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="no">false</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">yield_to_send</span><span class="p" data-group-id="2277378270-9">(</span><span class="n">async</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-10">{</span><span class="ss">:yield</span><span class="p">,</span><span class="w"> </span><span class="c">_meta</span><span class="p">,</span><span class="w"> </span><span class="n">exp</span><span class="p" data-group-id="2277378270-10">}</span><span class="p" data-group-id="2277378270-9">)</span><span class="w"> </span><span class="k" data-group-id="2277378270-11">do</span><span class="w">
+  </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="na">@pid</span><span class="w">
+  </span><span class="n">ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="na">@ref</span><span class="w">
+  </span><span class="n">return_value</span><span class="w"> </span><span class="o">=</span><span class="w">
+    </span><span class="k">if</span><span class="w"> </span><span class="n">async</span><span class="w"> </span><span class="k" data-group-id="2277378270-12">do</span><span class="w">
+      </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="2277378270-13">do</span><span class="w">
+        </span><span class="p" data-group-id="2277378270-14">[</span><span class="nc">Promise</span><span class="o">.</span><span class="n">resolve</span><span class="p" data-group-id="2277378270-15">(</span><span class="k">unquote</span><span class="p" data-group-id="2277378270-16">(</span><span class="n">exp</span><span class="p" data-group-id="2277378270-16">)</span><span class="p" data-group-id="2277378270-15">)</span><span class="p" data-group-id="2277378270-14">]</span><span class="w">
+      </span><span class="k" data-group-id="2277378270-13">end</span><span class="w">
+    </span><span class="k" data-group-id="2277378270-12">else</span><span class="w">
+      </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="2277378270-17">do</span><span class="w">
+        </span><span class="k">unquote</span><span class="p" data-group-id="2277378270-18">(</span><span class="n">exp</span><span class="p" data-group-id="2277378270-18">)</span><span class="w">
+      </span><span class="k" data-group-id="2277378270-17">end</span><span class="w">
+    </span><span class="k" data-group-id="2277378270-12">end</span><span class="w">
+  </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="2277378270-19">do</span><span class="w">
+    </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="2277378270-20">do</span><span class="w">
+      </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="n">send</span><span class="p" data-group-id="2277378270-21">(</span><span class="k">unquote</span><span class="p" data-group-id="2277378270-22">(</span><span class="n">pid</span><span class="p" data-group-id="2277378270-22">)</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="2277378270-23">{</span><span class="k">unquote</span><span class="p" data-group-id="2277378270-24">(</span><span class="n">ref</span><span class="p" data-group-id="2277378270-24">)</span><span class="p">,</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="2277378270-25">(</span><span class="n">return_value</span><span class="p" data-group-id="2277378270-25">)</span><span class="p" data-group-id="2277378270-23">}</span><span class="p" data-group-id="2277378270-21">)</span><span class="w">
+        </span><span class="n">v</span><span class="w">
+    </span><span class="k" data-group-id="2277378270-20">end</span><span class="w">
+  </span><span class="k" data-group-id="2277378270-19">end</span><span class="w">
+</span><span class="k" data-group-id="2277378270-11">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">yield_to_send</span><span class="p" data-group-id="2277378270-26">(</span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p" data-group-id="2277378270-26">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">a</span></code></pre><p>为了更好的理解 <code class="inline">defgen</code> 到底如何工作, 打开 <code class="inline">defgen</code> 定义中注释掉的调试语句,
+看看, <code class="inline">defgen</code> 到底是把代码转化成了什么样子:</p><pre><code class="makeup elixir" translate="no"><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Generater</span><span class="w">
+
+</span><span class="n">defgen</span><span class="w"> </span><span class="n">my_generater</span><span class="w"> </span><span class="k" data-group-id="1219347676-1">do</span><span class="w">
+  </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">yield</span><span class="p" data-group-id="1219347676-2">(</span><span class="n">a</span><span class="p" data-group-id="1219347676-2">)</span><span class="w">
+    </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">yield</span><span class="p" data-group-id="1219347676-3">(</span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="1219347676-3">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1219347676-4">(</span><span class="n">d</span><span class="p" data-group-id="1219347676-4">)</span><span class="w">
+
+  </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1219347676-5">(</span><span class="n">a</span><span class="p" data-group-id="1219347676-5">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1219347676-6">(</span><span class="n">b</span><span class="p" data-group-id="1219347676-6">)</span><span class="w">
+</span><span class="k" data-group-id="1219347676-1">end</span></code></pre><p>转后后的代码为:</p><pre><code class="makeup elixir" translate="no"><span class="n">my_generater</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="5978580603-1">fn</span><span class="w"> </span><span class="n">arg1</span><span class="p">,</span><span class="w"> </span><span class="n">arg2</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+  </span><span class="nc">TEM_fun</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="5978580603-2">fn</span><span class="w">
+    </span><span class="c">_my_generater</span><span class="p">,</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w">
+        </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5978580603-3">do</span><span class="w">
+          </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+            </span><span class="n">send</span><span class="p" data-group-id="5978580603-4">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-5">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-6">[</span><span class="n">a</span><span class="p" data-group-id="5978580603-6">]</span><span class="p" data-group-id="5978580603-5">}</span><span class="p" data-group-id="5978580603-4">)</span><span class="w">
+            </span><span class="n">v</span><span class="w">
+        </span><span class="k" data-group-id="5978580603-3">end</span><span class="w">
+
+      </span><span class="n">d</span><span class="w"> </span><span class="o">=</span><span class="w">
+        </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5978580603-7">do</span><span class="w">
+          </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+            </span><span class="n">send</span><span class="p" data-group-id="5978580603-8">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-9">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-10">[</span><span class="n">c</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">b</span><span class="p" data-group-id="5978580603-10">]</span><span class="p" data-group-id="5978580603-9">}</span><span class="p" data-group-id="5978580603-8">)</span><span class="w">
+            </span><span class="n">v</span><span class="w">
+        </span><span class="k" data-group-id="5978580603-7">end</span><span class="w">
+
+      </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5978580603-11">do</span><span class="w">
+        </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+          </span><span class="n">send</span><span class="p" data-group-id="5978580603-12">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-13">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-14">[</span><span class="n">d</span><span class="p" data-group-id="5978580603-14">]</span><span class="p" data-group-id="5978580603-13">}</span><span class="p" data-group-id="5978580603-12">)</span><span class="w">
+          </span><span class="n">v</span><span class="w">
+      </span><span class="k" data-group-id="5978580603-11">end</span><span class="w">
+
+    </span><span class="c">_my_generater</span><span class="p">,</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5978580603-15">do</span><span class="w">
+        </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+          </span><span class="n">send</span><span class="p" data-group-id="5978580603-16">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-17">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-18">[</span><span class="n">a</span><span class="p" data-group-id="5978580603-18">]</span><span class="p" data-group-id="5978580603-17">}</span><span class="p" data-group-id="5978580603-16">)</span><span class="w">
+          </span><span class="n">v</span><span class="w">
+      </span><span class="k" data-group-id="5978580603-15">end</span><span class="w">
+
+      </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="5978580603-19">do</span><span class="w">
+        </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+          </span><span class="n">send</span><span class="p" data-group-id="5978580603-20">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-21">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-22">[</span><span class="n">b</span><span class="p" data-group-id="5978580603-22">]</span><span class="p" data-group-id="5978580603-21">}</span><span class="p" data-group-id="5978580603-20">)</span><span class="w">
+          </span><span class="n">v</span><span class="w">
+      </span><span class="k" data-group-id="5978580603-19">end</span><span class="w">
+  </span><span class="k" data-group-id="5978580603-2">end</span><span class="w">
+
+  </span><span class="n">me</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">self</span><span class="p" data-group-id="5978580603-23">(</span><span class="p" data-group-id="5978580603-23">)</span><span class="w">
+  </span><span class="n">ref</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">make_ref</span><span class="p" data-group-id="5978580603-24">(</span><span class="p" data-group-id="5978580603-24">)</span><span class="w">
+
+  </span><span class="n">fun</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="5978580603-25">fn</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="5978580603-26">do</span><span class="w">
+      </span><span class="nc">TEM_fun</span><span class="o">.</span><span class="p" data-group-id="5978580603-27">(</span><span class="nc">TEM_fun</span><span class="p">,</span><span class="w"> </span><span class="n">me</span><span class="p">,</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="n">arg1</span><span class="p">,</span><span class="w"> </span><span class="n">arg2</span><span class="p" data-group-id="5978580603-27">)</span><span class="w">
+    </span><span class="k" data-group-id="5978580603-26">rescue</span><span class="w">
+      </span><span class="n">error</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">send</span><span class="p" data-group-id="5978580603-28">(</span><span class="n">me</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-29">{</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="5978580603-30">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="c">__STACKTRACE__</span><span class="p" data-group-id="5978580603-30">}</span><span class="p" data-group-id="5978580603-29">}</span><span class="p" data-group-id="5978580603-28">)</span><span class="w">
+    </span><span class="k" data-group-id="5978580603-26">end</span><span class="w">
+  </span><span class="k" data-group-id="5978580603-25">end</span><span class="w">
+
+  </span><span class="n">pid</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">spawn</span><span class="p" data-group-id="5978580603-31">(</span><span class="n">fun</span><span class="p" data-group-id="5978580603-31">)</span><span class="w">
+  </span><span class="n">struct</span><span class="p" data-group-id="5978580603-32">(</span><span class="nc">Corner.Generater</span><span class="p">,</span><span class="w"> </span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="ss">ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="ss">async</span><span class="p">:</span><span class="w"> </span><span class="no">false</span><span class="p" data-group-id="5978580603-32">)</span><span class="w">
+</span><span class="k" data-group-id="5978580603-1">end</span></code></pre><p>代码张开后, 一切非常清楚, 新产生的匿名函数, 调用后会启动一个新进程,
+并返回一个产生子结构 <code class="inline">Corner.Generater</code>, 它对应于 Javascript 产生子函数返回的迭代子. 
+所以剩下的代码, 就是为为 <code class="inline">Cornder.Generater</code> 定义 <code class="inline">next/2</code> 方法了.</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">next</span><span class="p" data-group-id="7808808712-1">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="7808808712-2">{</span><span class="p" data-group-id="7808808712-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">\\</span><span class="w"> </span><span class="no">nil</span><span class="p" data-group-id="7808808712-1">)</span><span class="w"> </span><span class="k" data-group-id="7808808712-3">do</span><span class="w">
+  </span><span class="k">if</span><span class="w"> </span><span class="n">running?</span><span class="p" data-group-id="7808808712-4">(</span><span class="n">m</span><span class="p" data-group-id="7808808712-4">)</span><span class="w"> </span><span class="k" data-group-id="7808808712-5">do</span><span class="w">
+    </span><span class="p" data-group-id="7808808712-6">%{</span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="ss">ref</span><span class="p">:</span><span class="w"> </span><span class="n">ref</span><span class="p" data-group-id="7808808712-6">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="w">
+    </span><span class="n">send</span><span class="p" data-group-id="7808808712-7">(</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="7808808712-7">)</span><span class="w">
+    </span><span class="k">receive</span><span class="w"> </span><span class="k" data-group-id="7808808712-8">do</span><span class="w">
+      </span><span class="p" data-group-id="7808808712-9">{</span><span class="o">^</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7808808712-10">[</span><span class="n">v</span><span class="p" data-group-id="7808808712-10">]</span><span class="p" data-group-id="7808808712-9">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="p" data-group-id="7808808712-11">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="7808808712-11">}</span><span class="w">
+      </span><span class="p" data-group-id="7808808712-12">{</span><span class="o">^</span><span class="n">ref</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="7808808712-12">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="n">v</span><span class="w">
+    </span><span class="k" data-group-id="7808808712-8">end</span><span class="w">
+  </span><span class="k" data-group-id="7808808712-5">else</span><span class="w">
+    </span><span class="ss">:done</span><span class="w">
+  </span><span class="k" data-group-id="7808808712-5">end</span><span class="w">
+</span><span class="k" data-group-id="7808808712-3">end</span></code></pre><p><code class="inline">running?/1</code> 是一个简单的方法, 用来判定产生子的工作进程是否还或者.
+此外, 我们还定义了一个 <code class="inline">running?/1</code> 的否定式 <code class="inline">done?/1</code>:</p><pre><code class="makeup elixir" translate="no"><span class="kd">def</span><span class="w"> </span><span class="nf">running?</span><span class="p" data-group-id="2672706928-1">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="2672706928-2">{</span><span class="ss">pid</span><span class="p">:</span><span class="w"> </span><span class="n">pid</span><span class="p" data-group-id="2672706928-2">}</span><span class="p" data-group-id="2672706928-1">)</span><span class="w"> </span><span class="k" data-group-id="2672706928-3">do</span><span class="w">
+  </span><span class="n">pid</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">alive?</span><span class="p" data-group-id="2672706928-4">(</span><span class="n">pid</span><span class="p" data-group-id="2672706928-4">)</span><span class="w">
+</span><span class="k" data-group-id="2672706928-3">end</span><span class="w">
+
+</span><span class="kd">def</span><span class="w"> </span><span class="nf">done?</span><span class="p" data-group-id="2672706928-5">(</span><span class="p">%</span><span class="bp">__MODULE__</span><span class="p" data-group-id="2672706928-6">{</span><span class="p" data-group-id="2672706928-6">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">m</span><span class="p" data-group-id="2672706928-5">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="o">!</span><span class="n">running?</span><span class="p" data-group-id="2672706928-7">(</span><span class="n">m</span><span class="p" data-group-id="2672706928-7">)</span></code></pre><p>如何使用定义好的产生子函数呢?</p><pre><code class="makeup elixir" translate="no"><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">my_generater</span><span class="o">.</span><span class="p" data-group-id="4229973867-1">(</span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p" data-group-id="4229973867-1">)</span><span class="w">
+</span><span class="p" data-group-id="4229973867-2">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p" data-group-id="4229973867-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">next</span><span class="p" data-group-id="4229973867-3">(</span><span class="mi">1</span><span class="p" data-group-id="4229973867-3">)</span><span class="w"> </span><span class="c1"># c is 1</span><span class="w">
+</span><span class="p" data-group-id="4229973867-4">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p" data-group-id="4229973867-4">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">next</span><span class="p" data-group-id="4229973867-5">(</span><span class="mi">4</span><span class="p" data-group-id="4229973867-5">)</span><span class="w"> </span><span class="c1"># d is 4</span><span class="w">
+</span><span class="p" data-group-id="4229973867-6">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="mi">4</span><span class="p" data-group-id="4229973867-6">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">next</span><span class="p" data-group-id="4229973867-7">(</span><span class="ss">:any</span><span class="p" data-group-id="4229973867-7">)</span><span class="w">
+</span><span class="no">true</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="o">|&gt;</span><span class="w"> </span><span class="n">done?</span><span class="p" data-group-id="4229973867-8">(</span><span class="p" data-group-id="4229973867-8">)</span></code></pre><p><code class="inline">defgen</code> 对标的 Javascript 产生子函数返回的也是迭代子, 可以使用 <code class="inline">for-of</code>
+语法完成迭代操作. Elixir 中, 只要实现可枚举协议 (Enumerable), 就可以使用
+<code class="inline">for</code> 特殊表单了. 那么为产生子结构提供枚举实现吧.
+<a href="https://hexdocs.pm/elixir/Enumerable.html"><code class="inline">Enumerable</code></a> 定义了 4 个回调函数, 其中最核心的是 <code class="inline">reduce(t,acc,fun)</code>.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defimpl</span><span class="w"> </span><span class="nc">Enumerable</span><span class="p">,</span><span class="w"> </span><span class="ss">for</span><span class="p">:</span><span class="w"> </span><span class="nc">Corner.Generater</span><span class="w"> </span><span class="k" data-group-id="7344429864-1">do</span><span class="w">
+  </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="w">
+  </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Generater</span><span class="p">,</span><span class="w"> </span><span class="ss">as</span><span class="p">:</span><span class="w"> </span><span class="nc">G</span><span class="w">
+  </span><span class="kn">require</span><span class="w"> </span><span class="nc">Corner.Assign</span><span class="p">,</span><span class="w"> </span><span class="ss">as</span><span class="p">:</span><span class="w"> </span><span class="nc">Assign</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">reduce</span><span class="p" data-group-id="7344429864-2">(</span><span class="p" data-group-id="7344429864-3">%</span><span class="nc" data-group-id="7344429864-3">G</span><span class="p" data-group-id="7344429864-3">{</span><span class="p" data-group-id="7344429864-3">}</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7344429864-4">{</span><span class="ss">:halt</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7344429864-4">}</span><span class="p">,</span><span class="w"> </span><span class="c">_fun</span><span class="p" data-group-id="7344429864-2">)</span><span class="w"> </span><span class="k" data-group-id="7344429864-5">do</span><span class="w">
+    </span><span class="p" data-group-id="7344429864-6">{</span><span class="ss">:halted</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7344429864-6">}</span><span class="w">
+  </span><span class="k" data-group-id="7344429864-5">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">reduce</span><span class="p" data-group-id="7344429864-7">(</span><span class="p" data-group-id="7344429864-8">%</span><span class="nc" data-group-id="7344429864-8">G</span><span class="p" data-group-id="7344429864-8">{</span><span class="p" data-group-id="7344429864-8">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7344429864-9">{</span><span class="ss">:suspend</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7344429864-9">}</span><span class="p">,</span><span class="w"> </span><span class="c">_fun</span><span class="p" data-group-id="7344429864-7">)</span><span class="w"> </span><span class="k" data-group-id="7344429864-10">do</span><span class="w">
+    </span><span class="p" data-group-id="7344429864-11">{</span><span class="ss">:suspended</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p">,</span><span class="w"> </span><span class="k" data-group-id="7344429864-12">fn</span><span class="w"> </span><span class="c">_acc</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="nc">Process</span><span class="o">.</span><span class="n">exit</span><span class="p" data-group-id="7344429864-13">(</span><span class="n">g</span><span class="o">.</span><span class="n">pid</span><span class="p">,</span><span class="w"> </span><span class="ss">:kill</span><span class="p" data-group-id="7344429864-13">)</span><span class="w"> </span><span class="k" data-group-id="7344429864-12">end</span><span class="p" data-group-id="7344429864-11">}</span><span class="w">
+  </span><span class="k" data-group-id="7344429864-10">end</span><span class="w">
+
+  </span><span class="kd">def</span><span class="w"> </span><span class="nf">reduce</span><span class="p" data-group-id="7344429864-14">(</span><span class="p" data-group-id="7344429864-15">%</span><span class="nc" data-group-id="7344429864-15">G</span><span class="p" data-group-id="7344429864-15">{</span><span class="p" data-group-id="7344429864-15">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7344429864-16">{</span><span class="ss">:cont</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7344429864-16">}</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="7344429864-14">)</span><span class="w"> </span><span class="k" data-group-id="7344429864-17">do</span><span class="w">
+    </span><span class="k">if</span><span class="w"> </span><span class="nc">G</span><span class="o">.</span><span class="n">done?</span><span class="p" data-group-id="7344429864-18">(</span><span class="n">g</span><span class="p" data-group-id="7344429864-18">)</span><span class="w"> </span><span class="k" data-group-id="7344429864-19">do</span><span class="w">
+      </span><span class="p" data-group-id="7344429864-20">{</span><span class="ss">:done</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7344429864-20">}</span><span class="w">
+    </span><span class="k" data-group-id="7344429864-19">else</span><span class="w">
+      </span><span class="n">get_next</span><span class="p" data-group-id="7344429864-21">(</span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="7344429864-21">)</span><span class="w">
+    </span><span class="k" data-group-id="7344429864-19">end</span><span class="w">
+  </span><span class="k" data-group-id="7344429864-17">end</span><span class="w">
+  </span><span class="c1">#....</span><span class="w">
+</span><span class="k" data-group-id="7344429864-1">end</span></code></pre><p>当 <code class="inline">reduce/3</code> 的第一个分句被调用的时候, 表示迭代正常完成了, 所以把最后的结果
+<code class="inline">acc</code> 返回就好了.
+第二个分句被调用, 说明客户端已经得到了结果, 不需要后续的数据了,
+因为产生子背后是运行的进程, 当用户不在需要产生子后, 背后的进程就应该终止,
+第二个分句返回的元组的第三个元素是一个匿名函数, 它就是完成最后资源清理工作的.
+第三个分句是正常的递归过程, 当产生子已经完成了, 返回结果就好了; 如果还没有完成,
+那么调用 <code class="inline">get_next/3</code> 继续迭代.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">get_next</span><span class="p" data-group-id="7144974653-1">(</span><span class="p" data-group-id="7144974653-2">%</span><span class="nc" data-group-id="7144974653-2">G</span><span class="p" data-group-id="7144974653-2">{</span><span class="p" data-group-id="7144974653-2">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="7144974653-1">)</span><span class="w"> </span><span class="k" data-group-id="7144974653-3">do</span><span class="w">
+  </span><span class="k">case</span><span class="w"> </span><span class="nc">G</span><span class="o">.</span><span class="n">next</span><span class="p" data-group-id="7144974653-4">(</span><span class="n">g</span><span class="p" data-group-id="7144974653-4">)</span><span class="w"> </span><span class="k" data-group-id="7144974653-5">do</span><span class="w">
+    </span><span class="p" data-group-id="7144974653-6">{</span><span class="ss">:ok</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="7144974653-6">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="k">if</span><span class="w"> </span><span class="n">g</span><span class="o">.</span><span class="n">async</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="n">is_struct</span><span class="p" data-group-id="7144974653-7">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="nc">Promise</span><span class="p" data-group-id="7144974653-7">)</span><span class="w"> </span><span class="k" data-group-id="7144974653-8">do</span><span class="w">
+        </span><span class="p" data-group-id="7144974653-9">{</span><span class="c">_tag</span><span class="p">,</span><span class="w"> </span><span class="n">v</span><span class="p" data-group-id="7144974653-9">}</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nc">Promise</span><span class="o">.</span><span class="n">await</span><span class="p" data-group-id="7144974653-10">(</span><span class="n">v</span><span class="p" data-group-id="7144974653-10">)</span><span class="w">
+        </span><span class="k">if</span><span class="w"> </span><span class="n">is_struct</span><span class="p" data-group-id="7144974653-11">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="nc">Promise</span><span class="p" data-group-id="7144974653-11">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="nc">Promise</span><span class="o">.</span><span class="n">await</span><span class="p" data-group-id="7144974653-12">(</span><span class="n">v</span><span class="p" data-group-id="7144974653-12">)</span><span class="p">,</span><span class="w"> </span><span class="ss">else</span><span class="p">:</span><span class="w"> </span><span class="n">v</span><span class="w">
+      </span><span class="k" data-group-id="7144974653-8">else</span><span class="w">
+        </span><span class="n">v</span><span class="w">
+      </span><span class="k" data-group-id="7144974653-8">end</span><span class="w">
+      </span><span class="o">|&gt;</span><span class="w"> </span><span class="nc">Assign</span><span class="o">.</span><span class="n">to</span><span class="p" data-group-id="7144974653-13">(</span><span class="n">new_v</span><span class="p" data-group-id="7144974653-13">)</span><span class="w">
+      </span><span class="n">reduce</span><span class="p" data-group-id="7144974653-14">(</span><span class="n">g</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="o">.</span><span class="p" data-group-id="7144974653-15">(</span><span class="n">new_v</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7144974653-15">)</span><span class="p">,</span><span class="w"> </span><span class="n">fun</span><span class="p" data-group-id="7144974653-14">)</span><span class="w"> </span><span class="c1">#Loop</span><span class="w">
+    </span><span class="p" data-group-id="7144974653-16">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="n">stack</span><span class="p" data-group-id="7144974653-16">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="p" data-group-id="7144974653-17">{</span><span class="ss">:done</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="7144974653-18">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="ss">error</span><span class="p">:</span><span class="w"> </span><span class="n">error</span><span class="p">,</span><span class="w"> </span><span class="ss">stack</span><span class="p">:</span><span class="w"> </span><span class="n">stack</span><span class="p" data-group-id="7144974653-18">}</span><span class="p" data-group-id="7144974653-17">}</span><span class="w">
+    </span><span class="ss">:done</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="p" data-group-id="7144974653-19">{</span><span class="ss">:done</span><span class="p">,</span><span class="w"> </span><span class="n">acc</span><span class="p" data-group-id="7144974653-19">}</span><span class="w">
+  </span><span class="k" data-group-id="7144974653-5">end</span><span class="w">
+</span><span class="k" data-group-id="7144974653-3">end</span></code></pre><p><code class="inline">get_next/3</code> 实际上不过对 <code class="inline">Generater.next/1</code> 返回结果分情况处理而已.
+如果迭代得结果是一个 <code class="inline">Promise</code> 结构, 那么首先从 Promise 中提取结果,
+如果不是 Promise 那么直接继续下一轮得迭代.
+迭代的工作最后转化为对第 11 行对 <code class="inline">reduce/3</code> 的递归调用.</p><p><a href="https://hexdocs.pm/elixir/Enumerable.html"><code class="inline">Enumerable</code></a> 除了 <code class="inline">reduce/3</code> 外还有 <code class="inline">count/1</code>, <code class="inline">member?/2</code> 和 <code class="inline">slince/1</code>.
+对产生子来说, 无法不遍历产生子就获得答案; 而遍历生产子, 遍历完成后, 产生子进程就结束了.
+无法通过这些函数返回的信息, 进一步来处理产生子的内容了.
+所以, 这些函数只是简单的返回 <code class="inline">{:error, __MODULE__}</code>.</p><pre><code class="makeup elixir" translate="no"><span class="na">@_</span><span class="w"> </span><span class="p" data-group-id="1251039524-1">{</span><span class="ss">:_</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="1251039524-2">[</span><span class="ss">if_undefined</span><span class="p">:</span><span class="w"> </span><span class="ss">:apply</span><span class="p" data-group-id="1251039524-2">]</span><span class="p">,</span><span class="w"> </span><span class="nc">Elixir</span><span class="p" data-group-id="1251039524-1">}</span><span class="w">
+</span><span class="k">for</span><span class="w"> </span><span class="p" data-group-id="1251039524-3">{</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="1251039524-3">}</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="p" data-group-id="1251039524-4">[</span><span class="ss">count</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="1251039524-5">[</span><span class="na">@_</span><span class="p" data-group-id="1251039524-5">]</span><span class="p">,</span><span class="w"> </span><span class="ss">slice</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="1251039524-6">[</span><span class="na">@_</span><span class="p" data-group-id="1251039524-6">]</span><span class="p">,</span><span class="w"> </span><span class="ss">member?</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="1251039524-7">[</span><span class="na">@_</span><span class="p">,</span><span class="w"> </span><span class="na">@_</span><span class="p" data-group-id="1251039524-7">]</span><span class="p" data-group-id="1251039524-4">]</span><span class="w"> </span><span class="k" data-group-id="1251039524-8">do</span><span class="w">
+  </span><span class="kd">def</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="1251039524-9">(</span><span class="n">fun</span><span class="p" data-group-id="1251039524-9">)</span><span class="p" data-group-id="1251039524-10">(</span><span class="k">unquote_splicing</span><span class="p" data-group-id="1251039524-11">(</span><span class="n">args</span><span class="p" data-group-id="1251039524-11">)</span><span class="p" data-group-id="1251039524-10">)</span><span class="w"> </span><span class="k" data-group-id="1251039524-12">do</span><span class="w">
+    </span><span class="p" data-group-id="1251039524-13">{</span><span class="ss">:error</span><span class="p">,</span><span class="w"> </span><span class="bp">__MODULE__</span><span class="p" data-group-id="1251039524-13">}</span><span class="w">
+  </span><span class="k" data-group-id="1251039524-12">end</span><span class="w">
+</span><span class="k" data-group-id="1251039524-8">end</span></code></pre><p>因为实现了 <a href="https://hexdocs.pm/elixir/Enumerable.html"><code class="inline">Enumerable</code></a> 协议, 所以, 可以是使用 <a href="https://hexdocs.pm/elixir/Enum.html"><code class="inline">Enum</code></a> 模块和 <code class="inline">for</code>
+特殊表单来处理我们的产生子.</p><pre><code class="makeup elixir" translate="no"><span class="n">defgen</span><span class="w"> </span><span class="n">gen2</span><span class="w"> </span><span class="k" data-group-id="1375774421-1">do</span><span class="w">
+  </span><span class="p" data-group-id="1375774421-2">(</span><span class="p" data-group-id="1375774421-2">)</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1375774421-3">(</span><span class="mi">1</span><span class="p" data-group-id="1375774421-3">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1375774421-4">(</span><span class="mi">2</span><span class="p" data-group-id="1375774421-4">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="1375774421-5">(</span><span class="mi">3</span><span class="p" data-group-id="1375774421-5">)</span><span class="w">
+</span><span class="k" data-group-id="1375774421-1">end</span><span class="w">
+
+</span><span class="n">g</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gen2</span><span class="o">.</span><span class="p" data-group-id="1375774421-6">(</span><span class="p" data-group-id="1375774421-6">)</span><span class="w">
+
+</span><span class="p" data-group-id="1375774421-7">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p" data-group-id="1375774421-7">]</span><span class="w"> </span><span class="o">=</span><span class="w">
+  </span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">g</span><span class="w"> </span><span class="k" data-group-id="1375774421-8">do</span><span class="w">
+    </span><span class="n">v</span><span class="w">
+  </span><span class="k" data-group-id="1375774421-8">end</span><span class="w">
+
+</span><span class="no">true</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">done?</span><span class="p" data-group-id="1375774421-9">(</span><span class="n">g</span><span class="p" data-group-id="1375774421-9">)</span></code></pre><h2 id="异步函数-async" class="section-heading">
+  <a href="#异步函数-async" class="hover-link"><i class="ri-link-m" aria-hidden="true"></i>
+  <p class="sr-only">异步函数-async</p>
+  </a>
+  异步函数(async)
+</h2>
+<p>Javascript 中还有异步函数的概念.
+为了和 Javascript 的异步编程 API 保持一致, 定义异步函数的宏, 命名为 <code class="inline">async</code>.
+在前面, 我们已经定义 <code class="inline">Corner.Promise</code> 模块.
+<code class="inline">async</code> 要做的最主要的工作就是修改抽象语法树, 把抽象语法树的返回值,
+封装成 <code class="inline">Corner.Promise</code> 结构.
+<code class="inline">async</code> 在其上下文中, 还为 <code class="inline">Corner.Promise</code> 命名了别名,
+并导入了 <code class="inline">Corner.Promise.await/1-2</code>.
+这样, 在其内部就可以方便的处理 <code class="inline">Promise</code> 结构了.</p><p>当前为函数, 私有函数, 匿名函数以及上一节的产生子提供了异步支持.</p><p>首先, 让我们看看函数和私有函数如果完成异步定义的. <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a> 和 <a href="https://hexdocs.pm/elixir/Kernel.html#defp/2"><code class="inline">defp/2</code></a> 的返回结果
+转化为 Promise 结构就好了. <code class="inline">return_promsie/1</code> 函数就是完成这工作的.
+<code class="inline">async</code> 中的其他代码, 不过调用 <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a> 或 <a href="https://hexdocs.pm/elixir/Kernel.html#defp/2"><code class="inline">defp/2</code></a> 宏来创建函数或私有函数而已.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmodule</span><span class="w"> </span><span class="nc">Corner.Async</span><span class="w"> </span><span class="k" data-group-id="8843558922-1">do</span><span class="w">
+  </span><span class="kd">defmacro</span><span class="w"> </span><span class="nf">async</span><span class="p" data-group-id="8843558922-2">(</span><span class="p" data-group-id="8843558922-3">{</span><span class="n">atom</span><span class="p">,</span><span class="w"> </span><span class="c">_meta</span><span class="p">,</span><span class="w"> </span><span class="n">args</span><span class="p" data-group-id="8843558922-3">}</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">body</span><span class="p" data-group-id="8843558922-2">)</span><span class="w"> </span><span class="ow">when</span><span class="w"> </span><span class="n">atom</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="p" data-group-id="8843558922-4">[</span><span class="ss">:def</span><span class="p">,</span><span class="w"> </span><span class="ss">:defp</span><span class="p" data-group-id="8843558922-4">]</span><span class="w"> </span><span class="k" data-group-id="8843558922-5">do</span><span class="w">
+    </span><span class="n">new_body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">return_promise</span><span class="p" data-group-id="8843558922-6">(</span><span class="n">body</span><span class="p" data-group-id="8843558922-6">)</span><span class="w">
+
+    </span><span class="k">case</span><span class="w"> </span><span class="n">atom</span><span class="w"> </span><span class="k" data-group-id="8843558922-7">do</span><span class="w">
+      </span><span class="ss">:def</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="8843558922-8">do</span><span class="w">
+          </span><span class="kd">def</span><span class="p" data-group-id="8843558922-9">(</span><span class="k">unquote_splicing</span><span class="p" data-group-id="8843558922-10">(</span><span class="n">args</span><span class="p" data-group-id="8843558922-10">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="8843558922-11">(</span><span class="n">new_body</span><span class="p" data-group-id="8843558922-11">)</span><span class="p" data-group-id="8843558922-9">)</span><span class="w">
+        </span><span class="k" data-group-id="8843558922-8">end</span><span class="w">
+
+      </span><span class="ss">:defp</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="8843558922-12">do</span><span class="w">
+          </span><span class="kd">defp</span><span class="p" data-group-id="8843558922-13">(</span><span class="k">unquote_splicing</span><span class="p" data-group-id="8843558922-14">(</span><span class="n">args</span><span class="p" data-group-id="8843558922-14">)</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="8843558922-15">(</span><span class="n">new_body</span><span class="p" data-group-id="8843558922-15">)</span><span class="p" data-group-id="8843558922-13">)</span><span class="w">
+        </span><span class="k" data-group-id="8843558922-12">end</span><span class="w">
+    </span><span class="k" data-group-id="8843558922-7">end</span><span class="w">
+  </span><span class="k" data-group-id="8843558922-5">end</span><span class="w">
+  </span><span class="c1">#...</span><span class="w">
+</span><span class="k" data-group-id="8843558922-1">end</span></code></pre><p>那么改如何把一个函数体的返回值转化为 Promise 呢? 或者是,
+怎么才能在抽象语法树中识别出返回值呢?
+其他函数中, 比如 C 语言家族中, 都是用 <code class="inline">return expression</code> 来表示函数的返回值,
+因此可以从抽象语法树中识别出来, 但是 Elixir 中不是这样的, 在抽象语法树中,
+是无法识别出返回值的. 不过在 Elixir 中,  可以使用 <code class="inline">try</code>
+特殊表单来获得一个代码块的返回值. <code class="inline">return_promise/1</code> 就是这样做的.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defp</span><span class="w"> </span><span class="nf">return_promise</span><span class="p" data-group-id="1452808576-1">(</span><span class="n">ast</span><span class="p" data-group-id="1452808576-1">)</span><span class="w"> </span><span class="k" data-group-id="1452808576-2">do</span><span class="w">
+  </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="1452808576-3">do</span><span class="w">
+    </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="w">
+    </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="p">,</span><span class="w"> </span><span class="ss">only</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="1452808576-4">[</span><span class="ss">await</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="ss">await</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="1452808576-4">]</span><span class="w">
+    </span><span class="k">try</span><span class="w"> </span><span class="k" data-group-id="1452808576-5">do</span><span class="w">
+      </span><span class="k">unquote</span><span class="p" data-group-id="1452808576-6">(</span><span class="n">ast</span><span class="p" data-group-id="1452808576-6">)</span><span class="w">
+    </span><span class="k" data-group-id="1452808576-5">rescue</span><span class="w">
+      </span><span class="n">err</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="nc">Promise</span><span class="o">.</span><span class="n">reject</span><span class="p" data-group-id="1452808576-7">(</span><span class="p" data-group-id="1452808576-8">{</span><span class="n">err</span><span class="p">,</span><span class="w"> </span><span class="c">__STACKTRACE__</span><span class="p" data-group-id="1452808576-8">}</span><span class="p" data-group-id="1452808576-7">)</span><span class="w">
+    </span><span class="k" data-group-id="1452808576-5">else</span><span class="w">
+      </span><span class="n">v</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+        </span><span class="k">if</span><span class="w"> </span><span class="n">is_struct</span><span class="p" data-group-id="1452808576-9">(</span><span class="n">v</span><span class="p">,</span><span class="w"> </span><span class="nc">Promise</span><span class="p" data-group-id="1452808576-9">)</span><span class="w"> </span><span class="k" data-group-id="1452808576-10">do</span><span class="w">
+          </span><span class="n">v</span><span class="w">
+        </span><span class="k" data-group-id="1452808576-10">else</span><span class="w">
+          </span><span class="nc">Promise</span><span class="o">.</span><span class="n">reject</span><span class="p" data-group-id="1452808576-11">(</span><span class="n">v</span><span class="p" data-group-id="1452808576-11">)</span><span class="w">
+        </span><span class="k" data-group-id="1452808576-10">end</span><span class="w">
+    </span><span class="k" data-group-id="1452808576-5">end</span><span class="w">
+  </span><span class="k" data-group-id="1452808576-3">end</span><span class="w">
+</span><span class="k" data-group-id="1452808576-2">end</span></code></pre><p>现在让我们看看如何为匿名函数提供异步支持.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmacro</span><span class="w"> </span><span class="nf">async</span><span class="p" data-group-id="3777826352-1">(</span><span class="p" data-group-id="3777826352-2">{</span><span class="ss">:fn</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="n">ast</span><span class="p" data-group-id="3777826352-2">}</span><span class="p" data-group-id="3777826352-1">)</span><span class="w"> </span><span class="k" data-group-id="3777826352-3">do</span><span class="w">
+  </span><span class="n">new_ast</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arrow_return_promise</span><span class="p" data-group-id="3777826352-4">(</span><span class="n">ast</span><span class="p" data-group-id="3777826352-4">)</span><span class="w">
+  </span><span class="p" data-group-id="3777826352-5">{</span><span class="ss">:fn</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="n">new_ast</span><span class="p" data-group-id="3777826352-5">}</span><span class="w">
+</span><span class="k" data-group-id="3777826352-3">end</span><span class="w">
+</span><span class="kd">defp</span><span class="w"> </span><span class="nf">arrow_return_promise</span><span class="p" data-group-id="3777826352-6">(</span><span class="n">abs</span><span class="p" data-group-id="3777826352-6">)</span><span class="w"> </span><span class="k" data-group-id="3777826352-7">do</span><span class="w">
+  </span><span class="n">walker</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k" data-group-id="3777826352-8">fn</span><span class="w">
+    </span><span class="p" data-group-id="3777826352-9">{</span><span class="ss">:-&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3777826352-10">[</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">body</span><span class="p" data-group-id="3777826352-10">]</span><span class="p" data-group-id="3777826352-9">}</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="n">new_body</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">return_promise</span><span class="p" data-group-id="3777826352-11">(</span><span class="n">body</span><span class="p" data-group-id="3777826352-11">)</span><span class="w">
+      </span><span class="p" data-group-id="3777826352-12">{</span><span class="ss">:-&gt;</span><span class="p">,</span><span class="w"> </span><span class="n">meta</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3777826352-13">[</span><span class="n">args</span><span class="p">,</span><span class="w"> </span><span class="n">new_body</span><span class="p" data-group-id="3777826352-13">]</span><span class="p" data-group-id="3777826352-12">}</span><span class="w">
+    </span><span class="n">ast</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+      </span><span class="n">ast</span><span class="w">
+  </span><span class="k" data-group-id="3777826352-8">end</span><span class="w">
+  </span><span class="nc">Macro</span><span class="o">.</span><span class="n">postwalk</span><span class="p" data-group-id="3777826352-14">(</span><span class="n">abs</span><span class="p">,</span><span class="w"> </span><span class="n">walker</span><span class="p" data-group-id="3777826352-14">)</span><span class="w">
+</span><span class="k" data-group-id="3777826352-7">end</span></code></pre><p>匿名函数使用 <code class="inline">fn</code> 特殊表达来定义, 它和 <a href="https://hexdocs.pm/elixir/Kernel.html#def/2"><code class="inline">def/2</code></a> 不一样,
+需要自己提取分句的每个分句的函数体.
+在 <code class="inline">arrow_return_promise</code> 中定义的匿名函数 <code class="inline">walker</code> 就是完成这个工作的.</p><p>最后是对 <code class="inline">defgen</code> 宏的支持.</p><pre><code class="makeup elixir" translate="no"><span class="kd">defmacro</span><span class="w"> </span><span class="nf">async</span><span class="p" data-group-id="3622320941-1">(</span><span class="p" data-group-id="3622320941-2">{</span><span class="ss">:defgen</span><span class="p">,</span><span class="w"> </span><span class="bp">_</span><span class="p">,</span><span class="w"> </span><span class="p" data-group-id="3622320941-3">[</span><span class="n">fun_name</span><span class="p" data-group-id="3622320941-3">]</span><span class="p" data-group-id="3622320941-2">}</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="n">block</span><span class="p" data-group-id="3622320941-1">)</span><span class="w"> </span><span class="k" data-group-id="3622320941-4">do</span><span class="w">
+  </span><span class="n">new_block</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">arrow_return_promise</span><span class="p" data-group-id="3622320941-5">(</span><span class="n">block</span><span class="p" data-group-id="3622320941-5">)</span><span class="w">
+  </span><span class="k">quote</span><span class="w"> </span><span class="k" data-group-id="3622320941-6">do</span><span class="w">
+    </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Generater</span><span class="w">
+    </span><span class="kn">alias</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="w">
+    </span><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Promise</span><span class="p">,</span><span class="w"> </span><span class="ss">only</span><span class="p">:</span><span class="w"> </span><span class="p" data-group-id="3622320941-7">[</span><span class="ss">await</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p" data-group-id="3622320941-7">]</span><span class="w">
+    </span><span class="n">defgen</span><span class="p" data-group-id="3622320941-8">(</span><span class="k">unquote</span><span class="p" data-group-id="3622320941-9">(</span><span class="n">fun_name</span><span class="p" data-group-id="3622320941-9">)</span><span class="p">,</span><span class="w"> </span><span class="no">true</span><span class="p">,</span><span class="w"> </span><span class="ss">do</span><span class="p">:</span><span class="w"> </span><span class="k">unquote</span><span class="p" data-group-id="3622320941-10">(</span><span class="n">new_block</span><span class="p" data-group-id="3622320941-10">)</span><span class="p" data-group-id="3622320941-8">)</span><span class="w">
+  </span><span class="k" data-group-id="3622320941-6">end</span><span class="w">
+</span><span class="k" data-group-id="3622320941-4">end</span></code></pre><p><code class="inline">defgen</code> 的异步支持, 非常像 <code class="inline">fn</code> 的异步支持. 但是因为 <code class="inline">defgen</code> 是我们自己定义的宏,
+所以, 我们需要首先向用户的环境中导入 <code class="inline">Corner.Generater.defgen/2-3</code> 和
+<code class="inline">Corner.Promise.await/1</code>. 我们还为 <code class="inline">Corner.Promise</code> 引入了别名, 这样,
+在 <code class="inline">defgen</code> 的上下文中, 我就可以使用较为紧凑的 <code class="inline">Promise</code> 来写代码了.</p><p>最后, 检验时刻到, 我们可以像下面的代码那样来使用 <code class="inline">async</code> 来写代码了:</p><pre><code class="makeup elixir" translate="no"><span class="kn">import</span><span class="w"> </span><span class="nc">Corner.Async</span><span class="w">
+
+</span><span class="n">async</span><span class="w"> </span><span class="n">defgen</span><span class="p" data-group-id="9343373293-1">(</span><span class="n">fun</span><span class="p" data-group-id="9343373293-1">)</span><span class="w"> </span><span class="k" data-group-id="9343373293-2">do</span><span class="w">
+  </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">-&gt;</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="9343373293-3">(</span><span class="nc">Promise</span><span class="o">.</span><span class="n">resolve</span><span class="p" data-group-id="9343373293-4">(</span><span class="mi">3</span><span class="p" data-group-id="9343373293-4">)</span><span class="p" data-group-id="9343373293-3">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="9343373293-5">(</span><span class="n">a</span><span class="p" data-group-id="9343373293-5">)</span><span class="w">
+    </span><span class="n">yield</span><span class="p" data-group-id="9343373293-6">(</span><span class="n">b</span><span class="p" data-group-id="9343373293-6">)</span><span class="w">
+</span><span class="k" data-group-id="9343373293-2">end</span><span class="w">
+</span><span class="n">is_function</span><span class="p" data-group-id="9343373293-7">(</span><span class="n">fun</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p" data-group-id="9343373293-7">)</span><span class="c1">#true</span><span class="w">
+
+</span><span class="k">for</span><span class="w"> </span><span class="n">v</span><span class="w"> </span><span class="o">&lt;-</span><span class="w"> </span><span class="n">fun</span><span class="o">.</span><span class="p" data-group-id="9343373293-8">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p" data-group-id="9343373293-8">)</span><span class="w"> </span><span class="k" data-group-id="9343373293-9">do</span><span class="w">
+  </span><span class="n">v</span><span class="w">
+</span><span class="k" data-group-id="9343373293-9">end</span><span class="w"> </span><span class="c1">#[3,2,1]</span></code></pre><div class="footnotes"><hr/><ol><li id="fn:1"><a class="reversefootnote" href="#fnref:1" title="return to article">&amp;#x21A9;</a><p>代数结构类型是一个相对抽象的概念.
+要理解这个概念, 首先必须理解代数结构这个数学概念.
+按照我的理解, 代数结构是说, 当操作符 $f$ 作用到数据集 $S$ 上后,
+得到的结果还在 $S$ 中, 这样如果把数据集合 $S$ 看作一个空间,
+输出和输出在这个空间中就形成了一定的结构.
+代数结构最重要的概念是闭合性, 运算的闭合性, 使得编程可以使用链式操作.
+操作符在数据集上具有闭合性, 数学上讲, 操作符在数据集上形成了闭包.
+编程中也有闭包的概念, 这两个概念使用的是同一个英文单词, 但是意义不一样.
+举个例子, $+$ 与整数集合 $N$, 整数加上整数得到的结果还是整数,
+操作的输入和输出具有封闭性. 而 $\div$ 与整数集合 $N$ 不具有封闭性,
+因为整数除以整数不能保证得到的还是整数. 甚至 $\div$ 与实数集合 $R$ 也不能构成闭包,
+因为 0 是不能作为被除数的. 具有运算封闭性, 在数学上就构成了类群.</p></li><li id="fn:2"><a class="reversefootnote" href="#fnref:2" title="return to article">&amp;#x21A9;</a><p>见 MDN <a href="https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise">Promise 参考页面</a></p></li><li id="fn:3"><a class="reversefootnote" href="#fnref:3" title="return to article">&amp;#x21A9;</a><p>见 <a href="elixir/1.13.0/Stream.html">Stream 模块文档</a></p></li></ol></div>
+<div class="bottom-actions">
+  <div class="bottom-actions-item">
+
+      <a href="ch05-new_constructor.html" class="bottom-actions-button" rel="prev">
+        <span class="subheader">
+          ← Previous Page
+        </span>
+        <span class="title">
+第五章 定制新结构
+        </span>
+      </a>
+
+  </div>
+  <div class="bottom-actions-item">
+
+      <a href="ch07-pipe.html" class="bottom-actions-button" rel="next">
+        <span class="subheader">
+          Next Page →
+        </span>
+        <span class="title">
+第七章 管道操作符
+        </span>
+      </a>
+
+  </div>
+</div>
+
+      <footer class="footer">
+
+        <p>
+          Built using
+          <a href="https://github.com/elixir-lang/ex_doc" title="ExDoc" target="_blank" rel="help noopener" translate="no">ExDoc</a> (v0.28.4) for the
+
+            <a href="https://elixir-lang.org" title="Elixir" target="_blank" translate="no">Elixir programming language</a>
+
+        </p>
+      </footer>
+    </div>
+  </div>
+</section>
+</div>
+
+
+  </body>
+</html>
