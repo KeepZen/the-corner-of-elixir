@@ -29,7 +29,7 @@ defmodule TheCornerOfElixir.MixProject do
     [
       extras: [
         "ReadMe.md"
-        # "en/index_en.md",
+        "en/index_en.md",
         # "en/ch01.intruction_en.md",
         # "en/ch02.plus_and_minus_en.md",
         # "en/ch03.pattern_match_en.md",
