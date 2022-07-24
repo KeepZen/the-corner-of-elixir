@@ -1,0 +1,1 @@
+searchNodes=[{"doc":"","ref":"readme.html","title":"The Corner of the Elixir","type":"extras"},{"doc":"中文 现在你可以在 这里 阅读了. English Now you can read it at here .","ref":"readme.html#%E8%A7%92%E8%90%BD%E9%87%8C%E7%9A%84%E9%95%BF%E7%94%9F%E4%B8%8D%E8%80%81%E8%8D%AF","title":"The Corner of the Elixir - 角落里的长生不老药","type":"extras"}]
