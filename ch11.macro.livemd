@@ -186,7 +186,7 @@ Erlang 中只有模块属性和函数可以被编译到字节码中.
 让我们用实验来探索.
 
 ```elixir
-defmodule Export.MacroDef do
+defmodule Explore.MacroDef do
   defmacro assign_one(a) do
     IO.puts("assign_one running, a: #{inspect(a)}")
 
@@ -203,7 +203,7 @@ defmodule Export.MacroDef do
   def bar, do: nil
 end
 
-Export.MacroDef.module_info(:functions)
+Explore.MacroDef.module_info(:functions)
 ```
 
 上面的代码中, 在模块中, 定义了 `assign_one/1` 宏 和 `bar/0` 函数.
@@ -226,7 +226,7 @@ Export.MacroDef.module_info(:functions)
 
 ```elixir
 IO.inspect("Beign")
-alias Export.MacroDef, as: M
+alias Explore.MacroDef, as: M
 b_reqs = __ENV__.requires
 
 try do
@@ -236,7 +236,7 @@ rescue
 end
 
 require(M) |> IO.inspect(label: "require return")
-M.assign_one(a)
+# M.assign_one(a)
 binding() |> IO.inspect(label: "binding")
 
 (__ENV__.requires -- b_reqs)
@@ -324,7 +324,7 @@ after the assign_one
 在匿名函数 `fun` 的定义中:
 
 1. 我们执行了 `MACRO-sign_one/2` 函数, 它返回了 `ast`, 这模拟的是 Elixir
-编译器对宏的调用.
+   编译器对宏的调用.
 2. 把 `ast` 交给 `Code.eval_quote` 执行.
    这是模拟 REST 对字节码的执行. REST 执行字节码后, 会影响 REST 的环境.
    `Code.eval_quote` 返回一个二元元组, `{value, binding}`,
